@@ -302,7 +302,7 @@ pub trait IsClient {
         &mut self,
         server_id: Option<usize>,
         msg: json_rpc::Message,
-    ) -> Result<Option<json_rpc::Message>, Error>
+    ) -> Result<Option<json_rpc::Message>, Self::Error>
     where
         Self: std::marker::Sized,
     {
@@ -315,10 +315,10 @@ pub trait IsClient {
                     self.handle_response(server_id, response)
                 }
                 Method::Server2Client(request) => self.handle_request(server_id, request),
-                Method::Client2Server(_) => Err(Error::InvalidReceiver(m.into())),
+                Method::Client2Server(_) => Err(Error::InvalidReceiver(m.into()).into()),
                 Method::ErrorMessage(msg) => self.handle_error_message(server_id, msg),
             },
-            Err(e) => Err(e.into()),
+            Err(e) => Err(Error::from(e).into()),
         }
     }
 
@@ -326,7 +326,7 @@ pub trait IsClient {
         &mut self,
         server_id: Option<usize>,
         response: methods::Server2ClientResponse,
-    ) -> Result<methods::Server2ClientResponse, Error> {
+    ) -> Result<methods::Server2ClientResponse, Self::Error> {
         match &response {
             methods::Server2ClientResponse::GeneralResponse(general) => {
                 let is_authorize = self.id_is_authorize(server_id, &general.id)?;
@@ -339,7 +339,7 @@ pub trait IsClient {
                     (None, false) => Ok(methods::Server2ClientResponse::Submit(
                         general.clone().into_submit(),
                     )),
-                    _ => Err(Error::UnknownID(general.id)),
+                    _ => Err(Error::UnknownID(general.id).into()),
                 }
             }
             _ => Ok(response),
@@ -351,7 +351,7 @@ pub trait IsClient {
         &mut self,
         server_id: Option<usize>,
         request: methods::Server2Client,
-    ) -> Result<Option<json_rpc::Message>, Error>
+    ) -> Result<Option<json_rpc::Message>, Self::Error>
     where
         Self: std::marker::Sized,
     {
@@ -379,7 +379,7 @@ pub trait IsClient {
         &mut self,
         server_id: Option<usize>,
         response: methods::Server2ClientResponse,
-    ) -> Result<Option<json_rpc::Message>, Error>
+    ) -> Result<Option<json_rpc::Message>, Self::Error>
     where
         Self: std::marker::Sized,
     {
@@ -428,7 +428,7 @@ pub trait IsClient {
         &mut self,
         server_id: Option<usize>,
         message: Message,
-    ) -> Result<Option<json_rpc::Message>, Error>;
+    ) -> Result<Option<json_rpc::Message>, Self::Error>;
 
     /// Check if the client sent an Authorize request with the given id, if so it return the
     /// authorized name
@@ -436,101 +436,116 @@ pub trait IsClient {
         &mut self,
         server_id: Option<usize>,
         id: &u64,
-    ) -> Result<Option<String>, Error>;
+    ) -> Result<Option<String>, Self::Error>;
 
     /// Check if the client sent a Submit request with the given id
-    fn id_is_submit(&mut self, server_id: Option<usize>, id: &u64) -> Result<bool, Error>;
+    fn id_is_submit(&mut self, server_id: Option<usize>, id: &u64) -> Result<bool, Self::Error>;
 
     fn handle_notify(
         &mut self,
         server_id: Option<usize>,
         notify: server_to_client::Notify,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Self::Error>;
 
     fn handle_configure(
         &mut self,
         server_id: Option<usize>,
         conf: &mut server_to_client::Configure,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Self::Error>;
 
     fn handle_set_difficulty(
         &mut self,
         server_id: Option<usize>,
         m: &mut server_to_client::SetDifficulty,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Self::Error>;
 
     fn handle_set_extranonce(
         &mut self,
         server_id: Option<usize>,
         m: &mut server_to_client::SetExtranonce,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Self::Error>;
 
     fn handle_set_version_mask(
         &mut self,
         server_id: Option<usize>,
         m: &mut server_to_client::SetVersionMask,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Self::Error>;
 
     fn handle_subscribe(
         &mut self,
         server_id: Option<usize>,
         subscribe: &server_to_client::Subscribe,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Self::Error>;
 
     fn set_extranonce1(
         &mut self,
         server_id: Option<usize>,
         extranonce1: Extranonce,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Self::Error>;
 
-    fn extranonce1(&self, server_id: Option<usize>) -> Result<Extranonce, Error>;
+    fn extranonce1(&self, server_id: Option<usize>) -> Result<Extranonce, Self::Error>;
 
     fn set_extranonce2_size(
         &mut self,
         server_id: Option<usize>,
         extra_nonce2_size: usize,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Self::Error>;
 
-    fn extranonce2_size(&self, server_id: Option<usize>) -> Result<usize, Error>;
+    fn extranonce2_size(&self, server_id: Option<usize>) -> Result<usize, Self::Error>;
 
-    fn version_rolling_mask(&self, server_id: Option<usize>) -> Result<Option<HexU32Be>, Error>;
+    fn version_rolling_mask(
+        &self,
+        server_id: Option<usize>,
+    ) -> Result<Option<HexU32Be>, Self::Error>;
 
     fn set_version_rolling_mask(
         &mut self,
         server_id: Option<usize>,
         mask: Option<HexU32Be>,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Self::Error>;
 
     fn set_version_rolling_min_bit(
         &mut self,
         server_id: Option<usize>,
         min: Option<HexU32Be>,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Self::Error>;
 
     fn version_rolling_min_bit(
         &mut self,
         server_id: Option<usize>,
-    ) -> Result<Option<HexU32Be>, Error>;
+    ) -> Result<Option<HexU32Be>, Self::Error>;
 
-    fn set_status(&mut self, server_id: Option<usize>, status: ClientStatus) -> Result<(), Error>;
+    fn set_status(
+        &mut self,
+        server_id: Option<usize>,
+        status: ClientStatus,
+    ) -> Result<(), Self::Error>;
 
-    fn signature(&self, server_id: Option<usize>) -> Result<String, Error>;
+    fn signature(&self, server_id: Option<usize>) -> Result<String, Self::Error>;
 
-    fn status(&self, server_id: Option<usize>) -> Result<ClientStatus, Error>;
+    fn status(&self, server_id: Option<usize>) -> Result<ClientStatus, Self::Error>;
 
     fn last_notify(
         &self,
         server_id: Option<usize>,
-    ) -> Result<Option<server_to_client::Notify>, Error>;
+    ) -> Result<Option<server_to_client::Notify>, Self::Error>;
 
     /// Check if the given user_name has been authorized by the server
     #[allow(clippy::ptr_arg)]
-    fn is_authorized(&self, server_id: Option<usize>, name: &String) -> Result<bool, Error>;
+    fn is_authorized(&self, server_id: Option<usize>, name: &String) -> Result<bool, Self::Error>;
 
     /// Register the given user_name has authorized by the server
-    fn authorize_user_name(&mut self, server_id: Option<usize>, name: String) -> Result<(), Error>;
+    fn authorize_user_name(
+        &mut self,
+        server_id: Option<usize>,
+        name: String,
+    ) -> Result<(), Self::Error>;
 
-    fn configure(&mut self, server_id: Option<usize>, id: u64) -> Result<json_rpc::Message, Error> {
+    fn configure(
+        &mut self,
+        server_id: Option<usize>,
+        id: u64,
+    ) -> Result<json_rpc::Message, Self::Error> {
         if self.version_rolling_min_bit(server_id)?.is_none()
             && self.version_rolling_mask(server_id)?.is_none()
         {
@@ -550,15 +565,18 @@ pub trait IsClient {
         server_id: Option<usize>,
         id: u64,
         extranonce1: Option<Extranonce>,
-    ) -> Result<json_rpc::Message, Error> {
+    ) -> Result<json_rpc::Message, Self::Error> {
         match self.status(server_id)? {
-            ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.subscribe".to_string())),
+            ClientStatus::Init => {
+                Err(Error::IncorrectClientStatus("mining.subscribe".to_string()).into())
+            }
             _ => Ok(client_to_server::Subscribe {
                 id,
                 agent_signature: self.signature(server_id)?,
                 extranonce1,
             }
-            .try_into()?),
+            .try_into()
+            .map_err(Error::from)?),
         }
     }
 
@@ -568,9 +586,11 @@ pub trait IsClient {
         id: u64,
         name: String,
         password: String,
-    ) -> Result<json_rpc::Message, Error> {
+    ) -> Result<json_rpc::Message, Self::Error> {
         match self.status(server_id)? {
-            ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.authorize".to_string())),
+            ClientStatus::Init => {
+                Err(Error::IncorrectClientStatus("mining.authorize".to_string()).into())
+            }
             _ => Ok(client_to_server::Authorize { id, name, password }.into()),
         }
     }
@@ -585,13 +605,15 @@ pub trait IsClient {
         time: i64,
         nonce: i64,
         version_bits: Option<HexU32Be>,
-    ) -> Result<json_rpc::Message, Error> {
+    ) -> Result<json_rpc::Message, Self::Error> {
         match self.status(server_id)? {
-            ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.submit".to_string())),
+            ClientStatus::Init => {
+                Err(Error::IncorrectClientStatus("mining.submit".to_string()).into())
+            }
             _ => {
                 if let Some(notify) = self.last_notify(server_id)? {
                     if !self.is_authorized(server_id, &user_name)? {
-                        return Err(Error::UnauthorizedClient(user_name));
+                        return Err(Error::UnauthorizedClient(user_name).into());
                     }
                     Ok(client_to_server::Submit {
                         job_id: notify.job_id,
@@ -604,9 +626,7 @@ pub trait IsClient {
                     }
                     .into())
                 } else {
-                    Err(Error::IncorrectClientStatus(
-                        "No Notify instance found".to_string(),
-                    ))
+                    Err(Error::IncorrectClientStatus("No Notify instance found".to_string()).into())
                 }
             }
         }
