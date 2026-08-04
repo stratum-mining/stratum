@@ -283,6 +283,13 @@ pub trait IsServer {
 }
 
 pub trait IsClient {
+    /// Error returned by the client implementation.
+    ///
+    /// Implementations can use their application error type as long as native SV1 errors can be
+    /// converted into it. This allows default trait methods to report protocol errors while
+    /// implementors can also propagate errors from their own state and synchronization layers.
+    type Error: From<Error>;
+
     /// Deserialize a [raw json_rpc message][a] into a [stratum v1 message][b] and handle the
     /// result.
     ///
