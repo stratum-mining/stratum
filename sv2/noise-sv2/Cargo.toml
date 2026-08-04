@@ -14,7 +14,6 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 [dependencies]
 secp256k1 = { workspace = true, features = ["hashes", "alloc", "rand"] }
 rand = { workspace = true, default-features = false }
-aes-gcm = { workspace = true }
 chacha20poly1305 = { workspace = true }
 
 [features]
