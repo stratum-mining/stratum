@@ -135,6 +135,8 @@ pub const ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW: &str = "difficulty-too-lo
 pub const ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE: &str = "duplicate-share";
 pub const ERROR_CODE_SUBMIT_SHARES_BAD_EXTRANONCE_SIZE: &str = "bad-extranonce-size";
 pub const ERROR_CODE_VERSION_ROLLING_NOT_ALLOWED: &str = "version-rolling-not-allowed";
+pub const ERROR_CODE_SUBMIT_SHARES_INVALID_NON_ROLLABLE_VERSION_BIT: &str =
+    "invalid-non-rollable-version-bit";
 
 // Commonly used SetCustomMiningJobError error_code values.
 pub const ERROR_CODE_SET_CUSTOM_MINING_JOB_JD_NOT_SUPPORTED: &str = "jd-not-supported";

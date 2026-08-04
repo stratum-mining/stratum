@@ -105,6 +105,10 @@ impl StandardJob {
     pub fn get_merkle_root(&self) -> &U256Owned {
         &self.job_message.merkle_root
     }
+    /// Returns the block version for this job.
+    pub fn get_version(&self) -> u32 {
+        self.job_message.version
+    }
     /// Returns true if the job is a future job (not yet activated).
     pub fn is_future(&self) -> bool {
         self.job_message.min_ntime.clone().into_inner().is_none()
