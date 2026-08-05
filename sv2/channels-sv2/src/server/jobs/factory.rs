@@ -93,14 +93,15 @@ impl JobFactory {
         }
     }
 
-    /// Returns a byte vector with the OP_PUSHBYTES opcode and the pool+miner tag.
+    /// Returns a byte vector with the OP_PUSHBYTES opcode and `Sv2/<pool>/<miner>/` tag.
     ///
     /// The character `/` is used as a delimiter.
     ///
-    /// If no pool or miner tag is provided, the delimiters are still added.
+    /// If pool and/or miner tags are not provided, delimiters are still kept
+    /// (e.g. `Sv2///` when both are missing).
     pub fn op_pushbytes_pool_miner_tag(&self) -> Result<Vec<u8>, JobFactoryError> {
         let mut pool_miner_tag = vec![];
-        pool_miner_tag.extend_from_slice(b"/");
+        pool_miner_tag.extend_from_slice(b"Sv2/");
         if let Some(pool_tag_string) = &self.pool_tag_string {
             pool_miner_tag.extend_from_slice(pool_tag_string.as_bytes());
         }
@@ -627,8 +628,9 @@ impl JobFactory {
         )?;
         let serialized_coinbase = serialize(&coinbase);
 
-        // Calculate the full pool/miner tag length including delimiters and OP_PUSHBYTES opcode
+        // Calculate the full `Sv2/<pool>/<miner>/` tag length including OP_PUSHBYTES opcode.
         let pool_miner_tag_len = 1 // OP_PUSHBYTES opcode
+            + 3 // "Sv2"
             + 3 // three "/" delimiters
             + self.pool_tag_string.as_ref().map_or(0, |s| s.len())
             + self.miner_tag_string.as_ref().map_or(0, |s| s.len());
@@ -661,8 +663,9 @@ impl JobFactory {
         )?;
         let serialized_coinbase = serialize(&coinbase);
 
-        // Calculate the full pool/miner tag length including delimiters and OP_PUSHBYTES opcode
+        // Calculate the full `Sv2/<pool>/<miner>/` tag length including OP_PUSHBYTES opcode.
         let pool_miner_tag_len = 1 // OP_PUSHBYTES opcode
+            + 3 // "Sv2"
             + 3 // three "/" delimiters
             + self.pool_tag_string.as_ref().map_or(0, |s| s.len())
             + self.miner_tag_string.as_ref().map_or(0, |s| s.len());
@@ -758,11 +761,12 @@ mod tests {
             min_ntime: Sv2OptionOwned::new(None),
             version: 536870912,
             version_rolling_allowed: true,
-            // contains scriptSig with /Stratum V2 SRI Pool//
+            // contains scriptSig with Sv2/Stratum V2 SRI Pool//
             coinbase_tx_prefix: vec![
                 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 58, 82, 0, 22, 47, 83, 116, 114, 97,
-                116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 47, 47, 32,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 61, 82, 0, 25, 83, 118, 50, 47, 83,
+                116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 47,
+                47, 32,
             ]
             .try_into()
             .unwrap(),
@@ -865,12 +869,13 @@ mod tests {
             min_ntime: Sv2OptionOwned::new(Some(1746839905)),
             version: 536870912,
             version_rolling_allowed: true,
-            // contains scriptSig with /Stratum V2 SRI Pool/Stratum V2 SRI Miner/
+            // contains scriptSig with Sv2/Stratum V2 SRI Pool/Stratum V2 SRI Miner/
             coinbase_tx_prefix: vec![
                 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 78, 82, 0, 42, 47, 83, 116, 114, 97,
-                116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 47, 83, 116, 114,
-                97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 77, 105, 110, 101, 114, 47, 32,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 81, 82, 0, 45, 83, 118, 50, 47, 83,
+                116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 47,
+                83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 77, 105, 110, 101,
+                114, 47, 32,
             ]
             .try_into()
             .unwrap(),

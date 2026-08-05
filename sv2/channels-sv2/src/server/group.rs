@@ -74,8 +74,8 @@ impl GroupChannel {
     /// Initializes the group channel state with the provided group channel ID.
     /// The job factory is initialized with version rolling enabled.
     ///
-    /// For non-JD jobs, `pool_tag_string` is added to the coinbase scriptSig in between `/`
-    /// and `//` delimiters: `/pool_tag_string//`
+    /// For non-JD jobs, `pool_tag_string` is added to the coinbase scriptSig as
+    /// `Sv2/pool_tag_string//`.
     pub fn new_for_pool(
         group_channel_id: u32,
         full_extranonce_size: usize,
@@ -98,8 +98,8 @@ impl GroupChannel {
     /// Returns an error if target/difficulty parameters are invalid or extranonce prefix
     /// requirements are not met.
     ///
-    /// The `pool_tag_string` and `miner_tag_string` are added to the coinbase scriptSig in between
-    /// `/` delimiters: `/pool_tag_string/miner_tag_string/`
+    /// The `pool_tag_string` and `miner_tag_string` are added to the coinbase scriptSig as
+    /// `Sv2/pool_tag_string/miner_tag_string/`.
     pub fn new_for_job_declaration_client(
         group_channel_id: u32,
         full_extranonce_size: usize,
@@ -124,6 +124,7 @@ impl GroupChannel {
     ) -> Result<Self, GroupChannelError> {
         let script_sig_size = 5 + // BIP34
             1 + // OP_PUSHBYTES
+            3 + // "Sv2"
             3 + // `/` delimiters
             pool_tag.as_ref().map_or(0, |s| s.len()) +
             miner_tag.as_ref().map_or(0, |s| s.len()) +
@@ -393,7 +394,8 @@ mod tests {
             version_rolling_allowed: true,
             coinbase_tx_prefix: vec![
                 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 39, 82, 0, 3, 47, 47, 47, 32,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 42, 82, 0, 6, 83, 118, 50, 47, 47,
+                47, 32,
             ]
             .try_into()
             .unwrap(),
@@ -519,7 +521,8 @@ mod tests {
             version_rolling_allowed: true,
             coinbase_tx_prefix: vec![
                 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 39, 82, 0, 3, 47, 47, 47, 32,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 42, 82, 0, 6, 83, 118, 50, 47, 47,
+                47, 32,
             ]
             .try_into()
             .unwrap(),

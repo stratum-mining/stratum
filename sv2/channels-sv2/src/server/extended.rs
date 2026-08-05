@@ -116,8 +116,8 @@ impl ExtendedChannel {
     /// Returns an error if target/difficulty parameters are invalid or extranonce prefix
     /// requirements are not met.
     ///
-    /// For non-JD jobs, `pool_tag_string` is added to the coinbase scriptSig in between `/`
-    /// and `//` delimiters: `/pool_tag_string//`
+    /// For non-JD jobs, `pool_tag_string` is added to the coinbase scriptSig as
+    /// `Sv2/pool_tag_string//`.
     #[allow(clippy::too_many_arguments)]
     pub fn new_for_pool(
         channel_id: u32,
@@ -154,8 +154,8 @@ impl ExtendedChannel {
     /// Returns an error if target/difficulty parameters are invalid or extranonce prefix
     /// requirements are not met.
     ///
-    /// The `pool_tag_string` and `miner_tag_string` are added to the coinbase scriptSig in between
-    /// `/` delimiters: `/pool_tag_string/miner_tag_string/`
+    /// The `pool_tag_string` and `miner_tag_string` are added to the coinbase scriptSig as
+    /// `Sv2/pool_tag_string/miner_tag_string/`.
     #[allow(clippy::too_many_arguments)]
     pub fn new_for_job_declaration_client(
         channel_id: u32,
@@ -221,6 +221,7 @@ impl ExtendedChannel {
 
         let script_sig_size = 5 + // BIP34
             1 + // OP_PUSHBYTES
+            3 + // "Sv2"
             3 + // `/` delimiters
             pool_tag.as_ref().map_or(0, |s| s.len()) +
             miner_tag.as_ref().map_or(0, |s| s.len()) +
@@ -1017,7 +1018,8 @@ mod tests {
             version_rolling_allowed: true,
             coinbase_tx_prefix: vec![
                 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 38, 82, 0, 3, 47, 47, 47, 31,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 41, 82, 0, 6, 83, 118, 50, 47, 47,
+                47, 31,
             ]
             .try_into()
             .unwrap(),
@@ -1168,7 +1170,8 @@ mod tests {
             version_rolling_allowed: true,
             coinbase_tx_prefix: vec![
                 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 38, 82, 0, 3, 47, 47, 47, 31,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 41, 82, 0, 6, 83, 118, 50, 47, 47,
+                47, 31,
             ]
             .try_into()
             .unwrap(),
@@ -1352,14 +1355,14 @@ mod tests {
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
-        // this share has hash 4c68f79a585c8b609e9b43113f73311eada20ec88a70a999406267db3499f1d9
+        // this share has hash 6b356f9f445f4cdfab140f69ff66803f8f98a0d8bcd089dc7d2bdeeee74a5f83
         // which satisfies network target
         // 7fffff0000000000000000000000000000000000000000000000000000000000
         let share_valid_block = SubmitSharesExtended {
             channel_id,
             sequence_number: 0,
             job_id: 1,
-            nonce: 8,
+            nonce: 0,
             ntime: 1745596971,
             version: 536870912,
             extranonce: vec![1, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap(),
@@ -1685,7 +1688,7 @@ mod tests {
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
-        // this share has hash 000004f9d35777e4d56eedc20b1d05d251a7c0ed0b4e3013b5a809852844e218
+        // this share has hash 000054cc966c174fc21b056b994c0aa265c40126222040984f571230b9adde1f
         // which does meet the channel target
         // 0001179d9861a761ffdadd11c307c4fc04eea3a418f7d687584e4434af158205
         // but does not meet network target
@@ -1694,7 +1697,7 @@ mod tests {
             channel_id,
             sequence_number: 1,
             job_id: 1,
-            nonce: 51208,
+            nonce: 16647,
             ntime: 1745611105,
             version: 536870912,
             extranonce: vec![1, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap(),
@@ -1709,7 +1712,7 @@ mod tests {
             channel_id,
             sequence_number: 2,
             job_id: 1,
-            nonce: 51208,
+            nonce: 16647,
             ntime: 1745611105,
             version: 536870912,
             extranonce: vec![1, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap(),
