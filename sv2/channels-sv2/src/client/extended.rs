@@ -193,8 +193,16 @@ impl ExtendedChannel {
     }
 
     /// Sets a new [`Target`] for the channel.
+    ///
+    /// Per the Sv2 spec, the new target also applies to jobs that were already received with an
+    /// empty `min_ntime` (i.e. queued future jobs), so their associated target is refreshed here.
+    /// Jobs that were already received with a set `min_ntime` (active, past and stale jobs) keep
+    /// their target.
     pub fn set_target(&mut self, new_target: Target) {
         self.target = new_target;
+        for future_job in self.future_jobs.values_mut() {
+            future_job.2 = new_target;
+        }
     }
 
     /// Returns the cumulative nominal hashrate for the channel, in h/s.
@@ -1658,5 +1666,112 @@ mod tests {
         };
 
         assert!(channel.validate_share(share).is_ok());
+    }
+
+    #[test]
+    fn test_set_target_refreshes_future_jobs() {
+        // Regression test: a target set while a future job is queued must also apply to that
+        // job once it is activated.
+        // Reuses the valid-share test vectors, but tightens the target after the future job
+        // was already stored, so the share no longer meets it.
+        let channel_id = 1;
+        let user_identity = "user_identity".to_string();
+        let extranonce_prefix = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        ]
+        .to_vec();
+        // channel target: 0000ffff00000000000000000000000000000000000000000000000000000000
+        let target = Target::from_le_bytes([
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0xff, 0xff, 0x00, 0x00,
+        ]);
+        let nominal_hashrate = 1.0;
+        let version_rolling = true;
+        let rollable_extranonce_size = 8u16;
+
+        let mut channel = ExtendedChannel::new(
+            channel_id,
+            user_identity,
+            ExtranoncePrefix::from_wire(extranonce_prefix.clone()).unwrap(),
+            target,
+            nominal_hashrate,
+            version_rolling,
+            rollable_extranonce_size,
+        );
+
+        let future_job = NewExtendedMiningJob {
+            channel_id: 1,
+            job_id: 1,
+            min_ntime: Sv2Option::new(None),
+            version: 536870912,
+            version_rolling_allowed: true,
+            coinbase_tx_prefix: vec![
+                2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 34, 82, 0,
+            ]
+            .try_into()
+            .unwrap(),
+            coinbase_tx_suffix: vec![
+                255, 255, 255, 255, 2, 0, 242, 5, 42, 1, 0, 0, 0, 22, 0, 20, 235, 225, 183, 220,
+                194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 0, 0, 0,
+                0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209, 222,
+                253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180, 139,
+                235, 216, 54, 151, 78, 140, 249, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ]
+            .try_into()
+            .unwrap(),
+            merkle_path: vec![].try_into().unwrap(),
+        };
+
+        channel
+            .on_new_extended_mining_job(future_job.clone())
+            .unwrap();
+
+        // the future job was stored under the old target, now we tighten it to
+        // 0000500000000000000000000000000000000000000000000000000000000000
+        let new_target = Target::from_le_bytes([
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x50, 0x00, 0x00,
+        ]);
+        channel.set_target(new_target);
+
+        // network target: 000000000000d7c0000000000000000000000000000000000000000000000000
+        let nbits: u32 = 453040064;
+        let ntime: u32 = 1745596970;
+        let prev_hash = [
+            200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144, 205,
+            88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
+        ];
+        let set_new_prev_hash = SetNewPrevHashMp {
+            channel_id,
+            job_id: future_job.job_id,
+            prev_hash: prev_hash.into(),
+            nbits,
+            min_ntime: ntime,
+        };
+
+        channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
+
+        // this share has hash 00005e460def43b0153246e6300ce38d9da1c9abd8ef2157a88b2e9a12a8524a
+        // which meets the old target, but not the new one
+        let share = SubmitSharesExtended {
+            channel_id,
+            sequence_number: 0,
+            job_id: 1,
+            nonce: 102103,
+            ntime: 1745596971,
+            version: 536870912,
+            extranonce: vec![1, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap(),
+        };
+
+        let res = channel.validate_share(share);
+
+        assert!(matches!(
+            res,
+            Err(ShareValidationError::DoesNotMeetTarget(_))
+        ));
     }
 }
