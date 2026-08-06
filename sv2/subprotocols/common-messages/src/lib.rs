@@ -57,3 +57,4 @@ pub const ERROR_CODE_SETUP_CONNECTION_UNSUPPORTED_FEATURE_FLAGS: &str = "unsuppo
 pub const ERROR_CODE_SETUP_CONNECTION_UNSUPPORTED_PROTOCOL: &str = "unsupported-protocol";
 pub const ERROR_CODE_SETUP_CONNECTION_MISSING_DECLARE_TX_DATA_FLAG: &str =
     "missing-declare-tx-data-flag";
+pub const ERROR_CODE_SETUP_CONNECTION_PROTOCOL_VERSION_MISMATCH: &str = "protocol-version-mismatch";
