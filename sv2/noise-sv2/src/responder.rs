@@ -433,11 +433,11 @@ impl Responder {
                 unsafe { ptr::write_volatile(b, 0) };
             }
         }
-        for mut b in self.ck {
-            unsafe { ptr::write_volatile(&mut b, 0) };
+        for b in &mut self.ck {
+            unsafe { ptr::write_volatile(b, 0) };
         }
-        for mut b in self.h {
-            unsafe { ptr::write_volatile(&mut b, 0) };
+        for b in &mut self.h {
+            unsafe { ptr::write_volatile(b, 0) };
         }
         if let Some(c1) = self.c1.as_mut() {
             c1.erase_k()
