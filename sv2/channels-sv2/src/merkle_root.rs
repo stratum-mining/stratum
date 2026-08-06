@@ -3,7 +3,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use bitcoin::{
     consensus,
-    hashes::{sha256d::Hash as DHash, Hash},
+    hashes::{sha256d::Hash as DHash, Hash, HashEngine},
     Transaction,
 };
 use tracing::error;
@@ -11,7 +11,7 @@ use tracing::error;
 /// Computes the Merkle root from coinbase transaction components and a path of transaction hashes.
 ///
 /// Validates and deserializes a coinbase transaction before building the 32-byte Merkle root.
-/// Returns [`None`] is the arguments are invalid.
+/// Returns [`None`] if the arguments are invalid.
 ///
 /// ## Components
 /// * `coinbase_tx_prefix`: First part of the coinbase transaction (the part before the extranonce).
@@ -54,22 +54,12 @@ pub fn merkle_root_from_path<T: AsRef<[u8]>>(
 /// * `coinbase_id`: Coinbase transaction hash.
 /// * `path`: List of transaction hashes. Should be converted from [`binary_sv2::U256`].
 pub fn merkle_root_from_path_<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
-    match path.len() {
-        0 => coinbase_id,
-        _ => reduce_path(coinbase_id, path),
-    }
-}
-
-// Computes the Merkle root by iteratively combining the coinbase transaction hash with each
-// transaction hash in the `path`.
-//
-// Handles the core logic of combining hashes using the Bitcoin double-SHA256 hashing algorithm.
-fn reduce_path<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
     let mut root = coinbase_id;
     for node in path {
-        let to_hash = [&root[..], node.as_ref()].concat();
-        let hash = DHash::hash(&to_hash);
-        root = *hash.as_ref();
+        let mut engine = DHash::engine();
+        engine.input(&root);
+        engine.input(node.as_ref());
+        root = *DHash::from_engine(engine).as_ref();
     }
     root
 }
