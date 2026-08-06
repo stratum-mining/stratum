@@ -74,6 +74,8 @@ fn bytes_to_hex<'a>(bytes: impl IntoIterator<Item = &'a u8>) -> String {
     hex
 }
 
+const MAX_DISPLAY_BYTES: usize = 250;
+
 impl fmt::Display for Sv2Option<'_, u32> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let inner = self.to_owned().into_inner();
@@ -217,13 +219,15 @@ impl fmt::Display for Seq064K<'_, B016M<'_>> {
         let len = self.len();
 
         let as_hex = |item: &B016M<'_>| {
-            let hex = bytes_to_hex(item.as_bytes());
-
-            if hex.len() > 500 {
-                format!("{}…<truncated {} chars>", &hex[..500], hex.len() - 500)
-            } else {
-                hex
+            let bytes = item.as_bytes();
+            if bytes.len() <= MAX_DISPLAY_BYTES {
+                return bytes_to_hex(bytes);
             }
+            let truncated = (bytes.len() - MAX_DISPLAY_BYTES) * 2;
+            format!(
+                "{}…<truncated {truncated} chars>",
+                bytes_to_hex(&bytes[..MAX_DISPLAY_BYTES])
+            )
         };
 
         write!(f, "Seq064K<len={len}: ")?;
@@ -255,13 +259,15 @@ impl fmt::Display for Seq064KOwned<B016MOwned> {
         let len = self.len();
 
         let as_hex = |item: &B016MOwned| {
-            let hex = bytes_to_hex(item.as_bytes());
-
-            if hex.len() > 500 {
-                format!("{}…<truncated {} chars>", &hex[..500], hex.len() - 500)
-            } else {
-                hex
+            let bytes = item.as_bytes();
+            if bytes.len() <= MAX_DISPLAY_BYTES {
+                return bytes_to_hex(bytes);
             }
+            let truncated = (bytes.len() - MAX_DISPLAY_BYTES) * 2;
+            format!(
+                "{}…<truncated {truncated} chars>",
+                bytes_to_hex(&bytes[..MAX_DISPLAY_BYTES])
+            )
         };
 
         write!(f, "Seq064K<len={len}: ")?;
