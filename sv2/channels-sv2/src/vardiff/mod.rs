@@ -7,6 +7,9 @@ pub mod error;
 #[cfg(test)]
 pub mod test;
 
+/// Default minimum hashrate (H/s) if not specified.
+const DEFAULT_MIN_HASHRATE: f32 = 1.0;
+
 /// Trait defining the interface for a Vardiff implementation.
 pub trait Vardiff: Debug + Send + Sync {
     /// Gets the timestamp of the last update.
@@ -35,4 +38,25 @@ pub trait Vardiff: Debug + Send + Sync {
 
     /// Gets the minimum allowed hashrate (H/s).
     fn min_allowed_hashrate(&self) -> f32;
+}
+
+/// Constructs the recommended production vardiff: the decline-safety champion.
+///
+/// Returns a [`Box<dyn Vardiff>`] wrapping the adaptive EWMA algorithm:
+/// - EWMA estimator with tau=360s for smoothed hashrate estimation
+/// - Adaptive boundary: PoissonCI below SPM 6, sign-persistence CUSUM at SPM 6+
+///   (tightening requires 8× the evidence of loosening — dangerous-direction
+///   protection, not a lost-work cost)
+/// - Accelerating partial retarget (eta 0.2 → 0.6 over consecutive fires)
+pub fn default() -> Box<dyn Vardiff> {
+    default_with_min(DEFAULT_MIN_HASHRATE)
+}
+
+/// Constructs the recommended production vardiff with a specific minimum
+/// hashrate floor.
+pub fn default_with_min(min_allowed_hashrate: f32) -> Box<dyn Vardiff> {
+    Box::new(
+        classic::VardiffState::new_with_min(min_allowed_hashrate)
+            .expect("VardiffState construction should not fail"),
+    )
 }
