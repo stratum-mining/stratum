@@ -61,7 +61,9 @@ use secp256k1::{
 /// exchanges, and maintains the handshake hash, chaining key, and nonce for message encryption.
 /// After the handshake, it facilitates secure communication using either [`ChaCha20Poly1305`] or
 /// `AES-GCM` ciphers. Sensitive data is securely erased when no longer needed.
-#[derive(Clone)]
+///
+/// Deliberately not [`Clone`]: two copies of the same handshake state would derive the same
+/// transport keys and reuse the same nonces.
 pub struct Initiator {
     // Cipher used for encrypting and decrypting messages during the handshake.
     //
@@ -180,7 +182,7 @@ impl Initiator {
     /// provided in order to not implicitely rely on `std` and allow `no_std` environments to
     /// provide a hardware random number generator for example.
     #[inline]
-    pub fn new_with_rng<R: rand::Rng + ?Sized>(
+    pub fn new_with_rng<R: rand::Rng + rand::CryptoRng + ?Sized>(
         pk: Option<XOnlyPublicKey>,
         rng: &mut R,
     ) -> Box<Self> {
@@ -220,7 +222,7 @@ impl Initiator {
     /// `std` and allow `no_std` environments to provide a hardware random number generator for
     /// example.
     #[inline]
-    pub fn from_raw_k_with_rng<R: rand::Rng + ?Sized>(
+    pub fn from_raw_k_with_rng<R: rand::Rng + rand::CryptoRng + ?Sized>(
         key: [u8; 32],
         rng: &mut R,
     ) -> Result<Box<Self>, Error> {
@@ -248,7 +250,9 @@ impl Initiator {
     /// `std` and allow `no_std` environments to provide a hardware random number generator for
     /// example.
     #[inline]
-    pub fn without_pk_with_rng<R: rand::Rng + ?Sized>(rng: &mut R) -> Result<Box<Self>, Error> {
+    pub fn without_pk_with_rng<R: rand::Rng + rand::CryptoRng + ?Sized>(
+        rng: &mut R,
+    ) -> Result<Box<Self>, Error> {
         Ok(Self::new_with_rng(None, rng))
     }
 
@@ -412,11 +416,11 @@ impl Initiator {
                 unsafe { ptr::write_volatile(b, 0) };
             }
         }
-        for mut b in self.ck {
-            unsafe { ptr::write_volatile(&mut b, 0) };
+        for b in &mut self.ck {
+            unsafe { ptr::write_volatile(b, 0) };
         }
-        for mut b in self.h {
-            unsafe { ptr::write_volatile(&mut b, 0) };
+        for b in &mut self.h {
+            unsafe { ptr::write_volatile(b, 0) };
         }
         if let Some(c1) = self.c1.as_mut() {
             c1.erase_k()
@@ -447,6 +451,20 @@ mod test {
 
         assert_eq!(msg.len(), ELLSWIFT_ENCODING_SIZE);
         assert!(msg.iter().any(|b| *b != 0));
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    #[cfg_attr(miri, ignore)]
+    fn initiator_erase_zeroes_ck_and_h() {
+        let mut initiator = Initiator::without_pk().unwrap();
+        assert!(initiator.ck.iter().any(|b| *b != 0));
+        assert!(initiator.h.iter().any(|b| *b != 0));
+
+        initiator.erase();
+
+        assert_eq!(initiator.ck, [0u8; 32]);
+        assert_eq!(initiator.h, [0u8; 32]);
     }
 
     #[test]

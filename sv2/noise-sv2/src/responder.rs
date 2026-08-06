@@ -60,7 +60,6 @@ const VERSION: u16 = 0;
 /// a connection with the initiator. The responder manages key generation, Diffie-Hellman exchanges,
 /// message decryption, and state transitions, ensuring secure communication. Sensitive
 /// cryptographic material is securely erased when no longer needed.
-#[derive(Clone)]
 pub struct Responder {
     // Cipher used for encrypting and decrypting messages during the handshake.
     //
@@ -188,7 +187,7 @@ impl Responder {
     /// `std` and allow `no_std` environments to provide a hardware random number generator for
     /// example.
     #[inline]
-    pub fn new_with_rng<R: rand::Rng + ?Sized>(
+    pub fn new_with_rng<R: rand::Rng + rand::CryptoRng + ?Sized>(
         a: Keypair,
         cert_validity: u32,
         rng: &mut R,
@@ -234,7 +233,7 @@ impl Responder {
     /// `std` and allow `no_std` environments to provide a hardware random number generator for
     /// example.
     #[inline]
-    pub fn from_authority_kp_with_rng<R: rand::Rng + ?Sized>(
+    pub fn from_authority_kp_with_rng<R: rand::Rng + rand::CryptoRng + ?Sized>(
         public: &[u8; 32],
         private: &[u8; 32],
         cert_validity: Duration,
@@ -433,11 +432,11 @@ impl Responder {
                 unsafe { ptr::write_volatile(b, 0) };
             }
         }
-        for mut b in self.ck {
-            unsafe { ptr::write_volatile(&mut b, 0) };
+        for b in &mut self.ck {
+            unsafe { ptr::write_volatile(b, 0) };
         }
-        for mut b in self.h {
-            unsafe { ptr::write_volatile(&mut b, 0) };
+        for b in &mut self.h {
+            unsafe { ptr::write_volatile(b, 0) };
         }
         if let Some(c1) = self.c1.as_mut() {
             c1.erase_k()
@@ -492,6 +491,20 @@ mod test {
             .unwrap();
 
         assert_eq!(msg.len(), INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE);
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    #[cfg_attr(miri, ignore)]
+    fn responder_erase_zeroes_ck_and_h() {
+        let mut responder = make_responder();
+        assert!(responder.ck.iter().any(|b| *b != 0));
+        assert!(responder.h.iter().any(|b| *b != 0));
+
+        responder.erase();
+
+        assert_eq!(responder.ck, [0u8; 32]);
+        assert_eq!(responder.h, [0u8; 32]);
     }
 
     #[test]
