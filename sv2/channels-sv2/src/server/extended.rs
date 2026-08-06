@@ -67,7 +67,7 @@ use mining_sv2::{
     ERROR_CODE_SUBMIT_SHARES_INVALID_SHARE, ERROR_CODE_SUBMIT_SHARES_STALE_SHARE,
     ERROR_CODE_UPDATE_CHANNEL_INVALID_NOMINAL_HASHRATE, ERROR_CODE_VERSION_ROLLING_NOT_ALLOWED,
 };
-use std::{collections::HashMap, convert::TryInto};
+use std::collections::HashMap;
 use template_distribution_sv2::{NewTemplateOwned, SetNewPrevHashOwned as SetNewPrevHashTdp};
 use tracing::debug;
 
@@ -744,9 +744,7 @@ impl ExtendedChannel {
         )
         .ok_or(ShareValidationError::Invalid(
             ERROR_CODE_SUBMIT_SHARES_INVALID_SHARE,
-        ))?
-        .try_into()
-        .expect("merkle root must be 32 bytes");
+        ))?;
 
         let chain_tip = self
             .chain_tip

@@ -7,7 +7,6 @@ use crate::{
 use binary_sv2::{Seq0255Owned, Sv2OptionOwned, U256Owned};
 use bitcoin::transaction::TxOut;
 use mining_sv2::{NewExtendedMiningJobOwned, NewMiningJobOwned, SetCustomMiningJobOwned};
-use std::convert::TryInto;
 use template_distribution_sv2::NewTemplateOwned;
 
 /// Abstraction of an extended mining job with:
@@ -120,8 +119,7 @@ impl ExtendedJob {
             self.get_merkle_path().as_slice(),
         )
         .ok_or(ExtendedJobError::FailedToCalculateMerkleRoot)?
-        .try_into()
-        .map_err(|_| ExtendedJobError::FailedToCalculateMerkleRoot)?;
+        .into();
 
         let standard_job_message = NewMiningJobOwned {
             channel_id,

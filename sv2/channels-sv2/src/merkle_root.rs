@@ -26,7 +26,7 @@ pub fn merkle_root_from_path<T: AsRef<[u8]>>(
     coinbase_tx_suffix: &[u8],
     extranonce: &[u8],
     path: &[T],
-) -> Option<Vec<u8>> {
+) -> Option<[u8; 32]> {
     let mut coinbase =
         Vec::with_capacity(coinbase_tx_prefix.len() + coinbase_tx_suffix.len() + extranonce.len());
     coinbase.extend_from_slice(coinbase_tx_prefix);
@@ -42,7 +42,7 @@ pub fn merkle_root_from_path<T: AsRef<[u8]>>(
 
     let coinbase_id: [u8; 32] = *coinbase.compute_txid().as_ref();
 
-    Some(merkle_root_from_path_(coinbase_id, path).to_vec())
+    Some(merkle_root_from_path_(coinbase_id, path))
 }
 
 /// Computes the Merkle root from a validated coinbase transaction and a path of transaction

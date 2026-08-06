@@ -180,8 +180,7 @@ impl JobFactory {
             merkle_path.as_slice(),
         )
         .expect("merkle root must be valid")
-        .try_into()
-        .expect("merkle root must be 32 bytes");
+        .into();
 
         let job_message = match template.future_template {
             true => NewMiningJobOwned {
