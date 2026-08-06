@@ -120,8 +120,7 @@ impl ExtendedJob {
             self.get_merkle_path().as_slice(),
         )
         .ok_or(ExtendedJobError::FailedToCalculateMerkleRoot)?
-        .try_into()
-        .map_err(|_| ExtendedJobError::FailedToCalculateMerkleRoot)?;
+        .into();
 
         let standard_job_message = NewMiningJobOwned {
             channel_id,

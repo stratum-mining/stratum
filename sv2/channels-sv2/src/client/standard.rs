@@ -254,8 +254,7 @@ impl StandardChannel {
             new_extended_mining_job.merkle_path.as_slice(),
         )
         .expect("merkle root must be valid")
-        .try_into()
-        .expect("merkle root must be 32 bytes");
+        .into();
 
         let new_mining_job = NewMiningJobOwned {
             channel_id: self.channel_id,

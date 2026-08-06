@@ -744,9 +744,7 @@ impl ExtendedChannel {
         )
         .ok_or(ShareValidationError::Invalid(
             ERROR_CODE_SUBMIT_SHARES_INVALID_SHARE,
-        ))?
-        .try_into()
-        .expect("merkle root must be 32 bytes");
+        ))?;
 
         let chain_tip = self
             .chain_tip
