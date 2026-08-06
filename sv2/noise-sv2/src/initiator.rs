@@ -452,6 +452,20 @@ mod test {
     #[test]
     #[cfg(feature = "std")]
     #[cfg_attr(miri, ignore)]
+    fn initiator_erase_zeroes_ck_and_h() {
+        let mut initiator = Initiator::without_pk().unwrap();
+        assert!(initiator.ck.iter().any(|b| *b != 0));
+        assert!(initiator.h.iter().any(|b| *b != 0));
+
+        initiator.erase();
+
+        assert_eq!(initiator.ck, [0u8; 32]);
+        assert_eq!(initiator.h, [0u8; 32]);
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    #[cfg_attr(miri, ignore)]
     fn initiator_rejects_tampered_handshake() {
         use crate::Responder;
 

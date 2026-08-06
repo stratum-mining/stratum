@@ -497,6 +497,20 @@ mod test {
     #[test]
     #[cfg(feature = "std")]
     #[cfg_attr(miri, ignore)]
+    fn responder_erase_zeroes_ck_and_h() {
+        let mut responder = make_responder();
+        assert!(responder.ck.iter().any(|b| *b != 0));
+        assert!(responder.h.iter().any(|b| *b != 0));
+
+        responder.erase();
+
+        assert_eq!(responder.ck, [0u8; 32]);
+        assert_eq!(responder.h, [0u8; 32]);
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    #[cfg_attr(miri, ignore)]
     fn responder_cipher_detects_tampering() {
         use rand::{rngs::StdRng, SeedableRng};
         use secp256k1::ellswift::ElligatorSwift;
