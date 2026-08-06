@@ -48,12 +48,20 @@ impl<T: Job> Default for JobStore<T> {
 
 impl<T: Job> JobStore<T> {
     /// Adds a future job associated with a template ID.
+    ///
+    /// If the template ID was already mapped to a future job, that job is dropped, since it could
+    /// never be activated again (activation resolves jobs through this mapping).
+    ///
     /// Returns the new job's ID.
     pub fn add_future_job(&mut self, template_id: u64, new_job: T) -> u32 {
         let new_job_id = new_job.get_job_id();
+        if let Some(old_job_id) = self
+            .future_template_to_job_id
+            .insert(template_id, new_job_id)
+        {
+            self.future_jobs.remove(&old_job_id);
+        }
         self.future_jobs.insert(new_job_id, new_job);
-        self.future_template_to_job_id
-            .insert(template_id, new_job_id);
         new_job_id
     }
 
@@ -142,5 +150,38 @@ impl<T: Job> JobStore<T> {
     /// Returns a reference to a stale job from its job ID, if any.
     pub fn get_stale_job(&self, job_id: u32) -> Option<&T> {
         self.stale_jobs.get(&job_id)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct DummyJob {
+        job_id: u32,
+    }
+
+    impl Job for DummyJob {
+        fn get_job_id(&self) -> u32 {
+            self.job_id
+        }
+
+        fn activate(&mut self, _prev_hash_header_timestamp: u32) {}
+    }
+
+    #[test]
+    fn reused_template_id_evicts_superseded_future_job() {
+        let mut store = JobStore::new();
+
+        let old_job_id = store.add_future_job(1, DummyJob { job_id: 10 });
+        let new_job_id = store.add_future_job(1, DummyJob { job_id: 11 });
+
+        // the superseded job could never be activated again, so it must not be retained
+        assert!(store.get_future_job(old_job_id).is_none());
+        assert!(store.get_future_job(new_job_id).is_some());
+        assert_eq!(
+            store.get_future_job_id_from_template_id(1),
+            Some(new_job_id)
+        );
     }
 }
