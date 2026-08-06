@@ -228,9 +228,7 @@ fn main() {
     }
 
     // Parse the decoded frame header and payload
-    let decoded_frame_header = decoded_frame
-        .get_header()
-        .expect("Failed to get the frame header");
+    let decoded_frame_header = decoded_frame.get_header();
 
     let decoded_msg: CustomMessage = binary_sv2::from_bytes(decoded_frame.payload())
         .expect("Failed to extract the message from the payload");

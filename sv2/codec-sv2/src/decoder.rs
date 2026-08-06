@@ -515,7 +515,7 @@ mod prop_tests {
                 None => return TestResult::discard(),
             };
 
-        let expected_ext_type = frame.get_header().unwrap().ext_type();
+        let expected_ext_type = frame.get_header().ext_type();
 
         let mut encoder = Encoder::<TestMessage>::new();
         let encoded = match encoder.encode(frame) {
@@ -526,10 +526,7 @@ mod prop_tests {
         let mut decoder = StandardDecoder::<TestMessage>::new();
         match decode_frame(&mut decoder, encoded.as_ref(), None) {
             Some(mut decoded_frame) => {
-                let header = match decoded_frame.get_header() {
-                    Some(h) => h,
-                    None => return TestResult::failed(),
-                };
+                let header = decoded_frame.get_header();
                 let actual_msg_type = header.msg_type();
                 let actual_ext_type = header.ext_type();
                 let decoded_msg: TestMessage = match binary_sv2::from_bytes(decoded_frame.payload())
@@ -725,7 +722,7 @@ mod prop_tests {
                 Some(f) => f,
                 None => return TestResult::discard(),
             };
-        let expected_ext = sv2_frame.get_header().unwrap().ext_type();
+        let expected_ext = sv2_frame.get_header().ext_type();
         let frame = Frame::Sv2(sv2_frame);
 
         let mut encoder = NoiseEncoder::<TestMessage>::new();
@@ -738,10 +735,7 @@ mod prop_tests {
         let encrypted_bytes: &[u8] = encrypted.as_ref();
         match decode_noise_frame(&mut decoder, &mut receiver_state, encrypted_bytes) {
             Some(mut decoded) => {
-                let header = match decoded.get_header() {
-                    Some(h) => h,
-                    None => return TestResult::failed(),
-                };
+                let header = decoded.get_header();
                 let decoded_msg: TestMessage = match binary_sv2::from_bytes(decoded.payload()) {
                     Ok(m) => m,
                     Err(_) => return TestResult::failed(),
