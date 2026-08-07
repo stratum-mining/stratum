@@ -411,6 +411,9 @@ impl JobFactory {
     ///
     /// It's up to the caller to ensure that the sum of the additional coinbase outputs is equal to
     /// available template revenue.
+    ///
+    /// Returns [`JobFactoryError::ScriptSigSizeTooLarge`] if the template's `coinbase_prefix`, the
+    /// pool/miner tag and the full extranonce do not fit within [`MAX_SCRIPT_SIG_SIZE`].
     #[allow(clippy::too_many_arguments)]
     pub fn new_custom_job(
         &self,
@@ -422,6 +425,15 @@ impl JobFactory {
         additional_coinbase_outputs: Vec<TxOut>,
         full_extranonce_size: usize,
     ) -> Result<SetCustomMiningJobOwned, JobFactoryError> {
+        // the `coinbase_prefix` assembled below carries this factory's pool/miner tag, so the
+        // regular scriptSig layout applies. catching it here means the Job Declarator Client fails
+        // locally instead of having the pool reject the `SetCustomMiningJob` it just sent
+        if self.script_sig_size(template.coinbase_prefix.len(), full_extranonce_size)
+            > MAX_SCRIPT_SIG_SIZE
+        {
+            return Err(JobFactoryError::ScriptSigSizeTooLarge);
+        }
+
         let coinbase_outputs_sum = additional_coinbase_outputs
             .iter()
             .map(|o| o.value.to_sat())
@@ -472,7 +484,13 @@ impl JobFactory {
 
     /// Creates a new Extended Job from a SetCustomMiningJob message.
     ///
-    /// Assumes that the SetCustomMiningJob message has already been validated.
+    /// Assumes that the SetCustomMiningJob message has already been validated, with the exception
+    /// of its `coinbase_prefix` length: since that arrives from a downstream Job Declarator Client,
+    /// it is bounded here rather than delegated to the caller.
+    ///
+    /// Returns [`JobFactoryError::ScriptSigSizeTooLarge`] if the message's `coinbase_prefix` and
+    /// the full extranonce do not fit within [`MAX_SCRIPT_SIG_SIZE`]. Note that a custom job's
+    /// `coinbase_prefix` already embeds the pool/miner tag, so no tag is added on top of it.
     ///
     /// To be used by Extended Channels on a Sv2 Pool Server.
     pub fn new_extended_job_from_custom_job(
@@ -543,6 +561,19 @@ impl JobFactory {
         m: SetCustomMiningJobOwned,
         full_extranonce_size: usize,
     ) -> Result<Transaction, JobFactoryError> {
+        // a custom job arrives from a downstream Job Declarator Client with the pool/miner tag
+        // already embedded in `coinbase_prefix`, so the assembled scriptSig is just the prefix
+        // followed by the extranonce, with no tag of ours to account for.
+        //
+        // this is untrusted input off the wire and nothing upstream of here bounds it, so the
+        // check cannot be delegated to the caller the way it is for a locally built job. an
+        // oversized prefix would otherwise yield a consensus-invalid coinbase, and past 252 bytes
+        // it would also break the one-byte CompactSize assumption the prefix/suffix split indexes
+        // rely on, silently mis-slicing the coinbase.
+        if m.coinbase_prefix.len() + full_extranonce_size > MAX_SCRIPT_SIG_SIZE {
+            return Err(JobFactoryError::ScriptSigSizeTooLarge);
+        }
+
         let deserialized_outputs =
             Vec::<TxOut>::consensus_decode(&mut m.coinbase_tx_outputs.to_owned_bytes().as_slice())
                 .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?;
@@ -1038,5 +1069,92 @@ mod tests {
         };
 
         assert_eq!(custom_job.get_job_message(), &expected_job);
+    }
+
+    // builds a `SetCustomMiningJob` with the given `coinbase_prefix`, bypassing `new_custom_job`
+    // so the receiving side can be exercised with prefixes a well-behaved JDC would never send
+    fn custom_job_with_coinbase_prefix(coinbase_prefix: Vec<u8>) -> SetCustomMiningJobOwned {
+        SetCustomMiningJobOwned {
+            channel_id: 1,
+            request_id: 1,
+            token: vec![0].try_into().unwrap(),
+            version: 536870912,
+            prev_hash: [0u8; 32].into(),
+            min_ntime: 1746839905,
+            nbits: 503543726,
+            coinbase_tx_version: 2,
+            coinbase_prefix: coinbase_prefix.try_into().unwrap(),
+            coinbase_tx_input_n_sequence: 4294967295,
+            coinbase_tx_outputs: serialize(&coinbase_reward_outputs()).try_into().unwrap(),
+            coinbase_tx_locktime: 0,
+            merkle_path: vec![].try_into().unwrap(),
+        }
+    }
+
+    #[test]
+    fn test_new_custom_job_rejects_oversized_script_sig() {
+        // same boundary as `test_coinbase_rejects_oversized_script_sig`: a 52 char pool tag places
+        // the worst-case scriptSig exactly on the budget
+        let job_factory = JobFactory::new(true, Some("x".repeat(52)), None);
+        let chain_tip = ChainTip::new([0u8; 32].into(), 503543726, 1746839905);
+
+        let new_custom_job = |coinbase_prefix_len: usize| {
+            job_factory.new_custom_job(
+                1,
+                1,
+                vec![0].try_into().unwrap(),
+                chain_tip.clone(),
+                template_with_coinbase_prefix(vec![0xab; coinbase_prefix_len]),
+                coinbase_reward_outputs(),
+                32,
+            )
+        };
+
+        // a spec-compliant 8 byte coinbase_prefix fits exactly
+        assert!(new_custom_job(MAX_COINBASE_PREFIX_SIZE).is_ok());
+
+        // one byte over must be rejected here, so the Job Declarator Client fails locally rather
+        // than having the pool reject the `SetCustomMiningJob` it just sent
+        assert!(matches!(
+            new_custom_job(MAX_COINBASE_PREFIX_SIZE + 1).unwrap_err(),
+            JobFactoryError::ScriptSigSizeTooLarge
+        ));
+    }
+
+    #[test]
+    fn test_custom_job_rejects_oversized_script_sig() {
+        // a custom job's coinbase_prefix already embeds the pool/miner tag, so the assembled
+        // scriptSig is just the prefix plus the full extranonce: 68 + 32 = 100
+        let mut job_factory = JobFactory::new(true, None, None);
+
+        let job = job_factory.new_extended_job_from_custom_job(
+            custom_job_with_coinbase_prefix(vec![0xab; MAX_SCRIPT_SIG_SIZE - 32]),
+            vec![0; 32],
+            32,
+        );
+        assert!(job.is_ok());
+
+        // one byte over the budget yields a consensus-invalid coinbase
+        let job = job_factory.new_extended_job_from_custom_job(
+            custom_job_with_coinbase_prefix(vec![0xab; MAX_SCRIPT_SIG_SIZE - 32 + 1]),
+            vec![0; 32],
+            32,
+        );
+        assert!(matches!(
+            job.unwrap_err(),
+            JobFactoryError::ScriptSigSizeTooLarge
+        ));
+
+        // a hostile downstream can otherwise push the scriptSig past the 252 byte CompactSize
+        // threshold, which would also mis-slice the prefix/suffix split
+        let job = job_factory.new_extended_job_from_custom_job(
+            custom_job_with_coinbase_prefix(vec![0xab; 250]),
+            vec![0; 32],
+            32,
+        );
+        assert!(matches!(
+            job.unwrap_err(),
+            JobFactoryError::ScriptSigSizeTooLarge
+        ));
     }
 }
