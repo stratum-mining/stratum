@@ -176,6 +176,7 @@ impl GroupChannel {
     /// Handles an upstream [`SetNewPrevHash`](SetNewPrevHashMp) message.
     ///
     /// Activates the future job matching `job_id` from the message, making it the active job.
+    /// The activated job carries the `min_ntime` from the message, so it is no longer a future job.
     /// Clears all other future jobs.
     ///
     /// Returns `Err(GroupChannelError::JobIdNotFound)` if no matching job found.
@@ -184,7 +185,10 @@ impl GroupChannel {
         set_new_prev_hash: SetNewPrevHashMp,
     ) -> Result<(), GroupChannelError> {
         match self.future_jobs.remove(&set_new_prev_hash.job_id) {
-            Some(job) => {
+            Some(mut job) => {
+                // the activated job is no longer a future job, so it must carry a min_ntime,
+                // otherwise consumers dispatching on it would misclassify the active job
+                job.set_no_future(set_new_prev_hash.min_ntime);
                 self.active_job = Some(job);
             }
             None => return Err(GroupChannelError::JobIdNotFound),
@@ -327,5 +331,60 @@ mod tests {
         assert_eq!(group_channel.get_channel_ids_count(), 2);
         assert!(!group_channel.has_channel_id(3));
         assert_eq!(group_channel.get_full_extranonce_size(), Some(10));
+    }
+
+    #[test]
+    fn test_future_job_activation_propagates_min_ntime() {
+        // Regression test: the future job used to be promoted as-is, keeping min_ntime as
+        // None, so is_future() still returned true on the active job.
+        let channel_id = 1;
+        let min_ntime = 1745596970;
+        let mut group_channel = GroupChannel::new(channel_id);
+        group_channel.add_channel_id(1, 32).unwrap();
+
+        let future_job = NewExtendedMiningJobOwned {
+            channel_id,
+            job_id: 1,
+            min_ntime: Sv2Option::new(None),
+            version: 536870912,
+            version_rolling_allowed: true,
+            coinbase_tx_prefix: vec![
+                2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 34, 82, 0,
+            ]
+            .try_into()
+            .unwrap(),
+            coinbase_tx_suffix: vec![
+                255, 255, 255, 255, 2, 0, 242, 5, 42, 1, 0, 0, 0, 22, 0, 20, 235, 225, 183, 220,
+                194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252,
+            ]
+            .try_into()
+            .unwrap(),
+            merkle_path: vec![].try_into().unwrap(),
+        };
+
+        group_channel.on_new_extended_mining_job(future_job);
+        assert_eq!(group_channel.get_future_jobs_count(), 1);
+        assert!(group_channel.get_active_job().is_none());
+
+        let set_new_prev_hash = SetNewPrevHashMp {
+            channel_id,
+            job_id: 1,
+            prev_hash: [
+                200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144,
+                205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
+            ]
+            .into(),
+            min_ntime,
+            nbits: 545259519,
+        };
+
+        group_channel
+            .on_set_new_prev_hash(set_new_prev_hash)
+            .unwrap();
+
+        let active_job = group_channel.get_active_job().unwrap();
+        assert!(!active_job.is_future());
+        assert_eq!(active_job.min_ntime.clone().into_inner(), Some(min_ntime));
     }
 }
