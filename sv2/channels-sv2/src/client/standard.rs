@@ -5,7 +5,7 @@
 //! and chain tip state, enabling share validation and mining job lifecycle management.
 
 extern crate alloc;
-use super::HashMap;
+use super::{HashMap, MAX_FUTURE_JOBS};
 use crate::{
     chain_tip::ChainTip,
     client::{
@@ -17,7 +17,7 @@ use crate::{
     target::{bytes_to_hex, u256_to_block_hash},
     MAX_EXTRANONCE_LEN, VERSION_ROLLING_MASK,
 };
-use alloc::{format, string::String};
+use alloc::{collections::VecDeque, format, string::String};
 use binary_sv2::Sv2OptionOwned;
 use bitcoin::{
     blockdata::block::{Header, Version},
@@ -44,7 +44,7 @@ pub type StandardJob = (NewMiningJobOwned, Target);
 /// - unique extranonce prefix
 /// - channel target
 /// - nominal hashrate in h/s
-/// - future mining jobs (indexed by job_id, activated upon [`NewMiningJob`](mining_sv2::NewMiningJob) receipt)
+/// - future mining jobs (indexed by job_id, activated upon [`NewMiningJob`](mining_sv2::NewMiningJob) receipt, capped at [`MAX_FUTURE_JOBS`])
 /// - active mining job
 /// - past jobs (active jobs under current chain tip, indexed by job_id)
 /// - stale jobs (jobs from previous chain tip, indexed by job_id)
@@ -58,6 +58,9 @@ pub struct StandardChannel {
     target: Target,
     nominal_hashrate: f32,
     future_jobs: HashMap<u32, StandardJob>,
+    // Future job IDs ordered by receipt, oldest at the front and newest at the back.
+    // Replaced IDs move to the back; overflow evicts from the front.
+    future_job_order: VecDeque<u32>,
     active_job: Option<StandardJob>,
     past_jobs: HashMap<u32, StandardJob>,
     stale_jobs: HashMap<u32, StandardJob>,
@@ -81,6 +84,7 @@ impl StandardChannel {
             target,
             nominal_hashrate,
             future_jobs: HashMap::new(),
+            future_job_order: VecDeque::new(),
             active_job: None,
             past_jobs: HashMap::new(),
             stale_jobs: HashMap::new(),
@@ -170,7 +174,8 @@ impl StandardChannel {
 
     /// Returns an iterator over all future jobs for this channel.
     ///
-    /// The list is cleared once a [`StandardChannel::on_set_new_prev_hash`] is processed.
+    /// The list is cleared once a [`StandardChannel::on_set_new_prev_hash`] is processed, and holds
+    /// at most [`MAX_FUTURE_JOBS`] jobs (oldest evicted first).
     pub fn get_future_jobs(&self) -> impl Iterator<Item = (&u32, &StandardJob)> + '_ {
         self.future_jobs.iter()
     }
@@ -270,7 +275,8 @@ impl StandardChannel {
     /// Handles a newly received [`NewMiningJob`](mining_sv2::NewMiningJob) message from upstream.
     ///
     /// - If `min_ntime` is present, the job is activated and replaces the current active job.
-    /// - If `min_ntime` is empty, the job is added to future jobs.
+    /// - If `min_ntime` is empty, the job is added to future jobs. At most [`MAX_FUTURE_JOBS`]
+    ///   future jobs are kept: storing a new one beyond that limit evicts the oldest.
     /// - If an active job exists, it is moved to past jobs on activation.
     pub fn on_new_mining_job(&mut self, new_mining_job: NewMiningJobOwned) {
         self.store_new_mining_job(new_mining_job);
@@ -286,8 +292,19 @@ impl StandardChannel {
                 self.active_job = Some((new_mining_job, self.target));
             }
             None => {
+                let job_id = new_mining_job.job_id;
                 self.future_jobs
-                    .insert(new_mining_job.job_id, (new_mining_job, self.target));
+                    .insert(job_id, (new_mining_job, self.target));
+
+                // a replaced job_id moves to the back of the eviction order
+                self.future_job_order.retain(|id| *id != job_id);
+                self.future_job_order.push_back(job_id);
+
+                if self.future_jobs.len() > MAX_FUTURE_JOBS {
+                    if let Some(evicted_job_id) = self.future_job_order.pop_front() {
+                        self.future_jobs.remove(&evicted_job_id);
+                    }
+                }
             }
         }
     }
@@ -314,6 +331,7 @@ impl StandardChannel {
 
         // all other future jobs are now useless
         self.future_jobs.clear();
+        self.future_job_order.clear();
 
         // mark all past jobs as stale, so that shares are not propagated
         self.stale_jobs = self.past_jobs.clone();
@@ -481,6 +499,7 @@ mod tests {
         client::{
             share_accounting::{ShareValidationError, ShareValidationResult},
             standard::StandardChannel,
+            MAX_FUTURE_JOBS,
         },
         extranonce_manager::ExtranoncePrefix,
     };
@@ -552,6 +571,115 @@ mod tests {
             channel.get_active_job(),
             Some(&(previously_future_job, channel.get_target().clone()))
         );
+    }
+
+    #[test]
+    fn test_future_jobs_are_bounded() {
+        let channel_id = 1;
+        let extranonce_prefix = [
+            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
+            0, 0, 0, 0, 0, 0, 1,
+        ]
+        .to_vec();
+
+        let mut channel = StandardChannel::new(
+            channel_id,
+            "user_identity".to_string(),
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
+            Target::from_le_bytes([0xff; 32]),
+            1.0,
+        );
+
+        let future_job = NewMiningJob {
+            channel_id,
+            job_id: 0,
+            merkle_root: [
+                189, 200, 25, 246, 119, 73, 34, 42, 209, 112, 237, 50, 169, 71, 163, 192, 24, 84,
+                56, 86, 147, 71, 243, 44, 18, 107, 167, 169, 169, 66, 186, 98,
+            ]
+            .into(),
+            version: 536870912,
+            min_ntime: Sv2Option::new(None),
+        };
+
+        let flood_size = 10_000u32;
+        for job_id in 0..flood_size {
+            let mut job = future_job.clone();
+            job.job_id = job_id;
+            channel.on_new_mining_job(job);
+        }
+
+        assert_eq!(channel.get_future_jobs_count(), MAX_FUTURE_JOBS);
+
+        for job_id in 0..flood_size - MAX_FUTURE_JOBS as u32 {
+            assert!(channel.get_future_job(job_id).is_none());
+        }
+        for job_id in flood_size - MAX_FUTURE_JOBS as u32..flood_size {
+            assert!(channel.get_future_job(job_id).is_some());
+        }
+    }
+
+    #[test]
+    fn test_replaced_future_job_moves_to_back_of_eviction_order() {
+        let channel_id = 1;
+        let extranonce_prefix = [
+            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
+            0, 0, 0, 0, 0, 0, 1,
+        ]
+        .to_vec();
+
+        let mut channel = StandardChannel::new(
+            channel_id,
+            "user_identity".to_string(),
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
+            Target::from_le_bytes([0xff; 32]),
+            1.0,
+        );
+
+        let future_job = NewMiningJob {
+            channel_id,
+            job_id: 0,
+            merkle_root: [
+                189, 200, 25, 246, 119, 73, 34, 42, 209, 112, 237, 50, 169, 71, 163, 192, 24, 84,
+                56, 86, 147, 71, 243, 44, 18, 107, 167, 169, 169, 66, 186, 98,
+            ]
+            .into(),
+            version: 536870912,
+            min_ntime: Sv2Option::new(None),
+        };
+
+        // fill the store with MAX_FUTURE_JOBS distinct job_ids
+        for job_id in 0..MAX_FUTURE_JOBS as u32 {
+            let mut job = future_job.clone();
+            job.job_id = job_id;
+            channel.on_new_mining_job(job);
+        }
+
+        // re-send job_id 0: it should move to the back of the eviction order
+        channel.on_new_mining_job(future_job.clone());
+
+        // one more distinct job_id: job_id 1 is now the oldest and gets evicted
+        let mut job = future_job.clone();
+        job.job_id = MAX_FUTURE_JOBS as u32;
+        channel.on_new_mining_job(job);
+
+        assert_eq!(channel.get_future_jobs_count(), MAX_FUTURE_JOBS);
+        assert!(channel.get_future_job(1).is_none());
+        assert!(channel.get_future_job(0).is_some());
+
+        // the replaced job_id can still be activated
+        let set_new_prev_hash = SetNewPrevHashMp {
+            channel_id,
+            job_id: 0,
+            prev_hash: [
+                200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144,
+                205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
+            ]
+            .into(),
+            nbits: 503543726,
+            min_ntime: 1746839905,
+        };
+        channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
     }
 
     #[test]
