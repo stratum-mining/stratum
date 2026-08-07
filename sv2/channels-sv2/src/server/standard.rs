@@ -251,6 +251,15 @@ impl StandardChannel {
 
     /// Sets a new extranonce prefix for this channel.
     ///
+    /// Jobs created before the update keep the prefix they were created under, and share
+    /// validation is performed accordingly.
+    ///
+    /// Because of that, the previous prefix (and therefore its slot in the
+    /// [`ExtranonceAllocator`](crate::extranonce_manager::ExtranonceAllocator) that minted it) is
+    /// not released here: it is handed over to the channel's job store, which only drops it once
+    /// every job created under it has become stale. This prevents the allocator from handing the
+    /// same extranonce space to another live channel while those jobs still validate shares.
+    ///
     /// Returns an error if the new prefix is too large.
     pub fn set_extranonce_prefix(
         &mut self,
@@ -260,7 +269,10 @@ impl StandardChannel {
             return Err(StandardChannelError::ExtranoncePrefixTooLarge);
         }
 
-        self.extranonce_prefix = extranonce_prefix.into();
+        let retired_extranonce_prefix =
+            std::mem::replace(&mut self.extranonce_prefix, extranonce_prefix.into());
+        self.job_store
+            .retire_extranonce_prefix(retired_extranonce_prefix);
 
         Ok(())
     }
@@ -768,7 +780,10 @@ impl StandardChannel {
 mod tests {
     use crate::{
         chain_tip::ChainTip,
-        extranonce_manager::{AllocatedExtranoncePrefix, ExtranoncePrefix, ExtranoncePrefixError},
+        extranonce_manager::{
+            AllocatedExtranoncePrefix, ExtranonceAllocator, ExtranonceAllocatorError,
+            ExtranoncePrefix, ExtranoncePrefixError,
+        },
         server::{
             error::StandardChannelError,
             share_accounting::{ShareValidationError, ShareValidationResult},
@@ -1941,5 +1956,96 @@ mod tests {
             res.unwrap_err(),
             ShareValidationError::DoesNotMeetTarget(_)
         ));
+    }
+
+    #[test]
+    fn test_rotated_extranonce_prefix_slot_not_reused_while_job_live() {
+        // Regression test: rotating the channel's extranonce prefix must not return the old
+        // prefix's allocator slot to the free pool while jobs created under it can still accept
+        // shares. Otherwise the allocator could hand the very same extranonce space to a second
+        // live channel, making the same work replayable across both.
+        let mut allocator = ExtranonceAllocator::new(vec![], 32, 2).unwrap();
+
+        let prefix_1 = allocator.allocate_standard().unwrap();
+        let prefix_2 = allocator.allocate_standard().unwrap();
+        assert_ne!(prefix_1.as_bytes(), prefix_2.as_bytes());
+        assert_eq!(allocator.allocated_count(), 2);
+
+        let prefix_1_bytes = prefix_1.as_bytes().to_vec();
+
+        let mut standard_channel = StandardChannel::new_for_pool(
+            1,
+            "user_identity".to_string(),
+            prefix_1,
+            Target::from_le_bytes([0xff; 32]),
+            100.0,
+            100,
+            1.0,
+            String::new(),
+        )
+        .unwrap();
+
+        let template = NewTemplate {
+            template_id: 1,
+            future_template: false,
+            version: 536870912,
+            coinbase_tx_version: 2,
+            coinbase_prefix: vec![2, 159, 0, 0].try_into().unwrap(),
+            coinbase_tx_input_sequence: 4294967294,
+            coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
+            coinbase_tx_outputs_count: 1,
+            coinbase_tx_outputs: vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
+                222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
+                139, 235, 216, 54, 151, 78, 140, 249,
+            ]
+            .try_into()
+            .unwrap(),
+            coinbase_tx_locktime: 158,
+            merkle_path: vec![].try_into().unwrap(),
+        };
+
+        let pubkey_hash = [
+            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
+            8, 252,
+        ];
+        let mut script_bytes = vec![0];
+        script_bytes.push(20);
+        script_bytes.extend_from_slice(&pubkey_hash);
+        let coinbase_reward_outputs = vec![TxOut {
+            value: Amount::from_sat(SATS_AVAILABLE_IN_TEMPLATE),
+            script_pubkey: ScriptBuf::from(script_bytes),
+        }];
+
+        let ntime = 1745596910;
+        let prev_hash = [
+            154, 124, 239, 231, 221, 122, 160, 173, 164, 175, 87, 33, 74, 214, 191, 107, 73, 34, 0,
+            162, 227, 16, 44, 40, 33, 73, 0, 0, 0, 0, 0, 0,
+        ]
+        .into();
+        let n_bits = 453040064;
+        standard_channel.set_chain_tip(ChainTip::new(prev_hash, n_bits, ntime));
+        standard_channel
+            .on_new_template(template, coinbase_reward_outputs)
+            .unwrap();
+
+        // rotate the channel onto the second prefix, while the job above is still live
+        standard_channel.set_extranonce_prefix(prefix_2).unwrap();
+
+        // the rotated-out slot is still reserved, so the allocator is still full
+        assert_eq!(allocator.allocated_count(), 2);
+        assert!(matches!(
+            allocator.allocate_standard(),
+            Err(ExtranonceAllocatorError::CapacityExhausted)
+        ));
+
+        // and the pre-rotation job is still live under the old prefix bytes
+        assert_eq!(
+            standard_channel
+                .get_active_job()
+                .unwrap()
+                .get_extranonce_prefix(),
+            prefix_1_bytes.as_slice()
+        );
     }
 }

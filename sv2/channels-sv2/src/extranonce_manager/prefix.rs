@@ -61,6 +61,17 @@ use super::{bitvector::BitVector, MAX_EXTRANONCE_LEN};
 /// prefix's [`Drop`] becomes a silent no-op (the [`Weak`] reference fails
 /// to upgrade). This is safe — the bitmap is gone, so there is nothing to
 /// update.
+///
+/// Note that "the prefix is no longer in use" is not the same as "the
+/// channel stopped using it as its current prefix". Jobs only carry a copy
+/// of the prefix bytes they were created under and stay valid across a
+/// prefix rotation, so server-side channels deliberately *defer* the drop:
+/// on
+/// [`set_extranonce_prefix`](crate::server::extended::ExtendedChannel::set_extranonce_prefix)
+/// the rotated-out prefix is moved into the channel's job store and only
+/// dropped once every job created under it has become stale. Releasing it
+/// eagerly would let the allocator hand the same extranonce space to a
+/// second live channel while those jobs still validate shares.
 #[derive(Debug)]
 pub struct ExtranoncePrefix {
     prefix: Vec<u8>,
