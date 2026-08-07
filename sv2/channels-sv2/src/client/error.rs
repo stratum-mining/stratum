@@ -37,6 +37,10 @@ pub enum StandardChannelError {
 
     /// The provided extranonce prefix exceeds the maximum allowed size.
     NewExtranoncePrefixTooLarge,
+
+    /// The coinbase transaction of a group channel job is malformed, so no merkle root
+    /// could be derived from it.
+    InvalidCoinbase,
 }
 
 /// Errors that can occur within a **group channel** context.

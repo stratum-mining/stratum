@@ -251,14 +251,21 @@ impl StandardChannel {
     /// and activating it in this channel's context.
     ///
     /// The new job is constructed using the current extranonce prefix.
-    pub fn on_new_group_channel_job(&mut self, new_extended_mining_job: NewExtendedMiningJobOwned) {
+    ///
+    /// Returns [`StandardChannelError::InvalidCoinbase`] if the job's coinbase transaction
+    /// (prefix + this channel's extranonce prefix + suffix) is malformed, in which case the
+    /// job is discarded and channel state is left untouched.
+    pub fn on_new_group_channel_job(
+        &mut self,
+        new_extended_mining_job: NewExtendedMiningJobOwned,
+    ) -> Result<(), StandardChannelError> {
         let merkle_root = merkle_root_from_path(
             new_extended_mining_job.coinbase_tx_prefix.as_bytes(),
             new_extended_mining_job.coinbase_tx_suffix.as_bytes(),
             self.extranonce_prefix.as_bytes(),
             new_extended_mining_job.merkle_path.as_slice(),
         )
-        .expect("merkle root must be valid")
+        .ok_or(StandardChannelError::InvalidCoinbase)?
         .into();
 
         let new_mining_job = NewMiningJobOwned {
@@ -270,6 +277,8 @@ impl StandardChannel {
         };
 
         self.store_new_mining_job(new_mining_job);
+
+        Ok(())
     }
 
     /// Handles a newly received [`NewMiningJob`](mining_sv2::NewMiningJob) message from upstream.
@@ -519,8 +528,9 @@ mod tests {
     use binary_sv2::Sv2OptionOwned as Sv2Option;
     use bitcoin::Target;
     use mining_sv2::{
-        NewMiningJobOwned as NewMiningJob, SetNewPrevHashOwned as SetNewPrevHashMp,
-        SubmitSharesStandardOwned, ERROR_CODE_SUBMIT_SHARES_INVALID_NON_ROLLABLE_VERSION_BIT,
+        NewExtendedMiningJobOwned as NewExtendedMiningJob, NewMiningJobOwned as NewMiningJob,
+        SetNewPrevHashOwned as SetNewPrevHashMp, SubmitSharesStandardOwned,
+        ERROR_CODE_SUBMIT_SHARES_INVALID_NON_ROLLABLE_VERSION_BIT,
     };
 
     #[test]
@@ -1363,5 +1373,49 @@ mod tests {
         assert_eq!(channel.get_stale_jobs_count(), 1);
         assert!(channel.get_stale_job(1).is_some());
         assert_eq!(channel.get_past_jobs_count(), 0);
+    }
+
+    #[test]
+    fn test_on_new_group_channel_job_invalid_coinbase() {
+        // Regression test for a malicious/malformed upstream coinbase: empty prefix and suffix
+        // must produce an error instead of panicking.
+        let channel_id = 1;
+        let user_identity = "user_identity".to_string();
+        let extranonce_prefix = [
+            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
+            0, 0, 0, 0, 0, 0, 1,
+        ]
+        .to_vec();
+        let target = Target::from_le_bytes([0xff; 32]);
+        let nominal_hashrate = 1.0;
+
+        let mut channel = StandardChannel::new(
+            channel_id,
+            user_identity,
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
+            target,
+            nominal_hashrate,
+        );
+
+        let malformed_job = NewExtendedMiningJob {
+            channel_id,
+            job_id: 1,
+            min_ntime: Sv2Option::new(None),
+            version: 536870912,
+            version_rolling_allowed: true,
+            coinbase_tx_prefix: vec![].try_into().unwrap(),
+            coinbase_tx_suffix: vec![].try_into().unwrap(),
+            merkle_path: vec![].try_into().unwrap(),
+        };
+
+        let res = channel.on_new_group_channel_job(malformed_job);
+
+        assert!(matches!(
+            res.unwrap_err(),
+            StandardChannelError::InvalidCoinbase
+        ));
+        // no job must have been stored
+        assert_eq!(channel.get_future_jobs_count(), 0);
+        assert_eq!(channel.get_active_job(), None);
     }
 }
