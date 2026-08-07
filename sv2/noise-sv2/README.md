@@ -11,7 +11,7 @@
 
 ## Key Capabilities
 * **Secure Communication**: Provides encryption and authentication for messages exchanged between different Sv2 roles.
-* **Cipher Support**: Includes support for both `AES-GCM` and `ChaCha20-Poly1305`.
+* **Cipher Support**: Uses `ChaCha20-Poly1305` for authenticated encryption.
 * **Handshake Roles**: Implements the `Initiator` and `Responder` roles required by the Noise handshake, allowing both sides of a connection to establish secure communication.
 * **Cryptographic Helpers**: Facilitates the management of cryptographic state and encryption operations.
 

@@ -24,8 +24,8 @@
 //
 // The [`Responder`] struct implements the [`HandshakeOp`] trait, which defines the core
 // cryptographic operations during the handshake. It ensures secure communication by supporting
-// both the [`ChaCha20Poly1305`] or `AES-GCM` cipher, providing both confidentiality and message
-// authentication for all subsequent communication.
+// the [`ChaCha20Poly1305`] cipher, providing both confidentiality and message authentication for
+// all subsequent communication.
 //
 // ### Secure Data Erasure
 //
@@ -37,20 +37,19 @@
 use core::{ptr, time::Duration};
 
 use crate::{
-    cipher_state::{Cipher, CipherState, GenericCipher},
+    cipher_state::{Cipher, CipherState},
     error::Error,
     handshake::HandshakeOp,
     signature_message::SignatureNoiseMessage,
-    NoiseCodec, ELLSWIFT_ENCODING_SIZE, ENCRYPTED_ELLSWIFT_ENCODING_SIZE,
+    AeadError, NoiseEngine, ELLSWIFT_ENCODING_SIZE, ENCRYPTED_ELLSWIFT_ENCODING_SIZE,
     ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
 };
-use aes_gcm::KeyInit;
 use alloc::{
     boxed::Box,
     string::{String, ToString},
     vec::Vec,
 };
-use chacha20poly1305::ChaCha20Poly1305;
+use chacha20poly1305::{ChaCha20Poly1305, KeyInit};
 use secp256k1::{ellswift::ElligatorSwift, Keypair, Secp256k1, SecretKey};
 
 const VERSION: u16 = 0;
@@ -90,12 +89,6 @@ pub struct Responder {
     //
     // Used to sign messages and verify the identity of the responder.
     a: Keypair,
-    // First [`CipherState`] used for encrypting messages from the initiator to the responder
-    // after the handshake is complete.
-    c1: Option<GenericCipher>,
-    // Second [`CipherState`] used for encrypting messages from the responder to the initiator
-    // after the handshake is complete.
-    c2: Option<GenericCipher>,
     // Validity duration of the responder's certificate, in seconds.
     cert_validity: u32,
 }
@@ -202,8 +195,6 @@ impl Responder {
             e: Self::generate_key_with_rng(rng),
             s: Self::generate_key_with_rng(rng),
             a,
-            c1: None,
-            c2: None,
             cert_validity,
         };
         Self::initialize_self(&mut self_);
@@ -261,7 +252,7 @@ impl Responder {
     /// ciphers for encrypting and decrypting further communication.
     ///
     /// On success, it returns a tuple containing the response message to be sent back to the
-    /// initiator and a [`NoiseCodec`] instance, which is configured with the session ciphers for
+    /// initiator and a [`NoiseEngine`] instance, which is configured with the session ciphers for
     /// secure transmission of subsequent messages.
     ///
     /// On failure, the method returns an error if there is an issue during encryption, decryption,
@@ -270,7 +261,7 @@ impl Responder {
     pub fn step_1(
         &mut self,
         elligatorswift_theirs_ephemeral_serialized: [u8; ELLSWIFT_ENCODING_SIZE],
-    ) -> Result<([u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE], NoiseCodec), aes_gcm::Error> {
+    ) -> Result<([u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE], NoiseEngine), AeadError> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -297,7 +288,7 @@ impl Responder {
         elligatorswift_theirs_ephemeral_serialized: [u8; ELLSWIFT_ENCODING_SIZE],
         now: u32,
         rng: &mut R,
-    ) -> Result<([u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE], NoiseCodec), aes_gcm::Error> {
+    ) -> Result<([u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE], NoiseEngine), AeadError> {
         // 4.5.1.2 Responder
         Self::mix_hash(self, &elligatorswift_theirs_ephemeral_serialized[..]);
         Self::decrypt_and_hash(self, &mut vec![])?;
@@ -376,17 +367,15 @@ impl Responder {
         let c1: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k1, c1);
         let c2: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k2, c2);
         let to_send = out;
-        self.c1 = None;
-        self.c2 = None;
-        let mut encryptor = GenericCipher::ChaCha20Poly1305(c2);
-        let mut decryptor = GenericCipher::ChaCha20Poly1305(c1);
+        let mut encryptor = c2;
+        let mut decryptor = c1;
         encryptor.erase_k();
         decryptor.erase_k();
-        let codec = crate::NoiseCodec {
+        let engine = crate::NoiseEngine {
             encryptor,
             decryptor,
         };
-        Ok((to_send, codec))
+        Ok((to_send, engine))
     }
 
     // Generates a signature noise message for the responder's certificate.
@@ -439,12 +428,6 @@ impl Responder {
         for mut b in self.h {
             unsafe { ptr::write_volatile(&mut b, 0) };
         }
-        if let Some(c1) = self.c1.as_mut() {
-            c1.erase_k()
-        }
-        if let Some(c2) = self.c2.as_mut() {
-            c2.erase_k()
-        }
         self.e.non_secure_erase();
         self.s.non_secure_erase();
         self.a.non_secure_erase();
@@ -477,7 +460,7 @@ mod test {
     #[test]
     #[cfg(feature = "std")]
     #[cfg_attr(miri, ignore)]
-    fn responder_step_1_returns_valid_message_and_codec() {
+    fn responder_step_1_returns_valid_message_and_engine() {
         use rand::{rngs::StdRng, SeedableRng};
         use secp256k1::ellswift::ElligatorSwift;
 
@@ -507,15 +490,15 @@ mod test {
         let fake_initiator_ephemeral =
             ElligatorSwift::from_pubkey(responder.e.public_key()).to_array();
 
-        let (_msg, mut codec) = responder
+        let (_msg, mut engine) = responder
             .step_1_with_now_rng(fake_initiator_ephemeral, 100, &mut rng)
             .unwrap();
 
         let mut data = vec![10, 20, 30];
-        codec.encrypt(&mut data).unwrap();
+        engine.encrypt(&mut data).unwrap();
 
         data[0] ^= 0x01;
 
-        assert!(codec.decrypt(&mut data).is_err());
+        assert!(engine.decrypt(&mut data).is_err());
     }
 }

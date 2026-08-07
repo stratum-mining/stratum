@@ -10,8 +10,8 @@
 // - Elliptic curve Diffie-Hellman (ECDH) key exchange using the [`secp256k1`] curve to establish a
 //   shared secret.
 // - HMAC and HKDF for deriving encryption keys from the shared secret.
-// - AEAD encryption and decryption using either [`ChaCha20Poly1305`] or `AES-GCM` ciphers to ensure
-//   message confidentiality and integrity.
+// - AEAD encryption and decryption using [`ChaCha20Poly1305`] to ensure message confidentiality and
+//   integrity.
 // - Chaining key and handshake hash updates to maintain the security of the session.
 //
 // The handshake begins with the exchange of ephemeral key pairs, followed by the derivation of
@@ -32,7 +32,9 @@
 
 use alloc::{string::String, vec::Vec};
 
-use crate::{aed_cipher::AeadCipher, cipher_state::CipherState, NOISE_HASHED_PROTOCOL_NAME_CHACHA};
+use crate::{
+    aed_cipher::AeadCipher, cipher_state::CipherState, AeadError, NOISE_HASHED_PROTOCOL_NAME_CHACHA,
+};
 use chacha20poly1305::ChaCha20Poly1305;
 use secp256k1::{
     ecdh::SharedSecret,
@@ -207,7 +209,7 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
     // using AEAD, where the associated data is the current hash value. After
     // encryption, the ciphertext is mixed into the hash to ensure integrity
     // and authenticity of the messages exchanged during the handshake.
-    fn encrypt_and_hash(&mut self, plaintext: &mut Vec<u8>) -> Result<(), aes_gcm::Error> {
+    fn encrypt_and_hash(&mut self, plaintext: &mut Vec<u8>) -> Result<(), AeadError> {
         if self.get_k().is_some() {
             #[allow(clippy::clone_on_copy)]
             let h = self.get_h().clone();
@@ -226,7 +228,7 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
     // ensures that each decryption step is securely linked to the previous handshake state,
     // maintaining the integrity of the
     // handshake.
-    fn decrypt_and_hash(&mut self, ciphertext: &mut Vec<u8>) -> Result<(), aes_gcm::Error> {
+    fn decrypt_and_hash(&mut self, ciphertext: &mut Vec<u8>) -> Result<(), AeadError> {
         let encrypted = ciphertext.clone();
         if self.get_k().is_some() {
             #[allow(clippy::clone_on_copy)]

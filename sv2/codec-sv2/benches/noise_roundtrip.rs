@@ -18,7 +18,7 @@ mod common;
 use common::TestMsg;
 
 #[cfg(feature = "noise_sv2")]
-fn setup_noise_codec_pair() -> (
+fn setup_noise_engine_pair() -> (
     NoiseEncoder<TestMsg>,
     StandardNoiseDecoder<TestMsg>,
     State,
@@ -73,8 +73,8 @@ fn bench_noise_roundtrip(c: &mut Criterion) {
         let msg = TestMsg { data: 9u8 };
 
         b.iter(|| {
-            // Setup fresh codec pair for each iteration (noise state can't be reused)
-            let (mut enc, _, mut enc_state, mut dec_state) = setup_noise_codec_pair();
+            // Set up fresh Noise engines for each iteration (their state cannot be reused).
+            let (mut enc, _, mut enc_state, mut dec_state) = setup_noise_engine_pair();
 
             // Encode
             let sv2_frame = Sv2Frame::from_message(msg.clone(), 0, 0, true).unwrap();
@@ -109,7 +109,7 @@ fn bench_noise_roundtrip(c: &mut Criterion) {
 #[cfg(feature = "noise_sv2")]
 fn bench_noise_encode_only(c: &mut Criterion) {
     c.bench_function("noise/encode_only", |b| {
-        let (mut enc, _, mut enc_state, _) = setup_noise_codec_pair();
+        let (mut enc, _, mut enc_state, _) = setup_noise_engine_pair();
 
         let msg = TestMsg { data: 42u8 };
 

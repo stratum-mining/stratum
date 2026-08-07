@@ -11,8 +11,7 @@
 //! - Diffie-Hellman with [`secp256k1`]: Securely establishes a shared secret between two Sv2 roles,
 //!   using the same elliptic curve used in Bitcoin.
 //! - AEAD: Ensures confidentiality and integrity of the data.
-//! - `AES-GCM` and `ChaCha20-Poly1305`: Provides encryption, with hardware-optimized and
-//!   software-optimized options.
+//! - `ChaCha20-Poly1305`: Provides authenticated encryption for handshake and transport messages.
 //! - Schnorr Signatures: Authenticates messages and verifies the identity of the Sv2 roles. In
 //!   practice, the primitives exposed by this crate should be used to secure communication channels
 //!   between Sv2 roles. Securing communication between two Sv2 roles on the same local network
@@ -26,20 +25,20 @@
 //! Diffie-Hellman (ECDH) with the [`secp256k1`] elliptic curve (the same elliptic curve used by
 //! Bitcoin). Once both Sv2 roles compute the shared secret from the ECDH exchange, the Noise
 //! protocol derives symmetric encryption keys for secure communication. These keys are used with
-//! AEAD (using either `AES-GCM` or `ChaCha20-Poly1305`) to encrypt and authenticate all
-//! communication between the roles. This encryption ensures that sensitive data, such as share
-//! submissions, remains confidential and tamper-resistant. Additionally, Schnorr signatures are
-//! used to authenticate messages and validate the identities of the Sv2 roles, ensuring that
-//! critical messages like job templates and share submissions originate from legitimate sources.
+//! `ChaCha20-Poly1305` to encrypt and authenticate all communication between the roles. This
+//! encryption ensures that sensitive data, such as share submissions, remains confidential and
+//! tamper-resistant. Additionally, Schnorr signatures are used to authenticate messages and
+//! validate the identities of the Sv2 roles, ensuring that critical messages like job templates
+//! and share submissions originate from legitimate sources.
 
 #![cfg_attr(all(not(feature = "std"), not(test)), no_std)]
 
 #[macro_use]
 extern crate alloc;
 
-use aes_gcm::aead::Buffer;
-pub use aes_gcm::aead::Error as AeadError;
-use cipher_state::GenericCipher;
+pub use chacha20poly1305::aead::Error as AeadError;
+use chacha20poly1305::{aead::Buffer, ChaCha20Poly1305};
+use cipher_state::Cipher;
 mod aed_cipher;
 mod cipher_state;
 mod error;
@@ -100,34 +99,34 @@ pub const NOISE_HASHED_PROTOCOL_NAME_CHACHA: [u8; 32] = [
 // In this case, `Parity::Even` is used.
 const PARITY: secp256k1::Parity = secp256k1::Parity::Even;
 
-/// A codec for managing encrypted communication in the Noise protocol.
+/// An engine for managing encrypted communication in the Noise protocol.
 ///
 /// Manages the encryption and decryption of messages between two parties, the [`Initiator`] and
 /// [`Responder`], using the Noise protocol. A symmetric cipher is used for both encrypting
 /// outgoing messages and decrypting incoming messages.
 #[derive(Clone)]
-pub struct NoiseCodec {
+pub struct NoiseEngine {
     // Cipher to encrypt outgoing messages.
-    encryptor: GenericCipher,
+    encryptor: Cipher<ChaCha20Poly1305>,
 
     // Cipher to decrypt incoming messages.
-    decryptor: GenericCipher,
+    decryptor: Cipher<ChaCha20Poly1305>,
 }
 
-impl core::fmt::Debug for NoiseCodec {
+impl core::fmt::Debug for NoiseEngine {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("NoiseCodec").finish()
+        f.debug_struct("NoiseEngine").finish()
     }
 }
 
-impl NoiseCodec {
+impl NoiseEngine {
     /// Encrypts a message (`msg`) in place using the stored cipher.
-    pub fn encrypt<T: Buffer>(&mut self, msg: &mut T) -> Result<(), aes_gcm::Error> {
+    pub fn encrypt<T: Buffer>(&mut self, msg: &mut T) -> Result<(), AeadError> {
         self.encryptor.encrypt(msg)
     }
 
     /// Decrypts a message (`msg`) in place using the stored cipher.
-    pub fn decrypt<T: Buffer>(&mut self, msg: &mut T) -> Result<(), aes_gcm::Error> {
+    pub fn decrypt<T: Buffer>(&mut self, msg: &mut T) -> Result<(), AeadError> {
         self.decryptor.decrypt(msg)
     }
 }

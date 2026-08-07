@@ -3,9 +3,8 @@
 // Abstracts the encryption and decryption operations for authenticated encryption with associated
 // data (AEAD) ciphers used in the Noise protocol.
 //
-// The [`AeadCipher`] trait provides a unified interface for AEAD ciphers, including
-// [`ChaCha20Poly1305`] and [`Aes256Gcm`], allowing flexible cryptographic operations in different
-// contexts.
+// The [`AeadCipher`] trait provides the interface used by the Noise protocol's
+// [`ChaCha20Poly1305`] cipher.
 //
 // The trait supports core AEAD operations, including:
 //
@@ -17,20 +16,20 @@
 //
 // ## Usage
 //
-// The `AeadCipher` trait can be implemented for any AEAD cipher, enabling encryption and decryption
-// of Noise protocol messages. Two default implementations are provided for the
-// [`ChaCha20Poly1305`] and [`Aes256Gcm`] ciphers.
+// The `AeadCipher` trait can be implemented for an AEAD cipher used to encrypt and decrypt Noise
+// protocol messages. This crate provides an implementation for [`ChaCha20Poly1305`].
 
-use aes_gcm::Aes256Gcm;
-use chacha20poly1305::{aead::Buffer, AeadInPlace, ChaCha20Poly1305, ChaChaPoly1305, KeyInit};
+use chacha20poly1305::{
+    aead::{Buffer, Error},
+    AeadInPlace, ChaCha20Poly1305, ChaChaPoly1305, KeyInit,
+};
 
 // Defines the interface for AEAD ciphers.
 //
 // The [`AeadCipher`] trait provides a standard interface for initializing AEAD ciphers, and for
 // performing encryption and decryption operations with additional Authenticated Associated Data
-// (AAD). This trait is implemented by either the [`ChaCha20Poly1305`] or [`Aes256Gcm`] specific
-// cipher types, allowing them to be used interchangeably in cryptographic protocols. It is utilized
-// by the [`crate::handshake::HandshakeOp`] trait to secure the handshake process.
+// (AAD). It is utilized by the [`crate::handshake::HandshakeOp`] trait to secure the handshake
+// process.
 //
 // The `T: Buffer` represents the data buffer to be encrypted or decrypted. The buffer must
 // implement the [`Buffer`] trait, which provides necessary operations for in-place encryption and
@@ -52,7 +51,7 @@ pub trait AeadCipher {
         nonce: &[u8; 12],
         ad: &[u8],
         data: &mut T,
-    ) -> Result<(), aes_gcm::Error>;
+    ) -> Result<(), Error>;
 
     // Decrypts the data in place using the provided 12-byte nonce (`n`) and AAD (`ad`).
     //
@@ -64,7 +63,7 @@ pub trait AeadCipher {
         nonce: &[u8; 12],
         ad: &[u8],
         data: &mut T,
-    ) -> Result<(), aes_gcm::Error>;
+    ) -> Result<(), Error>;
 }
 
 impl AeadCipher for ChaCha20Poly1305 {
@@ -77,7 +76,7 @@ impl AeadCipher for ChaCha20Poly1305 {
         nonce: &[u8; 12],
         ad: &[u8],
         data: &mut T,
-    ) -> Result<(), aes_gcm::Error> {
+    ) -> Result<(), Error> {
         self.encrypt_in_place(nonce.into(), ad, data)
     }
 
@@ -86,31 +85,7 @@ impl AeadCipher for ChaCha20Poly1305 {
         nonce: &[u8; 12],
         ad: &[u8],
         data: &mut T,
-    ) -> Result<(), aes_gcm::Error> {
-        self.decrypt_in_place(nonce.into(), ad, data)
-    }
-}
-
-impl AeadCipher for Aes256Gcm {
-    fn from_key(k: [u8; 32]) -> Self {
-        Aes256Gcm::new(&k.into())
-    }
-
-    fn encrypt<T: Buffer>(
-        &mut self,
-        nonce: &[u8; 12],
-        ad: &[u8],
-        data: &mut T,
-    ) -> Result<(), aes_gcm::Error> {
-        self.encrypt_in_place(nonce.into(), ad, data)
-    }
-
-    fn decrypt<T: Buffer>(
-        &mut self,
-        nonce: &[u8; 12],
-        ad: &[u8],
-        data: &mut T,
-    ) -> Result<(), aes_gcm::Error> {
+    ) -> Result<(), Error> {
         self.decrypt_in_place(nonce.into(), ad, data)
     }
 }

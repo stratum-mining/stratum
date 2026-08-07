@@ -130,7 +130,7 @@ impl<B: IsBuffer + AeadBuffer, T: Serialize + GetSize> WithNoise<B, T> {
     #[inline]
     pub fn encode(&mut self, item: Item<T, B>, state: &mut State) -> Result<B::Slice> {
         match state {
-            State::Transport(noise_codec) => {
+            State::Transport(noise_engine) => {
                 let len = item.encoded_length();
                 let writable = self.sv2_buffer.get_writable(len);
 
@@ -148,7 +148,7 @@ impl<B: IsBuffer + AeadBuffer, T: Serialize + GetSize> WithNoise<B, T> {
                 // ENCRYPT THE HEADER
                 let to_encrypt = self.noise_buffer.get_writable(SV2_FRAME_HEADER_SIZE);
                 to_encrypt.copy_from_slice(&sv2[..SV2_FRAME_HEADER_SIZE]);
-                noise_codec.encrypt(&mut self.noise_buffer)?;
+                noise_engine.encrypt(&mut self.noise_buffer)?;
 
                 // ENCRYPT THE PAYLOAD IN CHUNKS
                 let mut start = SV2_FRAME_HEADER_SIZE;
@@ -163,7 +163,7 @@ impl<B: IsBuffer + AeadBuffer, T: Serialize + GetSize> WithNoise<B, T> {
                     let to_encrypt = self.noise_buffer.get_writable(end - start);
                     to_encrypt.copy_from_slice(&sv2[start..end]);
                     self.noise_buffer.danger_set_start(encrypted_len);
-                    noise_codec.encrypt(&mut self.noise_buffer)?;
+                    noise_engine.encrypt(&mut self.noise_buffer)?;
                     encrypted_len += self.noise_buffer.as_ref().len();
                     start = end;
                     end = (start + SV2_FRAME_CHUNK_SIZE - AEAD_MAC_LEN).min(sv2.len());
