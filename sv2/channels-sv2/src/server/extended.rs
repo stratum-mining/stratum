@@ -118,6 +118,10 @@ impl ExtendedChannel {
     ///
     /// For non-JD jobs, `pool_tag_string` is added to the coinbase scriptSig as
     /// `Sv2/pool_tag_string//`.
+    ///
+    /// Returns [`ExtendedChannelError::ScriptSigSizeTooLarge`] if the tags, the delimiters, the
+    /// full extranonce and a worst-case coinbase prefix do not fit within the coinbase `scriptSig`
+    /// budget, see [`JobFactory::fits_script_sig_budget`].
     #[allow(clippy::too_many_arguments)]
     pub fn new_for_pool(
         channel_id: u32,
@@ -156,6 +160,10 @@ impl ExtendedChannel {
     ///
     /// The `pool_tag_string` and `miner_tag_string` are added to the coinbase scriptSig as
     /// `Sv2/pool_tag_string/miner_tag_string/`.
+    ///
+    /// Returns [`ExtendedChannelError::ScriptSigSizeTooLarge`] if the tags, the delimiters, the
+    /// full extranonce and a worst-case coinbase prefix do not fit within the coinbase `scriptSig`
+    /// budget, see [`JobFactory::fits_script_sig_budget`].
     #[allow(clippy::too_many_arguments)]
     pub fn new_for_job_declaration_client(
         channel_id: u32,
@@ -219,17 +227,13 @@ impl ExtendedChannel {
             return Err(ExtendedChannelError::ExtranoncePrefixTooLarge);
         }
 
-        let script_sig_size = 5 + // BIP34
-            1 + // OP_PUSHBYTES
-            3 + // "Sv2"
-            3 + // `/` delimiters
-            pool_tag.as_ref().map_or(0, |s| s.len()) +
-            miner_tag.as_ref().map_or(0, |s| s.len()) +
-            1 + // OP_PUSHBYTES
-            extranonce_prefix.len() +
-            rollable_extranonce_size as usize;
+        let job_factory = JobFactory::new(version_rolling_allowed, pool_tag, miner_tag);
 
-        if script_sig_size > 100 {
+        // conservative check against the spec's worst-case `NewTemplate::coinbase_prefix`.
+        // the exact size is re-checked against each actual template in `JobFactory::coinbase`
+        if !job_factory
+            .fits_script_sig_budget(extranonce_prefix.len() + rollable_extranonce_size as usize)
+        {
             return Err(ExtendedChannelError::ScriptSigSizeTooLarge);
         }
 
@@ -244,7 +248,7 @@ impl ExtendedChannel {
             nominal_hashrate,
             stable_hashrate: false,
             job_store: JobStore::new(),
-            job_factory: JobFactory::new(version_rolling_allowed, pool_tag, miner_tag),
+            job_factory,
             share_accounting: ShareAccounting::new(share_batch_size),
             expected_share_per_minute,
             chain_tip: None,
@@ -294,13 +298,24 @@ impl ExtendedChannel {
     /// every job created under it has become stale. This prevents the allocator from handing the
     /// same extranonce space to another live channel while those jobs still validate shares.
     ///
-    /// Returns an error if the new extranonce prefix is too large.
+    /// Returns an error if the new extranonce prefix is too large, or if it would push the
+    /// assembled coinbase `scriptSig` past its budget (see
+    /// [`JobFactory::fits_script_sig_budget`]). The channel is left unchanged in both error
+    /// cases.
     pub fn set_extranonce_prefix(
         &mut self,
         extranonce_prefix: AllocatedExtranoncePrefix,
     ) -> Result<(), ExtendedChannelError> {
         if extranonce_prefix.len() > MAX_EXTRANONCE_LEN as usize {
             return Err(ExtendedChannelError::ExtranoncePrefixTooLarge);
+        }
+
+        // re-run the constructor's invariant: a prefix that is individually valid can still push
+        // the assembled scriptSig past the consensus cap
+        if !self.job_factory.fits_script_sig_budget(
+            extranonce_prefix.len() + self.rollable_extranonce_size as usize,
+        ) {
+            return Err(ExtendedChannelError::ScriptSigSizeTooLarge);
         }
 
         let retired_extranonce_prefix =
@@ -465,6 +480,13 @@ impl ExtendedChannel {
     ///
     /// Only meant to be used if REQUIRES_CUSTOM_WORK is NOT set on the connection this channel exists on.
     /// If this flag is set, on_set_custom_mining_job should be used instead.
+    ///
+    /// Returns [`ExtendedChannelError::JobFactoryError`] wrapping
+    /// [`JobFactoryError::ScriptSigSizeTooLarge`](crate::server::jobs::error::JobFactoryError::ScriptSigSizeTooLarge)
+    /// if the template's `coinbase_prefix` pushes the assembled coinbase `scriptSig` past
+    /// its budget. The constructor can only check against the spec's worst-case prefix (see
+    /// [`JobFactory::fits_script_sig_budget`]), so this is where an out-of-spec Template Provider
+    /// is caught.
     pub fn on_new_template(
         &mut self,
         template: NewTemplateOwned,
@@ -917,9 +939,13 @@ mod tests {
         server::{
             error::ExtendedChannelError,
             extended::ExtendedChannel,
-            jobs::extended::ExtendedJob,
+            jobs::{
+                extended::ExtendedJob,
+                factory::{MAX_COINBASE_PREFIX_SIZE, MAX_SCRIPT_SIG_SIZE},
+            },
             share_accounting::{ShareValidationError, ShareValidationResult},
         },
+        MAX_EXTRANONCE_LEN,
     };
     use binary_sv2::{Sv2OptionOwned as Sv2Option, U256Owned as U256};
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf, Target};
@@ -1772,6 +1798,112 @@ mod tests {
             &not_so_permissive_max_target
         );
         assert_eq!(channel.get_target(), &not_so_permissive_max_target);
+    }
+
+    // a 48 char pool tag places the worst-case scriptSig exactly on the budget:
+    // 8 (MAX_COINBASE_PREFIX_SIZE) + 1 + 3 ("Sv2") + 3 + 48 (tag) + 1 + 28 + 8 (full extranonce)
+    // = 100
+    const POOL_TAG_AT_SCRIPT_SIG_BUDGET: usize = 48;
+    const EXTRANONCE_PREFIX_LEN_AT_SCRIPT_SIG_BUDGET: usize = 28;
+    const ROLLABLE_EXTRANONCE_SIZE_AT_SCRIPT_SIG_BUDGET: u16 = 8;
+
+    fn new_extended_channel_with_pool_tag(
+        pool_tag_len: usize,
+        extranonce_prefix_len: usize,
+    ) -> Result<ExtendedChannel, ExtendedChannelError> {
+        ExtendedChannel::new(
+            1,
+            "user_identity".to_string(),
+            ExtranoncePrefix::from_wire(vec![0xab; extranonce_prefix_len]).unwrap(),
+            Target::from_le_bytes([0xff; 32]),
+            1.0,
+            true,
+            ROLLABLE_EXTRANONCE_SIZE_AT_SCRIPT_SIG_BUDGET,
+            100,
+            1.0,
+            Some("x".repeat(pool_tag_len)),
+            None,
+        )
+    }
+
+    #[test]
+    fn test_new_rejects_oversized_script_sig() {
+        // exactly on the budget
+        let channel = new_extended_channel_with_pool_tag(
+            POOL_TAG_AT_SCRIPT_SIG_BUDGET,
+            EXTRANONCE_PREFIX_LEN_AT_SCRIPT_SIG_BUDGET,
+        )
+        .unwrap();
+        assert_eq!(
+            channel
+                .job_factory
+                .script_sig_size(MAX_COINBASE_PREFIX_SIZE, channel.get_full_extranonce_size()),
+            MAX_SCRIPT_SIG_SIZE
+        );
+
+        // one byte over the budget, via a longer tag
+        let channel = new_extended_channel_with_pool_tag(
+            POOL_TAG_AT_SCRIPT_SIG_BUDGET + 1,
+            EXTRANONCE_PREFIX_LEN_AT_SCRIPT_SIG_BUDGET,
+        );
+        assert!(matches!(
+            channel.unwrap_err(),
+            ExtendedChannelError::ScriptSigSizeTooLarge
+        ));
+
+        // one byte over the budget, via a longer extranonce prefix
+        let channel = new_extended_channel_with_pool_tag(
+            POOL_TAG_AT_SCRIPT_SIG_BUDGET,
+            EXTRANONCE_PREFIX_LEN_AT_SCRIPT_SIG_BUDGET + 1,
+        );
+        assert!(matches!(
+            channel.unwrap_err(),
+            ExtendedChannelError::ScriptSigSizeTooLarge
+        ));
+    }
+
+    #[test]
+    fn test_set_extranonce_prefix_rejects_oversized_script_sig() {
+        // start well within the budget
+        let original_prefix_len = 4;
+        let mut channel =
+            new_extended_channel_with_pool_tag(POOL_TAG_AT_SCRIPT_SIG_BUDGET, original_prefix_len)
+                .unwrap();
+        let original_prefix = channel.get_extranonce_prefix().to_vec();
+
+        // growing up to the budget is allowed
+        channel
+            .set_extranonce_prefix(
+                AllocatedExtranoncePrefix::for_test(vec![
+                    0xcd;
+                    EXTRANONCE_PREFIX_LEN_AT_SCRIPT_SIG_BUDGET
+                ])
+                .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(
+            channel.get_extranonce_prefix().len(),
+            EXTRANONCE_PREFIX_LEN_AT_SCRIPT_SIG_BUDGET
+        );
+
+        // go back to the original prefix, so we can assert the channel is untouched on error
+        channel
+            .set_extranonce_prefix(
+                AllocatedExtranoncePrefix::for_test(original_prefix.clone()).unwrap(),
+            )
+            .unwrap();
+
+        // a prefix that is individually valid (<= MAX_EXTRANONCE_LEN) but pushes the assembled
+        // scriptSig one byte past the budget must be rejected
+        let oversized_prefix = vec![0xcd; EXTRANONCE_PREFIX_LEN_AT_SCRIPT_SIG_BUDGET + 1];
+        assert!(oversized_prefix.len() <= MAX_EXTRANONCE_LEN as usize);
+        let res = channel
+            .set_extranonce_prefix(AllocatedExtranoncePrefix::for_test(oversized_prefix).unwrap());
+        assert!(matches!(
+            res.unwrap_err(),
+            ExtendedChannelError::ScriptSigSizeTooLarge
+        ));
+        assert_eq!(channel.get_extranonce_prefix(), &original_prefix[..]);
     }
 
     #[test]
