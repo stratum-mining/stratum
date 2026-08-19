@@ -230,6 +230,7 @@ struct ChannelFactory {
     last_valid_jobs: [Option<(NewExtendedMiningJob<'static>, Vec<u32>)>; 3],
     // Index of the last valid job for channel_id ++ job_id
     id_to_job: HashMap<u32, u8, BuildNoHashHasher<u64>>,
+    extended_job_variants: HashMap<(u32, u32), Vec<u8>>,
     // Used to understand which is the last added element in last_valid_jobs
     added_elements: usize,
     kind: ExtendedChannelKind,
@@ -246,6 +247,8 @@ impl ChannelFactory {
         self.standard_channels_for_hom_downstreams
             .remove(&channel_id);
         self.extended_channels.remove(&channel_id);
+        self.extended_job_variants
+            .retain(|(variant_channel_id, _), _| *variant_channel_id != channel_id);
     }
 }
 
@@ -269,6 +272,9 @@ impl ChannelFactory {
             }
             [Some(_), Some(_), Some(_)] => {
                 let to_remove = self.added_elements % 3;
+                let evicted_job_id = self.last_valid_jobs[to_remove].as_ref().unwrap().0.job_id;
+                self.extended_job_variants
+                    .retain(|(_, job_id), _| *job_id != evicted_job_id);
                 self.id_to_job.retain(|_, v| *v != to_remove as u8);
                 self.id_to_job.insert(job.job_id, to_remove as u8);
                 self.last_valid_jobs[to_remove] = Some((job, group_ids));
@@ -833,6 +839,9 @@ impl ChannelFactory {
             }
         }
         self.future_jobs = vec![];
+        let id_to_job = &self.id_to_job;
+        self.extended_job_variants
+            .retain(|(_, job_id), _| id_to_job.contains_key(job_id));
         self.last_prev_hash_ = Some(crate::utils::u256_to_block_hash(m.prev_hash.clone()));
         let mut ids = vec![];
         for complete_id in self.standard_channels_for_non_hom_downstreams.keys() {
@@ -1258,6 +1267,7 @@ impl PoolChannelFactory {
             last_prev_hash_: None,
             last_valid_jobs: [None, None, None],
             id_to_job: HashMap::with_hasher(BuildNoHashHasher::default()),
+            extended_job_variants: HashMap::new(),
             added_elements: 0,
             kind,
             job_ids: Id::new(),
@@ -1662,6 +1672,12 @@ impl PoolChannelFactory {
                 .job_creator
                 .get_template_id_from_job(referenced_job.job_id)
                 .ok_or(Error::NoTemplateForId)?;
+            let new_coinbase_suffix = self
+                .inner
+                .extended_job_variants
+                .get(&(m.channel_id, m.job_id))
+                .cloned()
+                .unwrap_or_else(|| referenced_job.coinbase_tx_suffix.to_vec());
             let prev_blockhash = self
                 .inner
                 .last_prev_hash_
@@ -1680,7 +1696,7 @@ impl PoolChannelFactory {
                 0,
                 merkle_path,
                 referenced_job.coinbase_tx_prefix.as_ref(),
-                referenced_job.coinbase_tx_suffix.as_ref(),
+                &new_coinbase_suffix,
                 prev_blockhash,
                 bits,
                 Some(&additional_coinbase_script_data),
@@ -1861,6 +1877,18 @@ impl PoolChannelFactory {
         self.inner.close_channel(channel_id);
     }
 
+    /// Registers a channel-specific coinbase suffix for a pool-created extended job.
+    pub fn register_extended_job_variant(
+        &mut self,
+        channel_id: u32,
+        job_id: u32,
+        coinbase_suffix: Vec<u8>,
+    ) {
+        self.inner
+            .extended_job_variants
+            .insert((channel_id, job_id), coinbase_suffix);
+    }
+
     pub fn get_extranonce_len(&self) -> usize {
         self.inner.extranonces.get_len()
     }
@@ -1923,6 +1951,7 @@ impl ProxyExtendedChannelFactory {
             last_prev_hash_: None,
             last_valid_jobs: [None, None, None],
             id_to_job: HashMap::with_hasher(BuildNoHashHasher::default()),
+            extended_job_variants: HashMap::new(),
             added_elements: 0,
             kind,
             job_ids: Id::new(),
@@ -3153,6 +3182,121 @@ mod test {
         ));
         assert!(channel.job_creator.get_template_id_from_job(1).is_none());
         assert_eq!(channel.inner.job_ids, job_ids_before);
+    }
+
+    #[test]
+    fn extended_job_variants_are_selected_by_channel_and_job_id() {
+        let extranonces = ExtendedExtranonce::new(0..0, 0..8, 8..16);
+        let mut channel = pool_channel_factory(Vec::new(), extranonces);
+        let channel_id_1 = match &channel
+            .new_extended_channel(100, 100_000_000_000_000.0, 8)
+            .unwrap()[0]
+        {
+            Mining::OpenExtendedMiningChannelSuccess(success) => success.channel_id,
+            _ => panic!(),
+        };
+        let channel_id_2 = match &channel
+            .new_extended_channel(101, 100_000_000_000_000.0, 8)
+            .unwrap()[0]
+        {
+            Mining::OpenExtendedMiningChannelSuccess(success) => success.channel_id,
+            _ => panic!(),
+        };
+
+        let template_id = 10;
+        let mut template = new_template(template_id);
+        let messages = channel.on_new_template(&mut template).unwrap();
+        let job_1 = match messages.get(&channel_id_1).unwrap() {
+            Mining::NewExtendedMiningJob(job) => job.clone(),
+            _ => panic!(),
+        };
+        let job_2 = match messages.get(&channel_id_2).unwrap() {
+            Mining::NewExtendedMiningJob(job) => job.clone(),
+            _ => panic!(),
+        };
+        assert_eq!(job_1.job_id, job_2.job_id);
+
+        let prefix = job_1.coinbase_tx_prefix.to_vec();
+        let mut suffix_1 = job_1.coinbase_tx_suffix.to_vec();
+        *suffix_1.last_mut().unwrap() = 2;
+        let mut suffix_2 = job_2.coinbase_tx_suffix.to_vec();
+        *suffix_2.last_mut().unwrap() = 3;
+        let job_id = job_1.job_id;
+        channel.register_extended_job_variant(channel_id_1, job_id, suffix_1.clone());
+        channel.register_extended_job_variant(channel_id_2, job_id, suffix_2.clone());
+
+        let mut prev_hash = new_prev_hash(template_id);
+        prev_hash.target = vec![255; 32].try_into().unwrap();
+        channel.on_new_prev_hash_from_tp(&prev_hash).unwrap();
+
+        for (channel_id, suffix) in [(channel_id_1, suffix_1), (channel_id_2, suffix_2)] {
+            let mut share = submit_extended_share(channel_id);
+            share.job_id = job_id;
+            let result = channel.on_submit_shares_extended(share).unwrap();
+            let coinbase = match result {
+                OnNewShare::ShareMeetBitcoinTarget((_, _, coinbase, _)) => coinbase,
+                other => panic!("expected bitcoin-target share, got {:?}", other),
+            };
+            let expected_coinbase = [
+                prefix.clone(),
+                channel.get_extranonce_prefix(channel_id).unwrap(),
+                vec![0; 8],
+                suffix,
+            ]
+            .concat();
+            assert_eq!(coinbase, expected_coinbase);
+        }
+    }
+
+    #[test]
+    fn stale_extended_job_variant_cannot_make_evicted_base_job_valid() {
+        let extranonces = ExtendedExtranonce::new(0..0, 0..8, 8..16);
+        let mut channel = pool_channel_factory(Vec::new(), extranonces);
+        let channel_id = match &channel
+            .new_extended_channel(100, 100_000_000_000_000.0, 8)
+            .unwrap()[0]
+        {
+            Mining::OpenExtendedMiningChannelSuccess(success) => success.channel_id,
+            _ => panic!(),
+        };
+
+        let template_id = 10;
+        let mut template = new_template(template_id);
+        let messages = channel.on_new_template(&mut template).unwrap();
+        let stale_job = match messages.get(&channel_id).unwrap() {
+            Mining::NewExtendedMiningJob(job) => job.clone(),
+            _ => panic!(),
+        };
+        let stale_job_id = stale_job.job_id;
+        let stale_suffix = stale_job.coinbase_tx_suffix.to_vec();
+        channel.register_extended_job_variant(channel_id, stale_job_id, stale_suffix.clone());
+        channel
+            .on_new_prev_hash_from_tp(&new_prev_hash(template_id))
+            .unwrap();
+
+        for template_id in 11..14 {
+            let mut template = new_template(template_id);
+            template.future_template = false;
+            channel.on_new_template(&mut template).unwrap();
+        }
+
+        assert!(channel.inner.get_valid_job(stale_job_id).is_none());
+        assert!(!channel
+            .inner
+            .extended_job_variants
+            .contains_key(&(channel_id, stale_job_id)));
+
+        channel.register_extended_job_variant(channel_id, stale_job_id, stale_suffix);
+        assert!(channel
+            .inner
+            .extended_job_variants
+            .contains_key(&(channel_id, stale_job_id)));
+        let mut share = submit_extended_share(channel_id);
+        share.job_id = stale_job_id;
+        assert!(matches!(
+            channel.on_submit_shares_extended(share),
+            Err(Error::ShareDoNotMatchAnyJob)
+        ));
     }
 
     #[test]
