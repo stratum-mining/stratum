@@ -220,3 +220,76 @@ pub fn gen_channel_endpoint_changed(u: &mut Unstructured) -> arbitrary::Result<V
     gen_u32(u) // channel_id
 }
 
+// ============================================================================
+// Job Declaration Messages
+// ============================================================================
+
+pub fn gen_allocate_mining_job_token(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(32);
+    buf.extend_from_slice(&gen_str0255(u)?); // user_identifier
+    buf.extend_from_slice(&gen_u32(u)?); // request_id
+    Ok(buf)
+}
+
+pub fn gen_allocate_mining_job_token_success(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(64);
+    buf.extend_from_slice(&gen_u32(u)?); // request_id
+    buf.extend_from_slice(&gen_b0255(u)?); // mining_job_token
+    buf.extend_from_slice(&gen_b064k(u)?); // coinbase_outputs
+    Ok(buf)
+}
+
+pub fn gen_declare_mining_job(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(256);
+    buf.extend_from_slice(&gen_u32(u)?); // request_id
+    buf.extend_from_slice(&gen_b0255(u)?); // mining_job_token
+    buf.extend_from_slice(&gen_u32(u)?); // version
+    buf.extend_from_slice(&gen_b064k(u)?); // coinbase_tx_prefix
+    buf.extend_from_slice(&gen_b064k(u)?); // coinbase_tx_suffix
+    buf.extend_from_slice(&gen_seq064k(u, gen_u256, 256)?); // wtxid_list
+    buf.extend_from_slice(&gen_b064k(u)?); // excess_data
+    Ok(buf)
+}
+
+pub fn gen_declare_mining_job_success(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(32);
+    buf.extend_from_slice(&gen_u32(u)?); // request_id
+    buf.extend_from_slice(&gen_b0255(u)?); // new_mining_job_token
+    Ok(buf)
+}
+
+pub fn gen_declare_mining_job_error(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(64);
+    buf.extend_from_slice(&gen_u32(u)?); // request_id
+    buf.extend_from_slice(&gen_str0255(u)?); // error_code
+    buf.extend_from_slice(&gen_b064k(u)?); // error_details
+    Ok(buf)
+}
+
+pub fn gen_provide_missing_transactions(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(64);
+    buf.extend_from_slice(&gen_u32(u)?); // request_id
+    buf.extend_from_slice(&gen_seq064k(u, gen_u16, 256)?); // unknown_tx_position_list
+    Ok(buf)
+}
+
+pub fn gen_provide_missing_transactions_success(
+    u: &mut Unstructured,
+) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(64);
+    buf.extend_from_slice(&gen_u32(u)?); // request_id
+    // intentionally capped
+    buf.extend_from_slice(&gen_seq064k(u, gen_b016m, 10)?); // transaction_list.
+    Ok(buf)
+}
+
+pub fn gen_push_solution(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(52);
+    buf.extend_from_slice(&gen_b032(u)?); // extranonce
+    buf.extend_from_slice(&gen_u256(u)?); // prev_hash
+    buf.extend_from_slice(&gen_u32(u)?); // nonce
+    buf.extend_from_slice(&gen_u32(u)?); // ntime
+    buf.extend_from_slice(&gen_u32(u)?); // nbits
+    buf.extend_from_slice(&gen_u32(u)?); // version
+    Ok(buf)
+}
