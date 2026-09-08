@@ -491,3 +491,70 @@ pub fn gen_update_channel_error(u: &mut Unstructured) -> arbitrary::Result<Vec<u
     buf.extend_from_slice(&gen_str0255(u)?); // error_code
     Ok(buf)
 }
+
+// ============================================================================
+// Template Distribution Messages
+// ============================================================================
+
+pub fn gen_coinbase_output_constraints(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(6);
+    buf.extend_from_slice(&gen_u32(u)?); // coinbase_output_max_additional_size
+    buf.extend_from_slice(&gen_u16(u)?); // coinbase_output_max_additional_sigops
+    Ok(buf)
+}
+
+pub fn gen_new_template(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(128);
+    buf.extend_from_slice(&gen_u64(u)?); // template_id
+    buf.extend_from_slice(&gen_bool(u)?); // future_template
+    buf.extend_from_slice(&gen_u32(u)?); // version
+    buf.extend_from_slice(&gen_u32(u)?); // coinbase_tx_version
+    buf.extend_from_slice(&gen_b0255(u)?); // coinbase_prefix
+    buf.extend_from_slice(&gen_u32(u)?); // coinbase_tx_input_sequence
+    buf.extend_from_slice(&gen_u64(u)?); // coinbase_tx_value_remaining
+    buf.extend_from_slice(&gen_u32(u)?); // coinbase_tx_outputs_count
+    buf.extend_from_slice(&gen_b064k(u)?); // coinbase_tx_outputs
+    buf.extend_from_slice(&gen_u32(u)?); // coinbase_tx_locktime
+    buf.extend_from_slice(&gen_seq0255(u, gen_u256, 255)?); // merkle_path
+    Ok(buf)
+}
+
+pub fn gen_request_transaction_data(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    gen_u64(u) //template_id
+}
+
+pub fn gen_request_transaction_data_success(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(64);
+    buf.extend_from_slice(&gen_u64(u)?); // template_id
+    buf.extend_from_slice(&gen_b064k(u)?); // excess_data
+    // intentionally capped
+    buf.extend_from_slice(&gen_seq064k(u, gen_b016m, 10)?); // transaction_list
+    Ok(buf)
+}
+
+pub fn gen_request_transaction_data_error(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(32);
+    buf.extend_from_slice(&gen_u64(u)?); // template_id
+    buf.extend_from_slice(&gen_str0255(u)?); // error_code
+    Ok(buf)
+}
+
+pub fn gen_set_new_prev_hash_template(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(52);
+    buf.extend_from_slice(&gen_u64(u)?); // template_id
+    buf.extend_from_slice(&gen_u256(u)?); // prev_hash
+    buf.extend_from_slice(&gen_u32(u)?); // ntime_start
+    buf.extend_from_slice(&gen_u32(u)?); // n_bits
+    buf.extend_from_slice(&gen_u256(u)?); // target
+    Ok(buf)
+}
+
+pub fn gen_submit_solution(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(64);
+    buf.extend_from_slice(&gen_u64(u)?); // template_id
+    buf.extend_from_slice(&gen_u32(u)?); // version
+    buf.extend_from_slice(&gen_u32(u)?); // ntime
+    buf.extend_from_slice(&gen_u32(u)?); // nonce
+    buf.extend_from_slice(&gen_b064k(u)?); // coinbase_tx
+    Ok(buf)
+}

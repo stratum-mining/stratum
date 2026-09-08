@@ -308,9 +308,9 @@ macro_rules! test_datatype_roundtrip {
 #[allow(dead_code)]
 pub const TRAILING_JUNK: [u8; 6] = [0xAB, 0xCD, 0x00, 0xFF, 0x7F, 0x01];
 
-/// Returns a sorted, deduplicated list of strict prefix cut points for a given length.
+/// Sorted, deduplicated strict prefix cut points for a given length.
 ///
-/// Tests three representative positions: empty (0), midpoint (len/2), and one-byte-short (len-1).
+/// Tests empty (0), midpoint (len/2), and one-byte-short (len-1) positions.
 /// Used by the strict prefix rejection assertion (spec 3.1: self-delimiting types).
 #[allow(dead_code)]
 pub fn prefix_cuts(len: usize) -> Vec<usize> {
