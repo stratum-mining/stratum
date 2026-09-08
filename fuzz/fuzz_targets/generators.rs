@@ -328,3 +328,221 @@ pub fn gen_push_solution(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
     buf.extend_from_slice(&gen_u32(u)?); // version
     Ok(buf)
 }
+
+// ============================================================================
+// Mining Messages
+// ============================================================================
+
+/// Generates a wire-valid `CloseChannel` message.
+pub fn gen_close_channel(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(32);
+    buf.extend_from_slice(&gen_u32(u)?); // channel_id
+    buf.extend_from_slice(&gen_str0255(u)?); // reason_code
+    Ok(buf)
+}
+
+/// Generates a wire-valid `NewMiningJob` message.
+pub fn gen_new_mining_job(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(48);
+    buf.extend_from_slice(&gen_u32(u)?); // channel_id
+    buf.extend_from_slice(&gen_u32(u)?); // job_id
+    buf.extend_from_slice(&gen_sv2_option(u, gen_u32)?); // ntime_start
+    buf.extend_from_slice(&gen_u32(u)?); // version
+    buf.extend_from_slice(&gen_u256(u)?); // merkle_root
+    Ok(buf)
+}
+
+/// Generates a wire-valid `NewExtendedMiningJob` message.
+pub fn gen_new_extended_mining_job(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(128);
+    buf.extend_from_slice(&gen_u32(u)?); // channel_id
+    buf.extend_from_slice(&gen_u32(u)?); // job_id
+    buf.extend_from_slice(&gen_sv2_option(u, gen_u32)?); // ntime_start
+    buf.extend_from_slice(&gen_u32(u)?); // version
+    buf.extend_from_slice(&gen_bool(u)?); // version_rolling_allowed
+    buf.extend_from_slice(&gen_seq0255(u, gen_u256, 255)?); // merkle_path
+    buf.extend_from_slice(&gen_b064k(u)?); // coinbase_tx_prefix
+    buf.extend_from_slice(&gen_b064k(u)?); // coinbase_tx_suffix
+    Ok(buf)
+}
+
+/// Generates a wire-valid `OpenStandardMiningChannel` message.
+pub fn gen_open_standard_mining_channel(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(64);
+    buf.extend_from_slice(&gen_u32(u)?); // request_id
+    buf.extend_from_slice(&gen_str0255(u)?); // user_identity
+    buf.extend_from_slice(&gen_f32(u)?); // nominal_hash_rate
+    buf.extend_from_slice(&gen_u256(u)?); // max_target
+    Ok(buf)
+}
+/// Generates a wire-valid `OpenStandardMiningChannelSuccess` message.
+pub fn gen_open_standard_mining_channel_success(
+    u: &mut Unstructured,
+) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(72);
+    buf.extend_from_slice(&gen_u32(u)?); // request_id
+    buf.extend_from_slice(&gen_u32(u)?); // channel_id
+    buf.extend_from_slice(&gen_u256(u)?); // target
+    buf.extend_from_slice(&gen_b032(u)?); // extranonce_prefix
+    buf.extend_from_slice(&gen_u32(u)?); // group_channel_id
+    Ok(buf)
+}
+
+/// Generates a wire-valid `OpenExtendedMiningChannel` message.
+pub fn gen_open_extended_mining_channel(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(64);
+    buf.extend_from_slice(&gen_u32(u)?); // request_id
+    buf.extend_from_slice(&gen_str0255(u)?); // user_identity
+    buf.extend_from_slice(&gen_f32(u)?); // nominal_hash_rate
+    buf.extend_from_slice(&gen_u256(u)?); // max_target
+    buf.extend_from_slice(&gen_u16(u)?); // min_extranonce_size
+    Ok(buf)
+}
+
+/// Generates a wire-valid `OpenExtendedMiningChannelSuccess` message.
+pub fn gen_open_extended_mining_channel_success(
+    u: &mut Unstructured,
+) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(72);
+    buf.extend_from_slice(&gen_u32(u)?); // request_id
+    buf.extend_from_slice(&gen_u32(u)?); // channel_id
+    buf.extend_from_slice(&gen_u256(u)?); // target
+    buf.extend_from_slice(&gen_u16(u)?); // extranonce_size
+    buf.extend_from_slice(&gen_b032(u)?); // extranonce_prefix
+    buf.extend_from_slice(&gen_u32(u)?); // group_channel_id
+    Ok(buf)
+}
+
+/// Generates a wire-valid `OpenMiningChannelError` message.
+pub fn gen_open_mining_channel_error(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(32);
+    buf.extend_from_slice(&gen_u32(u)?); // request_id
+    buf.extend_from_slice(&gen_str0255(u)?); // error_code
+    Ok(buf)
+}
+
+/// Generates a wire-valid `SetCustomMiningJob` message.
+pub fn gen_set_custom_mining_job(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(256);
+    buf.extend_from_slice(&gen_u32(u)?); // channel_id
+    buf.extend_from_slice(&gen_u32(u)?); // request_id
+    buf.extend_from_slice(&gen_b0255(u)?); // mining_job_token
+    buf.extend_from_slice(&gen_u32(u)?); // version
+    buf.extend_from_slice(&gen_u256(u)?); // prev_hash
+    buf.extend_from_slice(&gen_u32(u)?); // ntime_start
+    buf.extend_from_slice(&gen_u32(u)?); // nBits
+    buf.extend_from_slice(&gen_u32(u)?); // coinbase_tx_version
+    buf.extend_from_slice(&gen_b0255(u)?); // coinbase_prefix
+    buf.extend_from_slice(&gen_u32(u)?); // coinbase_tx_input_nSequence
+    buf.extend_from_slice(&gen_b064k(u)?); // coinbase_tx_outputs
+    buf.extend_from_slice(&gen_u32(u)?); // coinbase_tx_locktime
+    buf.extend_from_slice(&gen_seq0255(u, gen_u256, 255)?); // merkle_path
+    Ok(buf)
+}
+
+/// Generates a wire-valid `SetCustomMiningJobSuccess` message.
+pub fn gen_set_custom_mining_job_success(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(12);
+    buf.extend_from_slice(&gen_u32(u)?); // channel_id
+    buf.extend_from_slice(&gen_u32(u)?); // request_id
+    buf.extend_from_slice(&gen_u32(u)?); // job_id
+    Ok(buf)
+}
+
+/// Generates a wire-valid `SetCustomMiningJobError` message.
+pub fn gen_set_custom_mining_job_error(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(32);
+    buf.extend_from_slice(&gen_u32(u)?); // channel_id
+    buf.extend_from_slice(&gen_u32(u)?); // request_id
+    buf.extend_from_slice(&gen_str0255(u)?); // error_code
+    Ok(buf)
+}
+
+/// Generates a wire-valid `SetExtranoncePrefix` message.
+pub fn gen_set_extranonce_prefix(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(40);
+    buf.extend_from_slice(&gen_u32(u)?); // channel_id
+    buf.extend_from_slice(&gen_b032(u)?); // extranonce_prefix
+    Ok(buf)
+}
+/// Generates a wire-valid `SetGroupChannel` message.
+pub fn gen_set_group_channel(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(64);
+    buf.extend_from_slice(&gen_u32(u)?); // group_channel_id
+    buf.extend_from_slice(&gen_seq064k(u, gen_u32, 256)?); // channel_ids
+    Ok(buf)
+}
+
+/// Generates a wire-valid `SetNewPrevHash` mining message.
+pub fn gen_set_new_prev_hash_mining(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(48);
+    buf.extend_from_slice(&gen_u32(u)?); // channel_id
+    buf.extend_from_slice(&gen_u32(u)?); // job_id
+    buf.extend_from_slice(&gen_u256(u)?); // prev_hash
+    buf.extend_from_slice(&gen_u32(u)?); // ntime_start
+    buf.extend_from_slice(&gen_u32(u)?); // nBits
+    Ok(buf)
+}
+
+/// Generates a wire-valid `SetTarget` message.
+pub fn gen_set_target(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(36);
+    buf.extend_from_slice(&gen_u32(u)?); // channel_id
+    buf.extend_from_slice(&gen_u256(u)?); // target
+    Ok(buf)
+}
+
+/// Generates a wire-valid `SubmitSharesStandard` message.
+pub fn gen_submit_shares_standard(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(24);
+    buf.extend_from_slice(&gen_u32(u)?); // channel_id
+    buf.extend_from_slice(&gen_u32(u)?); // sequence_number
+    buf.extend_from_slice(&gen_u32(u)?); // job_id
+    buf.extend_from_slice(&gen_u32(u)?); // nonce
+    buf.extend_from_slice(&gen_u32(u)?); // ntime
+    buf.extend_from_slice(&gen_u32(u)?); // version
+    Ok(buf)
+}
+
+/// Generates a wire-valid `SubmitSharesExtended` message.
+pub fn gen_submit_shares_extended(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = gen_submit_shares_standard(u)?;
+    buf.extend_from_slice(&gen_b032(u)?); // extranonce
+    Ok(buf)
+}
+
+/// Generates a wire-valid `SubmitSharesSuccess` message.
+pub fn gen_submit_shares_success(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(16);
+    buf.extend_from_slice(&gen_u32(u)?); // channel_id
+    buf.extend_from_slice(&gen_u32(u)?); // last_sequence_number
+    buf.extend_from_slice(&gen_u32(u)?); // new_submits_accepted_count
+    buf.extend_from_slice(&gen_u64(u)?); // new_shares_sum
+    Ok(buf)
+}
+
+/// Generates a wire-valid `SubmitSharesError` message.
+pub fn gen_submit_shares_error(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(32);
+    buf.extend_from_slice(&gen_u32(u)?); // channel_id
+    buf.extend_from_slice(&gen_u32(u)?); // sequence_number
+    buf.extend_from_slice(&gen_str0255(u)?); // error_code
+    Ok(buf)
+}
+
+/// Generates a wire-valid `UpdateChannel` message.
+pub fn gen_update_channel(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(40);
+    buf.extend_from_slice(&gen_u32(u)?); // channel_id
+    buf.extend_from_slice(&gen_f32(u)?); // nominal_hash_rate
+    buf.extend_from_slice(&gen_u256(u)?); // max_target
+    Ok(buf)
+}
+
+/// Generates a wire-valid `UpdateChannelError` message.
+pub fn gen_update_channel_error(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(32);
+    buf.extend_from_slice(&gen_u32(u)?); // channel_id
+    buf.extend_from_slice(&gen_str0255(u)?); // error_code
+    Ok(buf)
+}
