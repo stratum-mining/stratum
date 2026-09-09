@@ -56,6 +56,10 @@ jobs:
             exit 1
           fi
 
+          # Add new entries here when a target needs extra feature coverage.
+          declare -A TARGET_FEATURES
+          TARGET_FEATURES["deserialize_stdframe"]="with_buffer_pool"
+
           for TARGET in $(cargo fuzz list); do
             CORPUS_DIR="fuzz/repo-corpus/corpus/$TARGET"
 
@@ -70,4 +74,10 @@ jobs:
             # Keep target explicit to avoid sanitizer/libc mismatches when
             # cargo-fuzz's bundled default target differs from the runner.
             cargo fuzz run --target "$HOST_TARGET" "$TARGET" "$CORPUS_DIR" -- -runs=0 -max_total_time=30
+
+            # Run with feature variants if defined
+            if [ -n "${TARGET_FEATURES[$TARGET]+x}" ]; then
+              echo "==> Running fuzz target: $TARGET (features: ${TARGET_FEATURES[$TARGET]})"
+              cargo fuzz run --target "$HOST_TARGET" --features "${TARGET_FEATURES[$TARGET]}" "$TARGET" "$CORPUS_DIR" -- -runs=0 -max_total_time=30
+            fi
           done

@@ -71,6 +71,7 @@ checksum = "32637268377fc7b10a8c6d51de3e7fba1ce5dd371a96e342b34e6078db558e7f"
 name = "binary_sv2"
 version = "7.0.0"
 dependencies = [
+ "buffer_sv2",
  "derive_codec_sv2",
 ]
 
@@ -267,6 +268,7 @@ name = "framing_sv2"
 version = "8.0.0"
 dependencies = [
  "binary_sv2",
+ "buffer_sv2",
  "noise_sv2",
 ]
 
@@ -278,7 +280,6 @@ dependencies = [
  "binary_sv2",
  "codec_sv2",
  "common_messages_sv2",
- "framing_sv2",
  "job_declaration_sv2",
  "libfuzzer-sys",
  "mining_sv2",
@@ -423,6 +424,7 @@ dependencies = [
  "chacha20poly1305",
  "rand",
  "secp256k1 0.28.2",
+ "zeroize",
 ]
 
 [[package]]

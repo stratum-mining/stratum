@@ -1,6 +1,7 @@
 #![no_main]
 
 mod common;
+mod generators;
 
 use arbitrary::Arbitrary;
 use binary_sv2::{Deserialize, GetSize, Serialize};
@@ -21,26 +22,25 @@ enum FuzzInput {
 fuzz_target!(|input: FuzzInput| {
     match input {
         FuzzInput::CoinbaseOutputConstraints(data) => {
-            test_roundtrip!(CoinbaseOutputConstraints, data)
+            test_roundtrip!(CoinbaseOutputConstraints, data, generators::gen_coinbase_output_constraints);
         }
         FuzzInput::NewTemplate(data) => {
-            test_roundtrip!(NewTemplate, data)
+            test_roundtrip!(NewTemplate, data, generators::gen_new_template);
         }
         FuzzInput::RequestTransactionData(data) => {
-            test_roundtrip!(RequestTransactionData, data)
+            test_roundtrip!(RequestTransactionData, data, generators::gen_request_transaction_data);
         }
         FuzzInput::RequestTransactionDataSuccess(data) => {
-            test_roundtrip!(RequestTransactionDataSuccess, data)
+            test_roundtrip!(RequestTransactionDataSuccess, data, generators::gen_request_transaction_data_success);
         }
         FuzzInput::RequestTransactionDataError(data) => {
-            test_roundtrip!(RequestTransactionDataError, data)
+            test_roundtrip!(RequestTransactionDataError, data, generators::gen_request_transaction_data_error);
         }
         FuzzInput::SetNewPrevHash(data) => {
-            test_roundtrip!(SetNewPrevHash, data)
+            test_roundtrip!(SetNewPrevHash, data, generators::gen_set_new_prev_hash_template);
         }
         FuzzInput::SubmitSolution(data) => {
-            test_roundtrip!(SubmitSolution, data)
+            test_roundtrip!(SubmitSolution, data, generators::gen_submit_solution);
         }
     }
 });
-
