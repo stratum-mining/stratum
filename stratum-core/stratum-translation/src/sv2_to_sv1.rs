@@ -92,7 +92,7 @@ pub fn build_sv1_notify_from_sv2(
 /// Builds an SV1 `mining.set_difficulty` JSON-RPC message from an SV2 `SetTarget`.
 ///
 /// # Arguments
-/// * `set_target` - The SV2 `SetTarget` message containing the new maximum target.
+/// * `set_target` - The SV2 `SetTarget` message containing the new target.
 ///
 /// # Returns
 /// * `Ok(json_rpc::Message)` - The constructed SV1 mining.set_difficulty message.
@@ -100,12 +100,7 @@ pub fn build_sv1_set_difficulty_from_sv2_set_target(
     set_target: SetTargetOwned,
 ) -> Result<json_rpc::Message> {
     build_sv1_set_difficulty_from_sv2_target(Target::from_le_bytes(
-        set_target
-            .maximum_target
-            .clone()
-            .as_ref()
-            .try_into()
-            .unwrap(),
+        set_target.target.clone().as_ref().try_into().unwrap(),
     ))
 }
 
@@ -308,7 +303,7 @@ mod tests {
     fn test_build_sv1_set_difficulty_from_sv2_set_target() {
         let set_target = Sv2SetTarget {
             channel_id: 1,
-            maximum_target: dummy_target().to_le_bytes().into(),
+            target: dummy_target().to_le_bytes().into(),
         };
         let msg = build_sv1_set_difficulty_from_sv2_set_target(set_target)
             .expect("Should convert SetTarget to difficulty");

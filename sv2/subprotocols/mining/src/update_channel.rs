@@ -24,22 +24,21 @@ pub struct UpdateChannel<'decoder> {
     /// messages, based on new job readiness on the server, this field is understood as
     /// downstream’s request.
     ///
-    /// When maximum target is smaller than currently used maximum target for the channel,
-    /// upstream node must reflect the downstreams’s request (and send appropriate [`SetTarget`]
-    /// message).
+    /// When this field is smaller than the channel’s current target, upstream node must reflect
+    /// the downstreams’s request (and send appropriate [`SetTarget`] message).
     ///
-    /// Upstream can change maximum target by sending [`SetTarget`] message.
+    /// Upstream can change the channel target by sending [`SetTarget`] message.
     ///
     /// [`SetTarget`]: crate::SetTarget
-    pub maximum_target: U256<'decoder>,
+    pub max_target: U256<'decoder>,
 }
 
 impl fmt::Display for UpdateChannel<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "⛏️ UpdateChannel(channel_id={}, nominal_hash_rate={}, maximum_target={})",
-            self.channel_id, self.nominal_hash_rate, self.maximum_target
+            "⛏️ UpdateChannel(channel_id={}, nominal_hash_rate={}, max_target={})",
+            self.channel_id, self.nominal_hash_rate, self.max_target
         )
     }
 }
@@ -48,8 +47,8 @@ impl fmt::Display for UpdateChannelOwned {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "⛏️ UpdateChannel(channel_id={}, nominal_hash_rate={}, maximum_target={})",
-            self.channel_id, self.nominal_hash_rate, self.maximum_target
+            "⛏️ UpdateChannel(channel_id={}, nominal_hash_rate={}, max_target={})",
+            self.channel_id, self.nominal_hash_rate, self.max_target
         )
     }
 }
