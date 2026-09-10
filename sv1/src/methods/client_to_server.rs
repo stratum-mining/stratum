@@ -528,6 +528,9 @@ impl fmt::Display for Configure {
 }
 
 impl Configure {
+    /// Creates a BIP 310 version-rolling request.
+    ///
+    /// The mask is encoded as a hexadecimal string and the minimum bit count as a JSON integer.
     pub fn new(id: u64, mask: Option<HexU32Be>, min_bit_count: Option<HexU32Be>) -> Self {
         let extension = ConfigureExtension::VersionRolling(VersionRollingParams {
             mask,
@@ -822,17 +825,15 @@ impl From<VersionRollingParams> for serde_json::Map<String, Value> {
         match (conf.mask, conf.min_bit_count) {
             (Some(mask), Some(min)) => {
                 let mask: String = mask.into();
-                let min: String = min.into();
                 params.insert("version-rolling.mask".to_string(), mask.into());
-                params.insert("version-rolling.min-bit-count".to_string(), min.into());
+                params.insert("version-rolling.min-bit-count".to_string(), min.0.into());
             }
             (Some(mask), None) => {
                 let mask: String = mask.into();
                 params.insert("version-rolling.mask".to_string(), mask.into());
             }
             (None, Some(min)) => {
-                let min: String = min.into();
-                params.insert("version-rolling.min-bit-count".to_string(), min.into());
+                params.insert("version-rolling.min-bit-count".to_string(), min.0.into());
             }
             (None, None) => (),
         };
@@ -907,6 +908,17 @@ fn test_version_extension_with_non_string_bit_count() {
         }
         _ => panic!(),
     };
+
+    let serialized = serde_json::to_value(Message::from(server_configure)).unwrap();
+    assert_eq!(serialized["params"][1]["version-rolling.mask"], "1fffffe0");
+    assert_eq!(serialized["params"][1]["version-rolling.min-bit-count"], 16);
+
+    let configure = Configure::new(0, None, Some(HexU32Be(16)));
+    let serialized = serde_json::to_value(Message::from(configure)).unwrap();
+    assert_eq!(serialized["params"][1]["version-rolling.min-bit-count"], 16);
+    assert!(serialized["params"][1]
+        .get("version-rolling.mask")
+        .is_none());
 }
 
 #[test]
