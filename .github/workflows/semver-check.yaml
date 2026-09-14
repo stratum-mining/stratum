@@ -119,3 +119,17 @@ jobs:
       - name: Run semver checks for stratum-core
         working-directory: stratum-core
         run: cargo semver-checks
+
+  version-bump-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Full history, so the script can diff the PR against its
+          # merge-base with the base branch.
+          fetch-depth: 0
+
+      - name: Check that modified crates carry a version bump
+        run: ./scripts/check-version-bumps.sh origin/${{ github.base_ref }}
