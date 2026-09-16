@@ -88,8 +88,8 @@ impl SignatureNoiseMessage {
     // (i.e., within the `valid_from` and `not_valid_after` time window) and that the signature
     // is correctly signed by the authority.
     //
-    // If an authority public key is not provided, the function assumes that the signature
-    // is already valid without further verification.
+    // If an authority public key is not provided, only the certificate version is checked; the
+    // signature and the validity window are ignored and the message is accepted as is.
     #[allow(dead_code)]
     #[cfg(feature = "std")]
     pub fn verify(self, pk: &XOnlyPublicKey, authority_pk: &Option<XOnlyPublicKey>) -> bool {
@@ -103,7 +103,14 @@ impl SignatureNoiseMessage {
     /// Verifies the validity and authenticity of the `SignatureNoiseMessage` at a given timestamp
     /// with 10 seconds of tolerance.
     ///
-    /// See [`Self::verify`] for more details.
+    /// With an authority public key, the message must carry the supported certificate version,
+    /// `now` must fall inside its validity window, and its signature over the responder's static
+    /// key `pk` must verify against the authority key.
+    ///
+    /// # Security
+    ///
+    /// Without an authority public key, only the certificate version is checked and the message is
+    /// otherwise accepted unverified, so `true` does not mean the responder was authenticated.
     ///
     /// The current system time should be provided to avoid relying on `std` and allow `no_std`
     /// environments to use another source of time.
