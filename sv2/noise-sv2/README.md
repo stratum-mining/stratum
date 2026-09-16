@@ -10,7 +10,7 @@
 `noise_sv2` is primarily intended to secure communication in the Stratum V2 (Sv2) protocol. It handles the necessary Noise handshakes, encrypts outgoing messages, and decrypts incoming responses, ensuring privacy and integrity across the communication link between Sv2 roles. See the [Protocol Security specification](https://github.com/stratum-mining/sv2-spec/blob/main/04-Protocol-Security.md) for more details.
 
 ## Key Capabilities
-* **Secure Communication**: Provides encryption and authentication for messages exchanged between different Sv2 roles.
+* **Secure Communication**: Provides encryption and authentication for messages exchanged between different Sv2 roles. The responder is only authenticated when the `Initiator` is given its authority public key; an `Initiator` built without one (`Initiator::without_pk`) yields an encrypted but unauthenticated session.
 * **Cipher Support**: Uses `ChaCha20-Poly1305` for authenticated encryption.
 * **Handshake Roles**: Implements the `Initiator` and `Responder` roles required by the Noise handshake, allowing both sides of a connection to establish secure communication.
 * **Cryptographic Helpers**: Facilitates the management of cryptographic state and encryption operations.
