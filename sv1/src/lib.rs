@@ -28,7 +28,9 @@
 //! Every response contains the following parts
 //! * message ID: same ID as in request, for pairing request-response together
 //! * result: any json-encoded result object (number, string, list, array, …)
-//! * error: null or list (error code, error message)
+//! * error: null or a three-element list (error code, error message, additional data). The third
+//!   element is null when no additional data is provided. For compatibility, deserialization also
+//!   accepts two-element lists with absent data and object-form errors.
 //!
 //! References:
 //! [https://docs.google.com/document/d/17zHy1SUlhgtCMbypO8cHgpWH73V5iUQKk_0rWvMqSNs/edit?hl=en_US#]
@@ -102,6 +104,22 @@ pub trait IsServer {
     {
         let request = msg.try_into().map_err(Error::from)?;
 
+        self.handle_parsed_request(client_id, request)
+    }
+
+    /// Handles a request already decoded by [`methods::Client2Server::try_from`].
+    ///
+    /// Servers may use the typed request to check session ordering before allocating resources,
+    /// then dispatch it here without parsing it again. This is the same dispatch path used by
+    /// [`Self::handle_message`]; decoding alone does not execute handlers or authorize a client.
+    fn handle_parsed_request(
+        &mut self,
+        client_id: Option<usize>,
+        request: methods::Client2Server,
+    ) -> Result<Option<json_rpc::Response>, Self::Error>
+    where
+        Self: std::marker::Sized,
+    {
         match request {
             // TODO: Handle suggested difficulty
             methods::Client2Server::SuggestDifficulty() => Ok(None),
@@ -122,9 +140,9 @@ pub trait IsServer {
                 let (version_rolling, min_diff) = self.handle_configure(client_id, &configure)?;
                 Ok(Some(configure.respond(version_rolling, min_diff)))
             }
-            methods::Client2Server::ExtranonceSubscribe(_) => {
-                self.handle_extranonce_subscribe()?;
-                Ok(None)
+            methods::Client2Server::ExtranonceSubscribe(subscribe) => {
+                self.handle_extranonce_subscribe(client_id)?;
+                Ok(Some(subscribe.respond()))
             }
             methods::Client2Server::Submit(submit) => {
                 let has_valid_version_bits = match &submit.version_bits {
@@ -138,16 +156,23 @@ pub trait IsServer {
                     None => self.version_rolling_mask(client_id)?.is_none(),
                 };
 
-                let is_valid_submission = self.is_authorized(client_id, &submit.user_name)?
-                    && self.extranonce2_size(client_id)? == submit.extra_nonce2.len()
-                    && has_valid_version_bits;
-
-                if is_valid_submission {
-                    let accepted = self.handle_submit(client_id, &submit)?;
-                    Ok(Some(submit.respond(accepted)))
-                } else {
-                    Err(Error::InvalidSubmission.into())
+                if !self.is_authorized(client_id, &submit.user_name)? {
+                    return Ok(Some(submit.respond(
+                        client_to_server::SubmitOutcome::Rejected(
+                            client_to_server::SubmitError::UnauthorizedWorker,
+                        ),
+                    )));
                 }
+
+                let outcome = if self.extranonce2_size(client_id)? != submit.extra_nonce2.len()
+                    || !has_valid_version_bits
+                {
+                    client_to_server::SubmitOutcome::Rejected(client_to_server::SubmitError::Other)
+                } else {
+                    self.handle_submit(client_id, &submit)?
+                };
+
+                Ok(Some(submit.respond(outcome)))
             }
             methods::Client2Server::Subscribe(subscribe) => {
                 let subscriptions = self.handle_subscribe(client_id, &subscribe)?;
@@ -205,16 +230,29 @@ pub trait IsServer {
         request: &client_to_server::Authorize,
     ) -> Result<bool, Self::Error>;
 
-    /// When miner find the job which meets requested difficulty, it can submit share to the server.
-    /// Only [Submit](client_to_server::Submit) requests for authorized user names can be submitted.
+    /// Validates a share after the default request handler has checked its SV1 session fields.
+    ///
+    /// [`Self::handle_parsed_request`] calls this only when the worker is authorized, extranonce2
+    /// has the size returned by [`Self::extranonce2_size`], and the version bits match the negotiated
+    /// version-rolling mask (including whether version bits must be present).
+    ///
+    /// Unauthorized workers receive [`client_to_server::SubmitError::UnauthorizedWorker`] (24).
+    /// Invalid extranonce2 sizes or version bits receive [`client_to_server::SubmitError::Other`]
+    /// (20). These rejections bypass this method and return `Ok(Some(response))`, not a Rust error;
+    /// applications that log or count them should inspect the returned response's `error` field.
+    /// Errors returned by the session-state accessors are still propagated to the caller.
     fn handle_submit(
         &self,
         client_id: Option<usize>,
         request: &client_to_server::Submit,
-    ) -> Result<bool, Self::Error>;
+    ) -> Result<client_to_server::SubmitOutcome, Self::Error>;
 
-    /// Indicates to the server that the client supports the mining.set_extranonce method.
-    fn handle_extranonce_subscribe(&self) -> Result<(), Self::Error>;
+    /// Records that the identified client supports the `mining.set_extranonce`
+    /// notification.
+    ///
+    /// The mutable receiver allows an implementation to retain this capability
+    /// for the lifetime of the client session.
+    fn handle_extranonce_subscribe(&mut self, client_id: Option<usize>) -> Result<(), Self::Error>;
 
     fn is_authorized(&self, client_id: Option<usize>, name: &str) -> Result<bool, Self::Error>;
 
@@ -285,6 +323,26 @@ pub trait IsServer {
     }
 }
 
+fn route_general_response(
+    general: server_to_client::GeneralResponse,
+    authorize_user_name: Option<String>,
+    is_submit: bool,
+    is_extranonce_subscribe: bool,
+) -> Result<methods::Server2ClientResponse, Error> {
+    match (authorize_user_name, is_submit, is_extranonce_subscribe) {
+        (Some(previous_name), false, false) => Ok(methods::Server2ClientResponse::Authorize(
+            general.into_authorize(previous_name),
+        )),
+        (None, false, true) => Ok(methods::Server2ClientResponse::ExtranonceSubscribe(
+            general.into_extranonce_subscribe(),
+        )),
+        (None, false, false) => Ok(methods::Server2ClientResponse::Submit(
+            general.into_submit(),
+        )),
+        _ => Err(Error::UnknownID(general.id)),
+    }
+}
+
 pub trait IsClient {
     /// Error returned by the client implementation.
     ///
@@ -327,22 +385,16 @@ pub trait IsClient {
         server_id: Option<usize>,
         response: methods::Server2ClientResponse,
     ) -> Result<methods::Server2ClientResponse, Self::Error> {
-        match &response {
+        match response {
             methods::Server2ClientResponse::GeneralResponse(general) => {
                 let is_authorize = self.id_is_authorize(server_id, &general.id)?;
                 let is_submit = self.id_is_submit(server_id, &general.id)?;
-                match (is_authorize, is_submit) {
-                    (Some(prev_name), false) => {
-                        let authorize = general.clone().into_authorize(prev_name);
-                        Ok(methods::Server2ClientResponse::Authorize(authorize))
-                    }
-                    (None, false) => Ok(methods::Server2ClientResponse::Submit(
-                        general.clone().into_submit(),
-                    )),
-                    _ => Err(Error::UnknownID(general.id).into()),
-                }
+                let is_extranonce_subscribe =
+                    self.id_is_extranonce_subscribe(server_id, &general.id)?;
+                route_general_response(general, is_authorize, is_submit, is_extranonce_subscribe)
+                    .map_err(Self::Error::from)
             }
-            _ => Ok(response),
+            response => Ok(response),
         }
     }
 
@@ -417,6 +469,7 @@ pub trait IsClient {
                 };
                 Ok(None)
             }
+            methods::Server2ClientResponse::ExtranonceSubscribe(_) => Ok(None),
             methods::Server2ClientResponse::Submit(_) => Ok(None),
             // impossible state
             methods::Server2ClientResponse::GeneralResponse(_) => panic!(),
@@ -440,6 +493,17 @@ pub trait IsClient {
 
     /// Check if the client sent a Submit request with the given id
     fn id_is_submit(&mut self, server_id: Option<usize>, id: &u64) -> Result<bool, Self::Error>;
+
+    /// Returns whether `id` belongs to a `mining.extranonce.subscribe` request.
+    ///
+    /// Clients that do not send this extension can use the default implementation.
+    fn id_is_extranonce_subscribe(
+        &mut self,
+        _server_id: Option<usize>,
+        _id: &u64,
+    ) -> Result<bool, Self::Error> {
+        Ok(false)
+    }
 
     fn handle_notify(
         &mut self,
@@ -644,9 +708,30 @@ mod tests {
     use super::*;
     use std::collections::HashSet;
 
+    #[test]
+    fn extranonce_subscribe_acknowledgement_has_distinct_response_route() {
+        let response = route_general_response(
+            server_to_client::GeneralResponse {
+                id: 42,
+                result: true,
+            },
+            None,
+            false,
+            true,
+        )
+        .unwrap();
+
+        let methods::Server2ClientResponse::ExtranonceSubscribe(response) = response else {
+            panic!("extranonce subscription acknowledgement was routed as another response");
+        };
+        assert_eq!(response.id, 42);
+        assert!(response.is_ok());
+    }
+
     // A minimal implementation of IsServer trait for testing
     struct TestServer {
         authorized_users: HashSet<String>,
+        extranonce_subscriptions: HashSet<Option<usize>>,
         extranonce1: Extranonce,
         extranonce2_size: usize,
         version_rolling_mask: Option<HexU32Be>,
@@ -657,6 +742,7 @@ mod tests {
         fn new(extranonce1: Extranonce, extranonce2_size: usize) -> Self {
             Self {
                 authorized_users: HashSet::new(),
+                extranonce_subscriptions: HashSet::new(),
                 extranonce1,
                 extranonce2_size,
                 version_rolling_mask: None,
@@ -706,11 +792,12 @@ mod tests {
             &self,
             _client_id: Option<usize>,
             _request: &client_to_server::Submit,
-        ) -> Result<bool, Error> {
-            Ok(true)
+        ) -> Result<client_to_server::SubmitOutcome, Error> {
+            Ok(client_to_server::SubmitOutcome::Accepted)
         }
 
-        fn handle_extranonce_subscribe(&self) -> Result<(), Error> {
+        fn handle_extranonce_subscribe(&mut self, client_id: Option<usize>) -> Result<(), Error> {
+            self.extranonce_subscriptions.insert(client_id);
             Ok(())
         }
 
@@ -801,6 +888,136 @@ mod tests {
             },
             other => panic!("Expected Error::Method, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn extranonce_subscribe_passes_client_id_to_server() {
+        let extranonce1 = Extranonce::try_from(hex_decode("08000002").unwrap()).unwrap();
+        let mut server = TestServer::new(extranonce1, 4);
+        let request = json_rpc::Message::StandardRequest(json_rpc::StandardRequest {
+            id: 42,
+            method: "mining.extranonce.subscribe".to_string(),
+            params: serde_json::json!([]),
+        });
+
+        let response = server.handle_message(Some(7), request).unwrap();
+
+        let response = response.expect("extranonce subscribe should be acknowledged");
+        assert_eq!(response.id, 42);
+        assert_eq!(response.result, serde_json::json!(true));
+        assert!(response.error.is_none());
+        assert_eq!(server.extranonce_subscriptions, HashSet::from([Some(7)]));
+    }
+
+    #[test]
+    fn extranonce_subscribe_ignores_params_and_acknowledges_request_id() {
+        for params in [
+            serde_json::Value::Null,
+            serde_json::json!(["ignored"]),
+            serde_json::json!({"ignored": true}),
+        ] {
+            let extranonce1 = vec![0; 4].try_into().unwrap();
+            let mut server = TestServer::new(extranonce1, 4);
+            let request = serde_json::from_value(serde_json::json!({
+                "id": 42,
+                "method": "mining.extranonce.subscribe",
+                "params": params,
+            }))
+            .unwrap();
+
+            let response = server
+                .handle_message(Some(7), request)
+                .unwrap()
+                .expect("extranonce subscribe should be acknowledged");
+
+            assert_eq!(response.id, 42);
+            assert_eq!(response.result, serde_json::json!(true));
+            assert!(response.error.is_none());
+            assert_eq!(server.extranonce_subscriptions, HashSet::from([Some(7)]));
+        }
+    }
+
+    #[test]
+    fn parsed_requests_use_the_same_dispatch_as_wire_messages() {
+        let prefix: Extranonce = vec![1, 2, 3, 4].try_into().unwrap();
+        let mut wire_server = TestServer::new(prefix.clone(), 4);
+        let mut typed_server = TestServer::new(prefix, 4);
+        for wire in [
+            r#"{"id":1,"method":"mining.configure","params":[[],{}]}"#,
+            r#"{"id":2,"method":"mining.subscribe","params":[]}"#,
+            r#"{"id":3,"method":"mining.authorize","params":["worker",""]}"#,
+            r#"{"id":4,"method":"mining.extranonce.subscribe","params":[]}"#,
+            r#"{"id":5,"method":"mining.submit","params":["worker","1","00000000","00000001","00000000"]}"#,
+        ] {
+            let message: Message = serde_json::from_str(wire).unwrap();
+            let request = methods::Client2Server::try_from(message.clone()).unwrap();
+            let wire_response = wire_server.handle_message(Some(7), message).unwrap();
+            let typed_response = typed_server
+                .handle_parsed_request(Some(7), request)
+                .unwrap();
+            assert_eq!(
+                serde_json::to_value(wire_response).unwrap(),
+                serde_json::to_value(typed_response).unwrap()
+            );
+            assert_eq!(wire_server.authorized_users, typed_server.authorized_users);
+            assert_eq!(
+                wire_server.extranonce_subscriptions,
+                typed_server.extranonce_subscriptions
+            );
+        }
+    }
+
+    #[test]
+    fn invalid_submit_fields_return_code_20() {
+        let extranonce1 = Extranonce::try_from(hex_decode("08000002").unwrap()).unwrap();
+        let mut server = TestServer::new(extranonce1, 4);
+        server.authorized_users.insert("worker".to_string());
+        let request = client_to_server::Submit {
+            user_name: "worker".to_string(),
+            job_id: "job".to_string(),
+            extra_nonce2: vec![0; 3].try_into().unwrap(),
+            time: HexU32Be(0),
+            nonce: HexU32Be(0),
+            version_bits: None,
+            id: 42,
+        };
+
+        let response = server
+            .handle_message(None, request.into())
+            .unwrap()
+            .expect("mining.submit must receive a response");
+
+        assert_eq!(response.result, serde_json::Value::Null);
+        let error = response
+            .error
+            .expect("invalid submit must include an error");
+        assert_eq!(error.code, 20);
+    }
+
+    #[test]
+    fn unauthorized_submit_returns_code_24() {
+        let extranonce1 = Extranonce::try_from(hex_decode("08000002").unwrap()).unwrap();
+        let mut server = TestServer::new(extranonce1, 4);
+        let request = client_to_server::Submit {
+            user_name: "worker".to_string(),
+            job_id: "job".to_string(),
+            extra_nonce2: vec![0; 4].try_into().unwrap(),
+            time: HexU32Be(0),
+            nonce: HexU32Be(0),
+            version_bits: None,
+            id: 42,
+        };
+
+        let response = server
+            .handle_message(None, request.into())
+            .unwrap()
+            .expect("unauthorized mining.submit must receive a response");
+
+        assert_eq!(response.result, serde_json::Value::Null);
+        let error = response
+            .error
+            .expect("unauthorized mining.submit must include an error");
+        assert_eq!(error.code, 24);
     }
 
     #[test]

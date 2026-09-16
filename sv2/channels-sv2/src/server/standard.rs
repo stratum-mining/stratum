@@ -327,6 +327,50 @@ impl StandardChannel {
         Ok(())
     }
 
+    /// Replaces the upstream-assigned region of this channel's extranonce prefix.
+    ///
+    /// The locally allocated suffix and its bitmap lease remain attached to the channel, so this
+    /// does not consume a second allocation while jobs created with the previous upstream prefix
+    /// remain valid. Existing jobs retain their captured prefix bytes; new jobs use the updated
+    /// prefix.
+    ///
+    /// The channel is left unchanged if the resulting prefix exceeds
+    /// [`MAX_EXTRANONCE_LEN`] or the assembled coinbase `scriptSig` budget.
+    ///
+    /// Old prefix bytes share ownership of the same allocator slot while any future, active or
+    /// past job uses them. A later `set_extranonce_prefix` rotation cannot release that slot
+    /// prematurely. Once those jobs are stale or evicted, only the current prefix (if it still
+    /// uses this allocation) keeps the slot reserved. This update consumes no additional slot.
+    ///
+    /// If this channel belongs to a [`GroupChannel`](super::group::GroupChannel) and the update
+    /// changes its full extranonce size, the application must update the group with
+    /// [`GroupChannel::set_full_extranonce_size`](super::group::GroupChannel::set_full_extranonce_size)
+    /// and register the compatible channel IDs again. Changing the group size clears its current
+    /// channel membership.
+    pub fn set_upstream_extranonce_prefix(
+        &mut self,
+        upstream_prefix: &[u8],
+    ) -> Result<(), StandardChannelError> {
+        let updated_prefix_len = upstream_prefix.len() + self.extranonce_prefix.preserved_len();
+        if updated_prefix_len > MAX_EXTRANONCE_LEN as usize {
+            return Err(StandardChannelError::ExtranoncePrefixTooLarge);
+        }
+        if !self.job_factory.fits_script_sig_budget(updated_prefix_len) {
+            return Err(StandardChannelError::ScriptSigSizeTooLarge);
+        }
+
+        let snapshot = self
+            .extranonce_prefix
+            .snapshot_for_upstream_update(upstream_prefix);
+        self.extranonce_prefix
+            .set_upstream_prefix(upstream_prefix)
+            .map_err(|_| StandardChannelError::ExtranoncePrefixTooLarge)?;
+        if let Some(snapshot) = snapshot {
+            self.job_store.retire_extranonce_prefix(snapshot);
+        }
+        Ok(())
+    }
+
     /// Updates the current target for this channel.
     ///
     /// Please note that this will NOT update the target associated with jobs that were already created.
@@ -2141,13 +2185,60 @@ mod tests {
         // scriptSig one byte past the budget must be rejected
         let oversized_prefix = vec![0xcd; EXTRANONCE_PREFIX_LEN_AT_BINDING_BUDGET + 1];
         assert!(oversized_prefix.len() <= MAX_EXTRANONCE_LEN as usize);
-        let res = channel
-            .set_extranonce_prefix(AllocatedExtranoncePrefix::for_test(oversized_prefix).unwrap());
+        let res = channel.set_extranonce_prefix(
+            AllocatedExtranoncePrefix::for_test(oversized_prefix.clone()).unwrap(),
+        );
         assert!(matches!(
             res.unwrap_err(),
             StandardChannelError::ScriptSigSizeTooLarge
         ));
         assert_eq!(channel.get_extranonce_prefix(), &original_prefix[..]);
+
+        let res = channel.set_upstream_extranonce_prefix(&oversized_prefix);
+        assert!(matches!(
+            res.unwrap_err(),
+            StandardChannelError::ScriptSigSizeTooLarge
+        ));
+        assert_eq!(channel.get_extranonce_prefix(), &original_prefix[..]);
+    }
+
+    #[test]
+    fn test_set_upstream_extranonce_prefix_preserves_allocation_transactionally() {
+        let mut allocator =
+            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 5, 256).unwrap();
+        let allocated_prefix = allocator.allocate_standard().unwrap();
+        let old_suffix = allocated_prefix.as_bytes()[1..].to_vec();
+        let mut channel = StandardChannel::new(
+            1,
+            "user_identity".to_string(),
+            allocated_prefix.into(),
+            Target::from_le_bytes([0xff; 32]),
+            1.0,
+            100,
+            1.0,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        allocator.set_upstream_prefix(vec![0xcc, 0xdd]).unwrap();
+        channel
+            .set_upstream_extranonce_prefix(allocator.upstream_prefix())
+            .unwrap();
+        let mut expected = vec![0xcc, 0xdd];
+        expected.extend_from_slice(&old_suffix);
+        assert_eq!(channel.get_extranonce_prefix(), &expected);
+        assert_eq!(allocator.allocated_count(), 1);
+
+        let prefix_before_error = channel.get_extranonce_prefix().to_vec();
+        let result = channel.set_upstream_extranonce_prefix(&[0xee; 29]);
+        assert!(matches!(
+            result,
+            Err(StandardChannelError::ExtranoncePrefixTooLarge)
+        ));
+        assert_eq!(channel.get_extranonce_prefix(), &prefix_before_error);
+        assert_eq!(allocator.allocated_count(), 1);
     }
 
     #[test]
@@ -2430,19 +2521,10 @@ mod tests {
         assert!(standard_channel.get_active_job().is_some());
     }
 
-    #[test]
-    fn test_rotated_extranonce_prefix_slot_not_reused_while_job_live() {
-        // Regression test: rotating the channel's extranonce prefix must not return the old
-        // prefix's allocator slot to the free pool while jobs created under it can still accept
-        // shares. Otherwise the allocator could hand the very same extranonce space to a second
-        // live channel, making the same work replayable across both.
-        let mut allocator = ExtranonceAllocator::new(vec![], 32, 2).unwrap();
-
-        let prefix_1 = allocator.allocate_standard().unwrap();
-        let prefix_2 = allocator.allocate_standard().unwrap();
-        assert_ne!(prefix_1.as_bytes(), prefix_2.as_bytes());
-        assert_eq!(allocator.allocated_count(), 2);
-
+    fn standard_channel_with_live_job(
+        prefix_1: AllocatedExtranoncePrefix,
+        future: bool,
+    ) -> (StandardChannel, Vec<u8>) {
         let prefix_1_bytes = prefix_1.as_bytes().to_vec();
 
         let mut standard_channel = StandardChannel::new_for_pool(
@@ -2460,7 +2542,7 @@ mod tests {
 
         let template = NewTemplate {
             template_id: 1,
-            future_template: false,
+            future_template: future,
             version: 536870912,
             coinbase_tx_version: 2,
             coinbase_prefix: vec![2, 159, 0, 0].try_into().unwrap(),
@@ -2501,6 +2583,91 @@ mod tests {
         standard_channel
             .on_new_template(template, coinbase_reward_outputs)
             .unwrap();
+
+        (standard_channel, prefix_1_bytes)
+    }
+
+    #[test]
+    fn test_mixed_prefix_updates_reserve_slot_until_jobs_go_stale() {
+        for future in [false, true] {
+            let mut allocator =
+                ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 32, 2).unwrap();
+            let prefix = allocator.allocate_standard().unwrap();
+            let (mut channel, old_bytes) = standard_channel_with_live_job(prefix, future);
+            let job_id = if future {
+                channel.get_future_job_id_from_template_id(1).unwrap()
+            } else {
+                channel.get_active_job().unwrap().get_job_id()
+            };
+
+            allocator.set_upstream_prefix(vec![0xcc]).unwrap();
+            channel.set_upstream_extranonce_prefix(&[0xcc]).unwrap();
+            assert_eq!(allocator.allocated_count(), 1);
+            assert_eq!(&channel.get_extranonce_prefix()[1..], &old_bytes[1..]);
+
+            let replacement = allocator.allocate_standard().unwrap();
+            channel.set_extranonce_prefix(replacement).unwrap();
+            let job = if future {
+                channel.get_future_job(job_id).unwrap()
+            } else {
+                channel.get_active_job().unwrap()
+            };
+            assert_eq!(job.get_extranonce_prefix(), old_bytes);
+            assert_eq!(allocator.allocated_count(), 2);
+            allocator.set_upstream_prefix(vec![0xaa]).unwrap();
+            assert!(matches!(
+                allocator.allocate_standard(),
+                Err(ExtranonceAllocatorError::CapacityExhausted)
+            ));
+
+            // Activating the future job must preserve its old prefix and allocation.
+            if future {
+                channel
+                    .on_set_new_prev_hash(SetNewPrevHashTdp {
+                        template_id: 1,
+                        prev_hash: [2; 32].into(),
+                        header_timestamp: 1745596970,
+                        n_bits: 453040064,
+                        target: [0xff; 32].into(),
+                    })
+                    .unwrap();
+                assert_eq!(
+                    channel.get_active_job().unwrap().get_extranonce_prefix(),
+                    old_bytes
+                );
+                assert_eq!(allocator.allocated_count(), 2);
+            }
+
+            // A new tip with no matching future job retires the old work.
+            channel
+                .on_set_new_prev_hash(SetNewPrevHashTdp {
+                    template_id: 999,
+                    prev_hash: [1; 32].into(),
+                    header_timestamp: 1745597510,
+                    n_bits: 453040064,
+                    target: [0xff; 32].into(),
+                })
+                .unwrap();
+            assert!(channel.get_active_job().is_none());
+            assert_eq!(allocator.allocated_count(), 1);
+            let reused = allocator.allocate_standard().unwrap();
+            assert_eq!(reused.as_bytes(), old_bytes);
+            drop(reused);
+            drop(channel);
+            assert_eq!(allocator.allocated_count(), 0);
+        }
+    }
+
+    #[test]
+    fn test_rotated_extranonce_prefix_slot_not_reused_while_job_live() {
+        // A whole-prefix rotation keeps the old slot reserved while its job accepts shares.
+        let mut allocator = ExtranonceAllocator::new(vec![], 32, 2).unwrap();
+        let prefix_1 = allocator.allocate_standard().unwrap();
+        let prefix_2 = allocator.allocate_standard().unwrap();
+        assert_ne!(prefix_1.as_bytes(), prefix_2.as_bytes());
+        assert_eq!(allocator.allocated_count(), 2);
+        let (mut standard_channel, prefix_1_bytes) =
+            standard_channel_with_live_job(prefix_1, false);
 
         // rotate the channel onto the second prefix, while the job above is still live
         standard_channel.set_extranonce_prefix(prefix_2).unwrap();

@@ -19,8 +19,6 @@ pub enum Error {
     /// client to the server, NOT from the server to the client.
     #[allow(clippy::upper_case_acronyms)]
     InvalidReceiver(Box<Method>),
-    /// Errors if server receives and invalid `mining.submit` from the client.
-    InvalidSubmission,
     /// Errors encountered during conversion between valid `json_rpc` messages and SV1 messages.
     Method(Box<MethodError>),
     /// Errors if action is attempted that requires the client to be authorized, but it is
@@ -54,9 +52,6 @@ impl std::fmt::Display for Error {
                 "Client received an invalid message that was intended to be sent from the
             client to the server, NOT from the server to the client. Invalid message: `{e:?}`"
             ),
-            Error::InvalidSubmission => {
-                write!(f, "Server received an invalid `mining.submit` message.")
-            }
             Error::Method(ref e) => {
                 write!(
                     f,

@@ -178,6 +178,7 @@ pub enum Server2ClientResponse {
     Subscribe(server_to_client::Subscribe),
     GeneralResponse(server_to_client::GeneralResponse),
     Authorize(server_to_client::Authorize),
+    ExtranonceSubscribe(server_to_client::ExtranonceSubscribe),
     Submit(server_to_client::Submit),
     SetDifficulty(server_to_client::SetDifficulty),
 }
@@ -225,9 +226,15 @@ impl TryFrom<Message> for Method {
                         .map_err(|e: ParsingMethodError| e.as_method_error(msg))?;
                     Ok(Method::Client2Server(Client2Server::Authorize(method)))
                 }
-                "mining.extranonce.subscribe" => Ok(Method::Client2Server(
-                    Client2Server::ExtranonceSubscribe(client_to_server::ExtranonceSubscribe()),
-                )),
+                "mining.extranonce.subscribe" => {
+                    let method = request
+                        .clone()
+                        .try_into()
+                        .map_err(|e: ParsingMethodError| e.as_method_error(msg))?;
+                    Ok(Method::Client2Server(Client2Server::ExtranonceSubscribe(
+                        method,
+                    )))
+                }
                 "mining.submit" => {
                     let method = request
                         .clone()

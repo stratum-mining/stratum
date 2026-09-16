@@ -9,7 +9,7 @@ use std::fmt;
 
 use crate::{
     error::Error,
-    json_rpc::{Message, Response, StandardRequest},
+    json_rpc::{JsonRpcError, Message, Response, StandardRequest},
     methods::ParsingMethodError,
     utils::{Extranonce, HexU32Be, VERSION_ROLLING_MASK},
 };
@@ -106,10 +106,45 @@ fn from_to_json_rpc(auth: Authorize) -> bool {
 // mining.capabilities (DRAFT) (incompatible with mining.configure)
 
 /// _mining.extranonce.subscribe()_
-/// Indicates to the server that the client supports the mining.set_extranonce method.
-/// https://en.bitcoin.it/wiki/BIP_0310
-#[derive(Debug, Clone, Copy)]
-pub struct ExtranonceSubscribe();
+///
+/// Indicates to the server that the client supports the `mining.set_extranonce` method, as
+/// defined by the [NiceHash extranonce subscribe extension][a].
+///
+/// Parameters are ignored for compatibility with existing clients; only the request ID is kept.
+///
+/// [a]: https://github.com/nicehash/Specifications/blob/master/NiceHash_extranonce_subscribe_extension.txt
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExtranonceSubscribe {
+    pub id: u64,
+}
+
+impl ExtranonceSubscribe {
+    pub fn respond(self) -> Response {
+        Response {
+            id: self.id,
+            result: Value::Bool(true),
+            error: None,
+        }
+    }
+}
+
+impl From<ExtranonceSubscribe> for Message {
+    fn from(subscribe: ExtranonceSubscribe) -> Self {
+        Message::StandardRequest(StandardRequest {
+            id: subscribe.id,
+            method: "mining.extranonce.subscribe".into(),
+            params: Value::Array(Vec::new()),
+        })
+    }
+}
+
+impl TryFrom<StandardRequest> for ExtranonceSubscribe {
+    type Error = ParsingMethodError;
+
+    fn try_from(msg: StandardRequest) -> Result<Self, Self::Error> {
+        Ok(Self { id: msg.id })
+    }
+}
 
 // mining.get_transactions
 
@@ -136,6 +171,51 @@ pub struct Submit {
     pub version_bits: Option<HexU32Be>,
     pub id: u64,
 }
+
+/// Result of validating a `mining.submit` request at the SV1 server boundary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SubmitOutcome {
+    Accepted,
+    Rejected(SubmitError),
+}
+
+/// Standard Stratum V1 share-submission errors.
+///
+/// These codes originate from the original Stratum mining protocol and remain the format used by
+/// production SV1 servers such as CKPool.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SubmitError {
+    Other,
+    JobNotFound,
+    DuplicateShare,
+    LowDifficultyShare,
+    UnauthorizedWorker,
+    NotSubscribed,
+}
+
+impl SubmitError {
+    pub const fn code(self) -> i32 {
+        match self {
+            Self::Other => 20,
+            Self::JobNotFound => 21,
+            Self::DuplicateShare => 22,
+            Self::LowDifficultyShare => 23,
+            Self::UnauthorizedWorker => 24,
+            Self::NotSubscribed => 25,
+        }
+    }
+
+    pub const fn message(self) -> &'static str {
+        match self {
+            Self::Other => "Other/Unknown",
+            Self::JobNotFound => "Job not found",
+            Self::DuplicateShare => "Duplicate share",
+            Self::LowDifficultyShare => "Low difficulty share",
+            Self::UnauthorizedWorker => "Unauthorized worker",
+            Self::NotSubscribed => "Not subscribed",
+        }
+    }
+}
 //"{"params": ["spotbtc1.m30s40x16", "2", "147a3f0000000000", "6436eddf", "41d5deb0", "00000000"],
 //"{"params": "id": 2196, "method": "mining.submit"}"
 
@@ -156,13 +236,22 @@ impl fmt::Display for Submit {
 }
 
 impl Submit {
-    pub fn respond(self, is_ok: bool) -> Response {
-        // infallibel
-        let result = serde_json::to_value(is_ok).unwrap();
-        Response {
-            id: self.id,
-            result,
-            error: None,
+    pub fn respond(self, outcome: SubmitOutcome) -> Response {
+        match outcome {
+            SubmitOutcome::Accepted => Response {
+                id: self.id,
+                result: Value::Bool(true),
+                error: None,
+            },
+            SubmitOutcome::Rejected(error) => Response {
+                id: self.id,
+                result: Value::Null,
+                error: Some(JsonRpcError {
+                    code: error.code(),
+                    message: error.message().to_string(),
+                    data: None,
+                }),
+            },
         }
     }
 }
@@ -291,6 +380,40 @@ fn submit_from_to_json_rpc(submit: Submit) -> bool {
     };
     println!("\nREQUEST: {request:?}\n");
     submit == TryInto::<Submit>::try_into(request).unwrap()
+}
+
+#[test]
+fn rejected_submit_uses_legacy_sv1_error_array() {
+    let submit = Submit {
+        user_name: "worker".to_string(),
+        job_id: "job".to_string(),
+        extra_nonce2: vec![0; 4].try_into().unwrap(),
+        time: HexU32Be(0),
+        nonce: HexU32Be(0),
+        version_bits: None,
+        id: 42,
+    };
+
+    let response = submit.respond(SubmitOutcome::Rejected(SubmitError::DuplicateShare));
+
+    assert_eq!(
+        serde_json::to_value(response).unwrap(),
+        serde_json::json!({
+            "id": 42,
+            "result": null,
+            "error": [22, "Duplicate share", null],
+        })
+    );
+}
+
+#[test]
+fn submit_errors_use_standard_sv1_codes() {
+    assert_eq!(SubmitError::Other.code(), 20);
+    assert_eq!(SubmitError::JobNotFound.code(), 21);
+    assert_eq!(SubmitError::DuplicateShare.code(), 22);
+    assert_eq!(SubmitError::LowDifficultyShare.code(), 23);
+    assert_eq!(SubmitError::UnauthorizedWorker.code(), 24);
+    assert_eq!(SubmitError::NotSubscribed.code(), 25);
 }
 
 /// _mining.subscribe("user agent/version", "extranonce1")_

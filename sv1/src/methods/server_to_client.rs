@@ -357,6 +357,13 @@ impl GeneralResponse {
             is_ok: self.result,
         }
     }
+
+    pub fn into_extranonce_subscribe(self) -> ExtranonceSubscribe {
+        ExtranonceSubscribe {
+            id: self.id,
+            acknowledged: self.result,
+        }
+    }
 }
 
 impl TryFrom<&Response> for GeneralResponse {
@@ -368,6 +375,19 @@ impl TryFrom<&Response> for GeneralResponse {
             ParsingMethodError::ImpossibleToParseResultField(Box::new(msg.clone()))
         })?;
         Ok(GeneralResponse { id, result })
+    }
+}
+
+/// Response to `mining.extranonce.subscribe`.
+#[derive(Debug, Clone)]
+pub struct ExtranonceSubscribe {
+    pub id: u64,
+    pub acknowledged: bool,
+}
+
+impl ExtranonceSubscribe {
+    pub fn is_ok(&self) -> bool {
+        self.acknowledged
     }
 }
 

@@ -320,8 +320,9 @@ impl<T: Job> JobStore<T> {
         self.prune_retired_extranonce_prefixes();
     }
 
-    /// Takes ownership of an extranonce prefix that is no longer the channel's current one,
-    /// releasing it only once no job created under it can accept shares anymore, see
+    /// Retains a rotated-out prefix or an upstream-update snapshot while a live job uses its
+    /// bytes. Snapshots can share an allocation with the channel's current prefix; its slot is
+    /// released only after the last allocation owner drops. See
     /// [`RetiredExtranoncePrefixes`].
     pub fn retire_extranonce_prefix(&mut self, extranonce_prefix: ExtranoncePrefix) {
         self.retired_extranonce_prefixes.retire(
@@ -335,8 +336,8 @@ impl<T: Job> JobStore<T> {
     }
 
     /// Drops every retired extranonce prefix that no future, active or past job still references.
-    /// Dropping releases the prefix's slot back to its allocator. Stale jobs are not live: shares
-    /// against them are rejected, so they hold no prefix.
+    /// Dropping the last owner of an allocation releases its slot back to its allocator.
+    /// Stale jobs are not live: shares against them are rejected, so they retain no allocation.
     fn prune_retired_extranonce_prefixes(&mut self) {
         self.retired_extranonce_prefixes.prune(
             self.future_jobs

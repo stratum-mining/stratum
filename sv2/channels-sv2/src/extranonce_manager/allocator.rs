@@ -203,6 +203,50 @@ impl ExtranonceAllocator {
         self.upstream_prefix.len() as u8
     }
 
+    /// Sets the bytes assigned by the upstream while preserving the allocator's
+    /// locally managed layout and rollable extranonce size.
+    ///
+    /// This operation is intended for handling `SetExtranoncePrefix` on a
+    /// channel whose extranonce space is subdivided for downstream channels.
+    /// It preserves `local_prefix`, `local_index`, the allocation bitmap, and
+    /// [`rollable_extranonce_size`](Self::rollable_extranonce_size). As a
+    /// consequence, [`total_extranonce_len`](Self::total_extranonce_len) grows
+    /// or shrinks with the upstream prefix.
+    ///
+    /// Prefixes already returned by this allocator are not modified
+    /// automatically. Update each live channel through its `set_upstream_extranonce_prefix`
+    /// method so its bytes remain consistent with the allocator and its live jobs keep their
+    /// allocation reserved. For standalone prefixes not owned by a channel, use
+    /// [`ExtranoncePrefix::set_upstream_prefix`](crate::extranonce_manager::ExtranoncePrefix::set_upstream_prefix).
+    ///
+    /// Applications must coordinate the complete transition. Validate the proposed layout for the
+    /// allocator and every live channel before mutating any state; then update the allocator and
+    /// channels, update group-channel size where applicable, and finally send
+    /// `SetExtranoncePrefix` downstream. If the transition cannot be completed, retain the old
+    /// layout or enter the application's fallback path. Jobs created before a successful update
+    /// continue using the prefix bytes captured when they were created.
+    ///
+    /// The allocator is left unchanged if the resulting full extranonce would
+    /// exceed [`MAX_EXTRANONCE_LEN`].
+    pub fn set_upstream_prefix(
+        &mut self,
+        upstream_prefix_bytes: Vec<u8>,
+    ) -> Result<(), ExtranonceAllocatorError> {
+        let total_extranonce_len = upstream_prefix_bytes.len()
+            + self.local_prefix_len() as usize
+            + self.local_index_len() as usize
+            + self.rollable_extranonce_size() as usize;
+
+        if total_extranonce_len > MAX_EXTRANONCE_LEN as usize {
+            return Err(ExtranonceAllocatorError::ExceedsMaxLength);
+        }
+
+        self.upstream_prefix = upstream_prefix_bytes;
+        self.total_extranonce_len = total_extranonce_len as u8;
+
+        Ok(())
+    }
+
     /// The `local_prefix` region bytes (caller-owned static bytes only).
     ///
     /// Does **not** include the `local_index` region; use
@@ -410,6 +454,7 @@ impl core::fmt::Display for ExtranonceAllocatorError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::extranonce_manager::ExtranoncePrefix;
     use std::collections::HashSet;
 
     #[test]
@@ -680,5 +725,52 @@ mod tests {
         let std = alloc.allocate_standard().unwrap();
 
         assert_ne!(&ext.as_bytes()[..1], &std.as_bytes()[..1]);
+    }
+
+    #[test]
+    fn upstream_prefix_update_preserves_layout_and_allocations() {
+        // upstream(1) + local_prefix(1) + local_index(1) + rollable(3) = 6
+        let mut alloc =
+            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 6, 256).unwrap();
+        let mut first: ExtranoncePrefix = alloc.allocate_extended(3).unwrap().into();
+        let mut second: ExtranoncePrefix = alloc.allocate_extended(3).unwrap().into();
+
+        alloc.set_upstream_prefix(vec![0xcc, 0xdd]).unwrap();
+        first.set_upstream_prefix(alloc.upstream_prefix()).unwrap();
+        second.set_upstream_prefix(alloc.upstream_prefix()).unwrap();
+
+        assert_eq!(alloc.upstream_prefix(), &[0xcc, 0xdd]);
+        assert_eq!(alloc.local_prefix(), &[0xbb]);
+        assert_eq!(alloc.local_index_len(), 1);
+        assert_eq!(alloc.rollable_extranonce_size(), 3);
+        assert_eq!(alloc.total_extranonce_len(), 7);
+        assert_eq!(alloc.allocated_count(), 2);
+        assert_eq!(first.as_bytes(), &[0xcc, 0xdd, 0xbb, 0x00]);
+        assert_eq!(second.as_bytes(), &[0xcc, 0xdd, 0xbb, 0x01]);
+        assert_eq!(first.upstream_prefix_len(), 2);
+
+        let third = alloc.allocate_extended(3).unwrap();
+        assert_eq!(third.as_bytes(), &[0xcc, 0xdd, 0xbb, 0x02]);
+        assert_eq!(alloc.allocated_count(), 3);
+
+        drop(first);
+        drop(second);
+        drop(third);
+        assert_eq!(alloc.allocated_count(), 0);
+    }
+
+    #[test]
+    fn invalid_upstream_prefix_update_leaves_allocator_unchanged() {
+        // upstream(1) + local_prefix(1) + local_index(1) + rollable(29) = 32
+        let mut alloc =
+            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 32, 256).unwrap();
+
+        assert_eq!(
+            alloc.set_upstream_prefix(vec![0xcc, 0xdd]),
+            Err(ExtranonceAllocatorError::ExceedsMaxLength)
+        );
+        assert_eq!(alloc.upstream_prefix(), &[0xaa]);
+        assert_eq!(alloc.total_extranonce_len(), 32);
+        assert_eq!(alloc.rollable_extranonce_size(), 29);
     }
 }
