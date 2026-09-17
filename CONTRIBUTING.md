@@ -123,11 +123,16 @@ Whenever submitting a PR that modifies some crate, it's up to the contributor to
    - Which other crates on this repo depend on this crate?
    - Amongst them, are there types from this crate exposed on their public APIs?
 
-Factors 1 and 2 are partially enforced via CI (but enforcement via PR review is still encouraged). Factor 3 must be fully enforced via PR reviews.
+Factors 1 and 2 are partially enforced via CI (but enforcement via PR review is still encouraged):
+- `cargo semver-checks` fails when the public API of a crate changed more than its version bump allows, using the latest version published on crates.io as the baseline.
+- `scripts/check-version-bumps.sh` fails when a crate has changes on the PR while its version is not above the highest version ever published on crates.io. Run `./scripts/check-version-bumps.sh origin/main` locally to check your branch before opening a PR.
+
+Factor 3 must be fully enforced via PR reviews.
 
 Factor 2 is about avoiding redundant version bumps. Since crates are only published to crates.io periodically (during global release), maybe other PRs already bumped this crate version.
 
 Factor 3 is about keeping sanity across dependency chains. If a crate only uses a dependency internally, updating that dependency does not automatically require an incompatible version bump for the dependent crate. However, if a dependency appears in the dependent crate's public API, then changing that dependency to an incompatible version also changes the dependent crate's public API.
+Either way the dependent crate needs some bump: an incompatible bump of a dependency invalidates the `version` requirement declared on the dependent crate's manifest, and once that manifest is updated CI requires the dependent crate to be bumped as well.
 
 Public API exposure includes, but is not limited to:
 - re-exports;
