@@ -109,24 +109,31 @@ fi
 
 cd "$INTEGRATION_TESTS_DIR"
 
+# Cargo only honours `[patch]` in the workspace root manifest and silently
+# ignores it anywhere else, so the patch goes wherever cargo says the root of
+# the workspace holding the integration tests is.
+WORKSPACE_MANIFEST="$(cargo locate-project --workspace --message-format plain)"
+STRATUM_CORE_DIR="$REPO_ROOT/stratum-core"
+
 # # Add patch section to override all git dependencies with local paths
-echo "🔧 Adding patch section to override dependencies..."
+echo "🔧 Adding patch section to override dependencies in $WORKSPACE_MANIFEST..."
 
 # Remove any existing patch section first
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    sed -i '' '/^# Override dependencies with local paths/,/^$/d' Cargo.toml
+    sed -i '' '/^# Override dependencies with local paths/,/^$/d' "$WORKSPACE_MANIFEST"
 else
-    sed -i '/^# Override dependencies with local paths/,/^$/d' Cargo.toml
+    sed -i '/^# Override dependencies with local paths/,/^$/d' "$WORKSPACE_MANIFEST"
 fi
 
 
-# Add the patch section at the end of the file
-cat >> Cargo.toml << 'EOF'
+# Add the patch section at the end of the file. The path is absolute so that it
+# does not depend on where the workspace root sits inside sv2-apps.
+cat >> "$WORKSPACE_MANIFEST" << EOF
 # Override dependencies with local paths
-[patch.crates-io] 
-stratum-core = {path = "../../../stratum-core"}
+[patch.crates-io]
+stratum-core = {path = "$STRATUM_CORE_DIR"}
 [patch."https://github.com/stratum-mining/stratum"]
-stratum-core = {path = "../../../stratum-core"}
+stratum-core = {path = "$STRATUM_CORE_DIR"}
 EOF
 
 # Force a refresh of Cargo.lock so the patched stratum-core is not ignored after
@@ -136,6 +143,16 @@ EOF
 # updates the lockfile to match the patched crate, ensuring the local override
 # actually takes effect.
 cargo update -p stratum-core
+
+# An ignored patch would leave the tests running against the published
+# stratum-core instead of this checkout. Path dependencies are the only ones
+# cargo reports with a filesystem location, so anything else means the override
+# is not in effect.
+if ! cargo tree -i stratum-core --depth 0 | grep -Eq '^stratum-core v[^ ]+ \(/'; then
+    echo "❌ Error: stratum-core is not resolved from $STRATUM_CORE_DIR" >&2
+    cargo tree -i stratum-core --depth 0 >&2 || true
+    exit 1
+fi
 
 echo "✅ Updated Cargo.toml to use local dependencies"
 echo "🏃 Running integration tests..."
