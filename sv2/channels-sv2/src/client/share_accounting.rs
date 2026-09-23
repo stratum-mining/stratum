@@ -85,7 +85,8 @@ pub enum ShareValidationError {
 ///
 /// **Validation phase** (updated by `validate_share` via [`track_validated_share`](Self::track_validated_share)):
 /// - total validated shares (shares that passed local validation)
-/// - cumulative validated work (based on each job's target difficulty)
+/// - cumulative validated work (each job's target difficulty, or the network difficulty for a
+///   block whose hash misses the job target; see `validate_share`)
 /// - hashes of seen shares (for duplicate detection)
 /// - last received share's sequence number
 /// - highest difficulty seen in validated shares
@@ -304,8 +305,9 @@ impl ShareAccounting {
 
     /// Returns the cumulative work of all locally validated shares.
     ///
-    /// Work is tracked using job-target difficulty (matching server-side accounting),
-    /// not per-share hash difficulty.
+    /// Work is tracked using job-target difficulty (matching server-side accounting), not
+    /// per-share hash difficulty; a block whose hash misses the job target contributes the
+    /// network difficulty instead (see `validate_share`).
     pub fn get_validated_work_sum(&self) -> f64 {
         self.validated_work_sum
     }
