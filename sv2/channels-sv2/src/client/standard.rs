@@ -623,7 +623,10 @@ impl StandardChannel {
     ///   bounded at [`MAX_SEEN_SHARES`](crate::client::MAX_SEEN_SHARES) validated shares per
     ///   `prev_hash` (oldest evicted first), so an evicted share can be validated again; see
     ///   [`ShareAccounting`] for why this replay window is accepted on clients.
-    /// - Returns whether the share is valid or resulted in a block being found.
+    /// - Returns whether the share is valid or resulted in a block being found. A block may
+    ///   still miss the job target (a legitimate state on networks whose target is easier
+    ///   than the channel's share target), so the work credited for it is the job difficulty
+    ///   capped at the difficulty its hash proves.
     /// - Returns error describing why share is not valid.
     pub fn validate_share(
         &mut self,
@@ -748,10 +751,13 @@ impl StandardChannel {
                     ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE,
                 ));
             }
+            // the network target may be easier than the job target (e.g. regtest/testnet), so
+            // this block's hash is not proof of the full job difficulty: credit only the work
+            // the hash demonstrates, capped at the job difficulty
             self.share_accounting.track_validated_share(
                 share.sequence_number,
                 share_hash.to_raw_hash(),
-                job_target.difficulty_float(),
+                job_target.difficulty_float().min(share_hash_as_diff),
             );
             self.share_accounting.increment_blocks_found();
             return Ok(ShareValidationResult::BlockFound(share_hash.to_raw_hash()));
@@ -1311,6 +1317,89 @@ mod tests {
             ShareValidationError::DuplicateShare(_)
         ));
         assert_eq!(channel.get_share_accounting().get_blocks_found(), 1);
+    }
+
+    #[test]
+    fn test_share_validation_block_found_below_job_target_caps_work_credit() {
+        // reuses the pre-mined share from test_share_validation_block_found: its hash
+        // 61e8fe82487d10282fdededed636403eb2c8cb05ce792951dd410a9011a94ebb meets the network
+        // target but misses this channel's target of 1, so validated work must only grow by
+        // the difficulty the hash proves, not the astronomical job difficulty
+        let channel_id = 1;
+        let user_identity = "user_identity".to_string();
+        let extranonce_prefix = [
+            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
+            0, 0, 0, 0, 0, 0, 1,
+        ]
+        .to_vec();
+        let mut tiny_target_bytes = [0u8; 32];
+        tiny_target_bytes[0] = 1;
+        let tiny_target = Target::from_le_bytes(tiny_target_bytes);
+        let nominal_hashrate = 1.0;
+
+        let mut channel = StandardChannel::new(
+            channel_id,
+            user_identity,
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
+            tiny_target,
+            nominal_hashrate,
+            None,
+        )
+        .unwrap();
+
+        let future_job = NewMiningJob {
+            channel_id,
+            job_id: 1,
+            merkle_root: [
+                189, 200, 25, 246, 119, 73, 34, 42, 209, 112, 237, 50, 169, 71, 163, 192, 24, 84,
+                56, 86, 147, 71, 243, 44, 18, 107, 167, 169, 169, 66, 186, 98,
+            ]
+            .into(),
+            version: 536870912,
+            min_ntime: Sv2Option::new(None),
+        };
+
+        channel.on_new_mining_job(future_job.clone()).unwrap();
+
+        // network target: 7fffff0000000000000000000000000000000000000000000000000000000000
+        let nbits = 545259519;
+        let prev_hash = [
+            200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144, 205,
+            88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
+        ];
+        let ntime: u32 = 1745596930;
+        let set_new_prev_hash = SetNewPrevHashMp {
+            channel_id,
+            job_id: future_job.job_id,
+            prev_hash: prev_hash.into(),
+            nbits,
+            min_ntime: ntime,
+        };
+
+        channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
+
+        let share_valid_block = SubmitSharesStandardOwned {
+            channel_id,
+            sequence_number: 0,
+            job_id: future_job.job_id,
+            nonce: 3,
+            ntime: 1745596932,
+            version: 536870912,
+        };
+
+        let res = channel.validate_share(share_valid_block);
+        let Ok(ShareValidationResult::BlockFound(share_hash)) = res else {
+            panic!("a network-valid block must still be propagated");
+        };
+
+        // the hash misses the job target, so only its proven difficulty is credited
+        let raw_share_hash: [u8; 32] = *share_hash.as_ref();
+        let proof_target = Target::from_le_bytes(raw_share_hash);
+        assert!(proof_target > tiny_target);
+        assert!(
+            channel.get_share_accounting().get_validated_work_sum()
+                <= proof_target.difficulty_float()
+        );
     }
 
     #[test]
