@@ -26,12 +26,11 @@
 // message, the memory can be cleared, and the buffer pool resets, making the memory available
 // for future messages.
 
-// **Note**: To prevent leaks or deadlocks, ensure that memory slices are properly released after
-// use by allowing them to go out of scope or explicitly dropping them. Avoid holding onto slices
-// longer than necessary or cloning them. After processing, you can obtain ownership of the data
-// using methods like `get_data_owned()` and then let the slice be dropped.
+// **Note**: A slice keeps its slot, and the pool's memory, in use until it is dropped, so avoid
+// holding onto slices longer than necessary. Cloning a slice copies its bytes into memory the
+// clone owns, so the slot is freed as soon as the original is dropped.
 
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 
 #[cfg(test)]
 use crate::buffer::TestBufferFromMemory;
@@ -200,16 +199,16 @@ pub enum PoolMode {
 // Internal memory management for the `BufferPool`.
 //
 // Handles allocating, tracking, and managing memory slices for manipulating memory offsets,
-// copying data, and managing capacity. It uses a contiguous block of memory (`Vec<u8>`), tracking
+// copying data, and managing capacity. It uses a contiguous block of memory, tracking
 // its usage through offsets (`raw_offset`, `raw_length`), and manages slice allocations through
 // `slots`. Used by `BufferPool` to optimize memory reused and minimize heap allocations.
 //
 // The memory is only ever reached through raw pointers narrowed to the range being accessed, so
 // that no reference covers a range a live slice points into.
-#[derive(Clone)]
 pub struct InnerMemory {
-    // Underlying contiguous block of memory to be managed.
-    pool: Vec<u8>,
+    // Underlying contiguous block of memory to be managed, shared with the slices pointing into it
+    // along with the bits that track them.
+    memory: SharedState,
 
     // Current offset into the contiguous block of memory where the next write will occur.
     pub(crate) raw_offset: usize,
@@ -229,7 +228,7 @@ pub struct InnerMemory {
 impl core::fmt::Debug for InnerMemory {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("InnerMemory")
-            .field("capacity", &self.pool.len())
+            .field("memory", &self.memory)
             .field("raw_offset", &self.raw_offset)
             .field("raw_len", &self.raw_len)
             .field("slots", &self.slots)
@@ -242,9 +241,8 @@ impl InnerMemory {
     // Initializes a new `InnerMemory` with a specified size of the internal memory buffer
     // (`capacity`), in bytes.
     fn new(capacity: usize) -> Self {
-        let pool = vec![0; capacity];
         Self {
-            pool,
+            memory: SharedState::new(capacity),
             raw_offset: 0,
             raw_len: 0,
             slots: [(0_usize, 0_usize); POOL_CAPACITY],
@@ -252,19 +250,27 @@ impl InnerMemory {
         }
     }
 
+    // Returns the size of the underlying memory, in bytes.
+    #[inline(always)]
+    fn capacity(&self) -> usize {
+        self.memory.capacity()
+    }
+
     // Checks that `len` bytes starting at `offset` lie within the underlying memory.
     #[inline(always)]
     fn in_bounds(&self, offset: usize, len: usize) -> bool {
         offset
             .checked_add(len)
-            .is_some_and(|end| end <= self.pool.len())
+            .is_some_and(|end| end <= self.capacity())
     }
 
     // Returns the data written so far, from `raw_offset` to `raw_offset + raw_len`.
     #[inline(always)]
     fn raw_data(&self) -> &[u8] {
         assert!(self.in_bounds(self.raw_offset, self.raw_len));
-        unsafe { core::slice::from_raw_parts(self.pool.as_ptr().add(self.raw_offset), self.raw_len) }
+        unsafe {
+            core::slice::from_raw_parts(self.memory.bytes().add(self.raw_offset), self.raw_len)
+        }
     }
 
     // Returns the data written so far, from `raw_offset` to `raw_offset + raw_len`.
@@ -272,7 +278,7 @@ impl InnerMemory {
     fn raw_data_mut(&mut self) -> &mut [u8] {
         assert!(self.in_bounds(self.raw_offset, self.raw_len));
         unsafe {
-            core::slice::from_raw_parts_mut(self.pool.as_mut_ptr().add(self.raw_offset), self.raw_len)
+            core::slice::from_raw_parts_mut(self.memory.bytes().add(self.raw_offset), self.raw_len)
         }
     }
 
@@ -280,7 +286,7 @@ impl InnerMemory {
     #[inline(always)]
     fn copy_within(&mut self, src: usize, len: usize, dst: usize) {
         assert!(self.in_bounds(src, len) && self.in_bounds(dst, len));
-        let bytes = self.pool.as_mut_ptr();
+        let bytes = self.memory.bytes();
         unsafe { core::ptr::copy(bytes.add(src), bytes.add(dst), len) }
     }
 
@@ -310,7 +316,7 @@ impl InnerMemory {
             (1..POOL_CAPACITY).contains(&back_start)
                 && self.slots[back_start].0 != 0_usize
                 && self.slots[back_start].1 != 0_usize
-                && self.slots[back_start].0 + self.slots[back_start].1 <= self.pool.len()
+                && self.slots[back_start].0 + self.slots[back_start].1 <= self.capacity()
         );
 
         self.slots[back_start].0
@@ -328,7 +334,7 @@ impl InnerMemory {
                 assert!(
                     index < POOL_CAPACITY
                         && self.slots[index].1 != 0_usize
-                        && self.slots[index].0 + self.slots[index].1 <= self.pool.len()
+                        && self.slots[index].0 + self.slots[index].1 <= self.capacity()
                 );
 
                 let (index, len) = self.slots[index];
@@ -350,7 +356,7 @@ impl InnerMemory {
                 assert!(
                     index < POOL_CAPACITY
                         && self.slots[index].1 != 0_usize
-                        && self.slots[index].0 + self.slots[index].1 <= self.pool.len()
+                        && self.slots[index].0 + self.slots[index].1 <= self.capacity()
                 );
 
                 let (index, len) = self.slots[index];
@@ -383,7 +389,7 @@ impl InnerMemory {
         let raw_offset = self.raw_offset_from_len(slot_len);
 
         let end = raw_offset + self.raw_len;
-        if end + raw_len <= self.pool.capacity() {
+        if end + raw_len <= self.capacity() {
             self.len = slot_len;
             self.move_raw_at_offset_unchecked(raw_offset);
             true
@@ -412,7 +418,7 @@ impl InnerMemory {
     #[inline(never)]
     fn prepend_raw_data(&mut self, raw_data: &[u8]) {
         assert!(self.in_bounds(0, raw_data.len()));
-        let dest = self.pool.as_mut_ptr();
+        let dest = self.memory.bytes();
         unsafe { core::ptr::copy_nonoverlapping(raw_data.as_ptr(), dest, raw_data.len()) };
 
         self.raw_offset = 0;
@@ -432,7 +438,7 @@ impl InnerMemory {
     #[inline(always)]
     fn has_tail_capacity(&self, len: usize) -> bool {
         let end = self.raw_offset + self.raw_len;
-        end + len <= self.pool.capacity()
+        end + len <= self.capacity()
     }
 
     // Checks if there is enough capacity in the memory pool up to the specified offset to
@@ -449,7 +455,7 @@ impl InnerMemory {
         let writable_offset = self.raw_offset + self.raw_len;
         self.raw_len += len;
         assert!(self.in_bounds(writable_offset, len));
-        unsafe { self.pool.as_mut_ptr().add(writable_offset) }
+        unsafe { self.memory.bytes().add(writable_offset) }
     }
 
     /// Provides access to the raw memory slice containing the data written into the buffer,
@@ -464,22 +470,18 @@ impl InnerMemory {
     /// or further manipulation. The returned `Slice` contains the data, while the buffer itself
     /// remains ready to handle new incoming data by pointing to a fresh memory region.
     #[inline(always)]
-    fn get_data_owned(
-        &mut self,
-        shared_state: &mut SharedState,
-        #[cfg(feature = "debug")] mode: u8,
-    ) -> Slice {
+    fn get_data_owned(&mut self, #[cfg(feature = "debug")] mode: u8) -> Slice {
         if self.raw_len == 0 {
             return Slice::from(Vec::new());
         }
 
-        let offset = unsafe { self.pool.as_mut_ptr().add(self.raw_offset) };
+        let offset = unsafe { self.memory.bytes().add(self.raw_offset) };
 
         self.slots[self.len] = (self.raw_offset, self.raw_len);
         self.len += 1;
 
         let slice = Slice::pooled(
-            shared_state.clone(),
+            self.memory.clone(),
             offset,
             self.raw_len,
             self.len as u8,
@@ -510,12 +512,9 @@ pub struct BufferPool<T: Buffer> {
     // Tracks the current mode of memory allocation (back, front, or system).
     mode: PoolMode,
 
-    // Tracks the usage state of memory slices using atomic operations, ensuring memory is not
-    // prematurely reused and allowing safe concurrent access across threads.
-    shared_state: SharedState,
-
     // Core memory area from which slices are allocated and reused. Manages the actual memory
-    // buffer used by the buffer pool.
+    // buffer used by the buffer pool, and tracks the usage state of memory slices using atomic
+    // operations, ensuring memory is not prematurely reused.
     inner_memory: InnerMemory,
 
     // Allocates memory directly from system memory when the buffer pool is full, acting as a
@@ -538,7 +537,6 @@ impl BufferPool<BufferFromSystemMemory> {
         Self {
             pool_back: PoolBack::new(),
             mode: PoolMode::Back,
-            shared_state: SharedState::new(),
             inner_memory: InnerMemory::new(capacity),
             system_memory: BufferFromSystemMemory::default(),
             start: 0,
@@ -553,7 +551,6 @@ impl BufferPool<TestBufferFromMemory> {
         Self {
             pool_back: PoolBack::new(),
             mode: PoolMode::Back,
-            shared_state: SharedState::new(),
             inner_memory: InnerMemory::new(capacity),
             system_memory: TestBufferFromMemory(Vec::new()),
             start: 0,
@@ -625,7 +622,7 @@ impl<T: Buffer> BufferPool<T> {
                 self.pool_back.reset();
             }
             PoolMode::Alloc => {
-                if self.system_memory.len() < self.inner_memory.pool.capacity() {
+                if self.system_memory.len() < self.inner_memory.capacity() {
                     let raw_len = self.system_memory.len();
                     if raw_len > 0 {
                         self.inner_memory
@@ -826,7 +823,7 @@ impl<T: Buffer> Buffer for BufferPool<T> {
     // between different modes as needed.
     #[inline(always)]
     fn get_writable(&mut self, len: usize) -> &mut [u8] {
-        let shared_state = self.shared_state.load();
+        let shared_state = self.inner_memory.memory.load();
 
         // If all the slices have been dropped, reset the pool to free up memory
         if shared_state == 0 && self.pool_back.len() != 0 {
@@ -844,8 +841,6 @@ impl<T: Buffer> Buffer for BufferPool<T> {
     // accordingly. In alloc mode, it retrieves data from the heap-allocated system memory.
     #[inline(always)]
     fn get_data_owned(&mut self) -> Self::Slice {
-        let shared_state = &mut self.shared_state;
-
         #[cfg(feature = "debug")]
         let mode: u8 = match self.mode {
             PoolMode::Back => 0,
@@ -860,7 +855,7 @@ impl<T: Buffer> Buffer for BufferPool<T> {
                     "{} {} {}",
                     self.inner_memory.raw_offset, self.inner_memory.raw_len, self.inner_memory.len
                 );
-                let res = self.inner_memory.get_data_owned(shared_state, mode);
+                let res = self.inner_memory.get_data_owned(mode);
                 self.pool_back
                     .set_len_from_inner_memory(self.inner_memory.len);
                 println!(
@@ -871,7 +866,7 @@ impl<T: Buffer> Buffer for BufferPool<T> {
                 res
             }
             PoolMode::Front(f) => {
-                let res = self.inner_memory.get_data_owned(shared_state, mode);
+                let res = self.inner_memory.get_data_owned(mode);
                 f.len = self.inner_memory.len;
                 println!("GET DATA FRONT {:?}", self.inner_memory.slots);
                 res
@@ -883,14 +878,14 @@ impl<T: Buffer> Buffer for BufferPool<T> {
         match &mut self.mode {
             PoolMode::Back => {
                 // Retrieve data and update state in Back mode
-                let res = self.inner_memory.get_data_owned(shared_state);
+                let res = self.inner_memory.get_data_owned();
                 self.pool_back
                     .set_len_from_inner_memory(self.inner_memory.len);
                 res
             }
             PoolMode::Front(f) => {
                 // Retrieve data and update state in Front mode
-                let res = self.inner_memory.get_data_owned(shared_state);
+                let res = self.inner_memory.get_data_owned();
                 f.len = self.inner_memory.len;
                 res
             }
@@ -942,30 +937,19 @@ impl<T: Buffer> Buffer for BufferPool<T> {
     // that no other threads or components are using the pool's memory.
     #[inline(always)]
     fn is_droppable(&self) -> bool {
-        self.shared_state.load() == 0
-    }
-}
-
-#[cfg(not(test))]
-impl<T: Buffer> Drop for BufferPool<T> {
-    // Waits until all slices are released before dropping the `BufferPool`. Will not drop the
-    // buffer pool while slices are still in use.
-    fn drop(&mut self) {
-        while self.shared_state.load() != 0 {
-            core::hint::spin_loop();
-        }
+        self.inner_memory.memory.load() == 0
     }
 }
 
 // Allows `BufferPool` to be treated as a buffer.
 impl<T: Buffer> BufferPool<T> {
-    /// Determines if the [`BufferPool`] can be safely dropped.
+    /// Determines if every slice handed out by the [`BufferPool`] has been released.
     ///
     /// Returns `true` if all memory slices managed by the buffer pool have been released (i.e.,
-    /// the `shared_state` is zero), indicating that all the slices are dropped. This check helps
-    /// prevent dropping the buffer pool while it's still in use.
+    /// the `shared_state` is zero). The pool can be dropped either way: its memory stays alive
+    /// until the last slice pointing into it is dropped.
     pub fn droppable(&self) -> bool {
-        self.shared_state.load() == 0
+        self.inner_memory.memory.load() == 0
     }
 }
 

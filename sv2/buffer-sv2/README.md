@@ -36,13 +36,19 @@ This crate can be built with the following feature flags:
 - `fuzz`: Enables support for fuzz testing.
 
 ### Unsafe Code
-There are four unsafe code blocks instances:
+The pool's memory is shared by the pool and every `Slice` pointing into it, and is only ever
+reached through raw pointers narrowed to the range being accessed. The unsafe code is:
 
-- `buffer_pool/mod.rs`: `fn get_writable_(&mut self, len: usize, shared_state: u8, without_check: bool) -> &mut [u8] { .. }` in the `impl<T: Buffer> BufferPool<T>`
+- `buffer_pool/mod.rs`:
+  - `fn get_writable_(..)` in the `impl<T: Buffer> BufferPool<T>`
+  - `fn raw_data`, `fn raw_data_mut`, `fn copy_within`, `fn prepend_raw_data`,
+    `fn get_writable_raw_unchecked` and `fn get_data_owned` in the `impl InnerMemory`
 - `slice.rs`:
   - `unsafe impl Send for Slice {}`
-  - `fn as_mut(&mut self) -> &mut [u8] { .. }` in the `impl AsMut<[u8]> for Slice`
-  - `fn as_ref(&mut self) -> &mut [u8] { .. }` in the `impl AsMut<[u8]> for Slice`
+  - `unsafe impl Send for PoolMemory {}` and `unsafe impl Sync for PoolMemory {}`
+  - `fn drop(&mut self)` in the `impl Drop for PoolMemory`
+  - `fn as_mut(&mut self) -> &mut [u8]` in the `impl AsMut<[u8]> for Slice`
+  - `fn as_ref(&self) -> &[u8]` in the `impl AsRef<[u8]> for Slice`
 
 ### Examples
 

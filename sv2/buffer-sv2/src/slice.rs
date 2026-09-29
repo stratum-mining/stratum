@@ -10,7 +10,7 @@
 // ## Key Features
 // - **Memory Reuse**: Divides large buffers into smaller slices, reducing the need for frequent
 //   allocations.
-// - **Shared Access**: Allows safe concurrent access using atomic state tracking (`Arc<AtomicU8>`).
+// - **Shared Access**: Allows safe concurrent access using atomic state tracking (`SharedState`).
 // - **Flexible Management**: Supports both owned memory and externally managed memory.
 //
 // ## Usage
@@ -21,7 +21,7 @@
 // ### Debug Mode
 // Provides additional tracking for debugging memory management issues.
 
-use alloc::{sync::Arc, vec::Vec};
+use alloc::{boxed::Box, sync::Arc, vec, vec::Vec};
 use core::sync::atomic::{AtomicU8, Ordering};
 #[cfg(feature = "debug")]
 use std::time::SystemTime;
@@ -64,9 +64,10 @@ pub struct Slice {
 enum Repr {
     // A region of a buffer pool's memory, whose slot stays claimed until the slice is dropped.
     //
-    // `ptr` and `len` bound the region; `slot` is the bit that tracks it in `state`.
+    // `ptr` and `len` bound the region; `slot` is the bit that tracks it in `memory`, which also
+    // keeps the region alive for as long as the slice exists.
     Pooled {
-        state: SharedState,
+        memory: SharedState,
         ptr: *mut u8,
         len: usize,
         slot: u8,
@@ -77,23 +78,23 @@ enum Repr {
 }
 
 impl Slice {
-    // Hands out the `len` bytes at `ptr` in a buffer pool's memory, claiming `slot` in `state`
+    // Hands out the `len` bytes at `ptr` in a buffer pool's memory, claiming `slot` in `memory`
     // until the slice is dropped.
     pub(crate) fn pooled(
-        state: SharedState,
+        memory: SharedState,
         ptr: *mut u8,
         len: usize,
         slot: u8,
         #[cfg(feature = "debug")] mode: u8,
     ) -> Self {
-        state.claim(
+        memory.claim(
             slot,
             #[cfg(feature = "debug")]
             mode,
         );
         Slice {
             repr: Repr::Pooled {
-                state,
+                memory,
                 ptr,
                 len,
                 slot,
@@ -235,8 +236,8 @@ impl Drop for Slice {
     ///
     /// In debug mode, it also tracks the `mode` of the slice when it is dropped.
     fn drop(&mut self) {
-        if let Repr::Pooled { state, slot, .. } = &self.repr {
-            state.release(
+        if let Repr::Pooled { memory, slot, .. } = &self.repr {
+            memory.release(
                 *slot,
                 #[cfg(feature = "debug")]
                 self.mode,
@@ -279,14 +280,61 @@ impl From<Vec<u8>> for Slice {
 // The buffer pool checks whether any slice is still in use before clearing, and only when the
 // shared state indicates that all references have been dropped (i.e., no unprocessed messages
 // remain) can the buffer pool safely clear or reuse the memory.
+//
+// It also owns the pool's memory, shared by the pool and every slice pointing into it, so that
+// memory is freed only once all of them are gone.
 #[derive(Clone, Debug)]
-pub(crate) struct SharedState(Arc<AtomicU8>);
+pub(crate) struct SharedState(Arc<PoolMemory>);
+
+struct PoolMemory {
+    slots: AtomicU8,
+    bytes: *mut u8,
+    capacity: usize,
+}
+
+// SAFETY: the bytes are only reached through ranges the slot bitmask gives to a single owner at a
+// time, the pool for the region it is writing or a slice for the region it holds.
+unsafe impl Send for PoolMemory {}
+unsafe impl Sync for PoolMemory {}
+
+impl Drop for PoolMemory {
+    fn drop(&mut self) {
+        let bytes = core::ptr::slice_from_raw_parts_mut(self.bytes, self.capacity);
+        drop(unsafe { Box::from_raw(bytes) });
+    }
+}
+
+// Formats the bookkeeping only: the bytes may belong to live slices written on other threads.
+impl core::fmt::Debug for PoolMemory {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("PoolMemory")
+            .field("slots", &self.slots)
+            .field("capacity", &self.capacity)
+            .finish()
+    }
+}
 
 impl SharedState {
-    // Creates a new `SharedState` with an internal `AtomicU8` initialized to `0`, indicating no
-    // memory slots are in use.
-    pub(crate) fn new() -> Self {
-        Self(Arc::new(AtomicU8::new(0)))
+    // Creates a new `SharedState` owning `capacity` zeroed bytes, with no memory slots in use.
+    pub(crate) fn new(capacity: usize) -> Self {
+        let bytes = Box::into_raw(vec![0u8; capacity].into_boxed_slice()) as *mut u8;
+        Self(Arc::new(PoolMemory {
+            slots: AtomicU8::new(0),
+            bytes,
+            capacity,
+        }))
+    }
+
+    // Returns a pointer to the start of the pool's memory.
+    #[inline(always)]
+    pub(crate) fn bytes(&self) -> *mut u8 {
+        self.0.bytes
+    }
+
+    // Returns the size of the pool's memory, in bytes.
+    #[inline(always)]
+    pub(crate) fn capacity(&self) -> usize {
+        self.0.capacity
     }
 
     // Atomically loads and returns the current state of the memory slots as an 8-bit value.
@@ -294,7 +342,7 @@ impl SharedState {
     // Acquires what dropped slices released, so the memory they freed is safe to reuse.
     #[inline(always)]
     pub(crate) fn load(&self) -> u8 {
-        self.0.load(Ordering::Acquire)
+        self.0.slots.load(Ordering::Acquire)
     }
 
     // Returns the bit that tracks slot `position`.
@@ -314,7 +362,7 @@ impl SharedState {
     #[inline(always)]
     pub(crate) fn claim(&self, position: u8, #[cfg(feature = "debug")] mode: u8) {
         let mask = Self::mask(position);
-        let pre = self.0.fetch_or(mask, Ordering::Relaxed);
+        let pre = self.0.slots.fetch_or(mask, Ordering::Relaxed);
         assert_eq!(pre & mask, 0, "slot {position} is held by a live slice");
 
         #[cfg(feature = "debug")]
@@ -327,7 +375,7 @@ impl SharedState {
     #[inline(always)]
     pub(crate) fn release(&self, position: u8, #[cfg(feature = "debug")] mode: u8) {
         let mask = Self::mask(position);
-        let pre = self.0.fetch_and(!mask, Ordering::Release);
+        let pre = self.0.slots.fetch_and(!mask, Ordering::Release);
         debug_assert_ne!(pre & mask, 0);
 
         #[cfg(feature = "debug")]
