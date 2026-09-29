@@ -858,3 +858,35 @@ fn random_slice_lifetimes_match_a_model_of_the_pool() {
         }
     }
 }
+
+#[test]
+fn a_repeated_or_partly_used_reservation_counts_only_committed_bytes() {
+    for capacity in [0, 64] {
+        let mut pool = Pool::new(capacity);
+        pool.reserve(8).fill(1);
+        pool.reserve(8).fill(2);
+        assert_eq!(Buffer::len(&pool), 0);
+
+        pool.reserve(8)[..3].fill(3);
+        pool.commit(3);
+
+        assert_eq!(Buffer::len(&pool), 3);
+        assert_eq!(pool.get_data_owned().as_ref(), &[3; 3]);
+    }
+}
+
+#[test]
+#[should_panic]
+fn committing_more_than_the_pool_reserved_panics() {
+    let mut pool = Pool::new(64);
+    pool.reserve(2);
+    pool.commit(3);
+}
+
+#[test]
+#[should_panic]
+fn committing_more_than_system_memory_reserved_panics() {
+    let mut memory = crate::BufferFromSystemMemory::new(0);
+    memory.reserve(2);
+    memory.commit(3);
+}

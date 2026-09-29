@@ -171,11 +171,11 @@ impl PoolFront {
         let pool_has_head_capacity = memory.has_capacity_until_offset(len, self.byte_capacity);
 
         if pool_has_slice_capacity && pool_has_head_capacity {
-            return Ok(memory.get_writable_raw_unchecked(len));
+            return Ok(memory.reserve_raw(len));
         };
 
         self.clear(memory, shared_state, len)
-            .map(|_| memory.get_writable_raw_unchecked(len))
+            .map(|_| memory.reserve_raw(len))
     }
 }
 
@@ -449,8 +449,10 @@ impl InnerMemory {
     // different pool modes.
     #[inline(never)]
     fn copy_into_buffer(&mut self, buffer: &mut impl Buffer) {
-        let writable = buffer.get_writable(self.raw_len);
-        writable.copy_from_slice(self.raw_data());
+        buffer
+            .reserve(self.raw_len)
+            .copy_from_slice(self.raw_data());
+        buffer.commit(self.raw_len);
     }
 
     // Checks if there is enough capacity at the tail of the memory pool to accommodate `len`
@@ -469,14 +471,20 @@ impl InnerMemory {
             .is_some_and(|end| end <= offset)
     }
 
-    // Returns a raw pointer to the writable memory region of the memory pool, marking the section
-    // as used.
+    // Returns a raw pointer to `len` bytes right after the data written so far, without counting
+    // them as written.
     #[inline(always)]
-    fn get_writable_raw_unchecked(&mut self, len: usize) -> *mut u8 {
+    fn reserve_raw(&mut self, len: usize) -> *mut u8 {
         let writable_offset = self.raw_offset + self.raw_len;
         assert!(self.in_bounds(writable_offset, len));
-        self.raw_len += len;
         unsafe { self.memory.bytes().add(writable_offset) }
+    }
+
+    // Counts `len` more bytes, right after the data written so far, as written.
+    #[inline(always)]
+    fn commit_raw(&mut self, len: usize) {
+        assert!(self.in_bounds(self.raw_offset + self.raw_len, len));
+        self.raw_len += len;
     }
 
     /// Provides access to the raw memory slice containing the data written into the buffer,
@@ -546,6 +554,9 @@ pub struct BufferPool<T: Buffer> {
     // written in the buffer pool. Primarily used when `as_ref` or `as_mut` is called, ensuring
     // that the buffer starts at the element specified by `start`.
     start: usize,
+
+    // Length of the last reservation, `0` once it is committed.
+    reserved: usize,
 }
 
 impl BufferPool<BufferFromSystemMemory> {
@@ -561,6 +572,7 @@ impl BufferPool<BufferFromSystemMemory> {
             inner_memory: InnerMemory::new(capacity),
             system_memory: BufferFromSystemMemory::default(),
             start: 0,
+            reserved: 0,
         }
     }
 }
@@ -575,6 +587,7 @@ impl BufferPool<TestBufferFromMemory> {
             inner_memory: InnerMemory::new(capacity),
             system_memory: TestBufferFromMemory(Vec::new()),
             start: 0,
+            reserved: 0,
         }
     }
 }
@@ -678,7 +691,7 @@ impl<T: Buffer> BufferPool<T> {
             || self.pool_back.len() == 0
             || !self.pool_back.tail_is_clearable(shared_state)
         {
-            self.system_memory.get_writable(len)
+            self.system_memory.reserve(len)
         } else {
             #[cfg(feature = "fuzz")]
             assert!(self.inner_memory.raw_len == 0 && self.inner_memory.raw_offset == 0);
@@ -697,7 +710,7 @@ impl<T: Buffer> BufferPool<T> {
                 }
                 Err(PoolMode::Alloc) => {
                     self.inner_memory.reset_raw();
-                    self.system_memory.get_writable(len)
+                    self.system_memory.reserve(len)
                 }
                 Err(_) => panic!(),
             }
@@ -843,7 +856,7 @@ impl<T: Buffer> Buffer for BufferPool<T> {
     // pool to free up memory. It then attempts to allocate writable memory, which may switch
     // between different modes as needed.
     #[inline(always)]
-    fn get_writable(&mut self, len: usize) -> &mut [u8] {
+    fn reserve(&mut self, len: usize) -> &mut [u8] {
         let shared_state = self.inner_memory.memory.load();
 
         // If all the slices have been dropped, reset the pool to free up memory
@@ -851,8 +864,30 @@ impl<T: Buffer> Buffer for BufferPool<T> {
             self.reset();
         }
 
-        // Attempt to allocate writable memory, potentially switching pool modes
+        self.reserved = len;
+
+        // Attempt to reserve writable memory, potentially switching pool modes
         self.get_writable_(len, shared_state, false)
+    }
+
+    // Counts the first `len` bytes of the last reservation as written, in whichever memory the
+    // reservation was made.
+    #[inline(always)]
+    fn commit(&mut self, len: usize) {
+        assert!(len <= self.reserved, "commit exceeds the last reservation");
+        self.reserved = 0;
+        match self.mode {
+            PoolMode::Alloc => self.system_memory.commit(len),
+            _ => self.inner_memory.commit_raw(len),
+        }
+    }
+
+    #[inline(always)]
+    fn get_writable(&mut self, len: usize) -> &mut [u8] {
+        self.reserve(len);
+        self.commit(len);
+        let written = Buffer::len(self);
+        &mut self.get_data_by_ref(written)[written - len..]
     }
 
     // Transfers ownership of the written data as a `Slice`, handling different pool modes.
@@ -862,6 +897,8 @@ impl<T: Buffer> Buffer for BufferPool<T> {
     // accordingly. In alloc mode, it retrieves data from the heap-allocated system memory.
     #[inline(always)]
     fn get_data_owned(&mut self) -> Self::Slice {
+        self.reserved = 0;
+
         #[cfg(feature = "debug")]
         let mode: u8 = match self.mode {
             PoolMode::Back => 0,
@@ -995,6 +1032,7 @@ impl<T: Buffer + AeadBuffer> AeadBuffer for BufferPool<T> {
 
     fn truncate(&mut self, len: usize) {
         let len = len + self.start;
+        self.reserved = 0;
         match self.mode {
             PoolMode::Back => self.inner_memory.raw_len = len,
             PoolMode::Front(_) => self.inner_memory.raw_len = len,

@@ -148,6 +148,32 @@ impl Buffer for PPool {
     type Slice = SSlice;
 
     #[inline(always)]
+    fn reserve(&mut self, len: usize) -> &mut [u8] {
+        if !self.free_slots.is_empty() {
+            let slot = self.free_slots[self.free_slots.len() - 1];
+
+            let b = self.pool.get_mut(&slot).unwrap();
+            let offset = b.len();
+
+            if offset + len <= b.capacity() {
+                unsafe { core::slice::from_raw_parts_mut(b.as_mut_ptr().add(offset), len) }
+            } else {
+                panic!()
+            }
+        } else {
+            self.free();
+            self.reserve(len)
+        }
+    }
+
+    #[inline(always)]
+    fn commit(&mut self, len: usize) {
+        let slot = self.free_slots[self.free_slots.len() - 1];
+        let b = self.pool.get_mut(&slot).unwrap();
+        unsafe { b.set_len(b.len() + len) };
+    }
+
+    #[inline(always)]
     fn get_writable(&mut self, len: usize) -> &mut [u8] {
         if self.free_slots.len() > 0 {
             let slot = self.free_slots[self.free_slots.len() - 1];
@@ -246,6 +272,14 @@ unsafe impl Send for MaxESlice {}
 
 impl Buffer for MaxEfficiency {
     type Slice = MaxESlice;
+
+    #[inline(always)]
+    fn reserve(&mut self, len: usize) -> &mut [u8] {
+        &mut self.inner[0..len]
+    }
+
+    #[inline(always)]
+    fn commit(&mut self, _len: usize) {}
 
     #[inline(always)]
     fn get_writable(&mut self, len: usize) -> &mut [u8] {

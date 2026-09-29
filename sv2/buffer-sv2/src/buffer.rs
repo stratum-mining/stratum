@@ -32,6 +32,9 @@ pub struct BufferFromSystemMemory {
     // Starting index for the buffer. Useful for scenarios where part of the buffer is skipped or
     // invalid.
     start: usize,
+
+    // Length of the last reservation, `0` once it is committed.
+    reserved: usize,
 }
 
 impl BufferFromSystemMemory {
@@ -41,6 +44,7 @@ impl BufferFromSystemMemory {
             inner: Vec::new(),
             cursor: 0,
             start: 0,
+            reserved: 0,
         }
     }
 }
@@ -56,26 +60,38 @@ impl Buffer for BufferFromSystemMemory {
     type Slice = Vec<u8>;
 
     // Dynamically allocates or resizes the internal `Vec<u8>` to ensure there is enough space for
-    // writing.
+    // writing, without moving the cursor.
     #[inline]
-    fn get_writable(&mut self, len: usize) -> &mut [u8] {
-        let cursor = self.cursor;
-
-        // Reserve space in the buffer for writing based on the requested `len`
-        let len = self
+    fn reserve(&mut self, len: usize) -> &mut [u8] {
+        let end = self
             .cursor
             .checked_add(len)
             .expect("writable length overflows usize");
 
         // If the internal buffer is not large enough to hold the new data, resize it
-        if len > self.inner.len() {
-            self.inner.resize(len, 0)
+        if end > self.inner.len() {
+            self.inner.resize(end, 0)
         };
 
-        self.cursor = len;
+        self.reserved = len;
 
         // Portion of the buffer where data can be written
-        &mut self.inner[cursor..len]
+        &mut self.inner[self.cursor..end]
+    }
+
+    // Moves the cursor past the first `len` bytes of the last reservation.
+    #[inline]
+    fn commit(&mut self, len: usize) {
+        assert!(len <= self.reserved, "commit exceeds the last reservation");
+        self.cursor += len;
+        self.reserved = 0;
+    }
+
+    #[inline]
+    fn get_writable(&mut self, len: usize) -> &mut [u8] {
+        self.reserve(len);
+        self.commit(len);
+        &mut self.inner[self.cursor - len..self.cursor]
     }
 
     // Splits off the written portion of the buffer, returning it as a new `Vec<u8>`. Swaps the
@@ -93,6 +109,7 @@ impl Buffer for BufferFromSystemMemory {
         // state for future writes
         let head = tail;
         self.cursor = 0;
+        self.reserved = 0;
         head
     }
 
@@ -138,6 +155,14 @@ pub struct TestBufferFromMemory(pub Vec<u8>);
 #[cfg(test)]
 impl Buffer for TestBufferFromMemory {
     type Slice = Vec<u8>;
+
+    fn reserve(&mut self, _len: usize) -> &mut [u8] {
+        panic!()
+    }
+
+    fn commit(&mut self, _len: usize) {
+        panic!()
+    }
 
     fn get_writable(&mut self, _len: usize) -> &mut [u8] {
         panic!()
@@ -202,5 +227,6 @@ impl AeadBuffer for BufferFromSystemMemory {
     fn truncate(&mut self, len: usize) {
         let len = len + self.start;
         self.cursor = len;
+        self.reserved = 0;
     }
 }
