@@ -169,6 +169,10 @@ pub trait Buffer {
     /// is no longer needed, but its use can be unsafe unless you understand its implications.
     fn danger_set_start(&mut self, index: usize);
 
+    /// Drops the committed bytes past `len`, like [`Vec::truncate`](alloc::vec::Vec::truncate): a `len` at or past the
+    /// committed length changes nothing, so the frame can only shrink.
+    fn truncate(&mut self, len: usize);
+
     /// Returns `true` if the buffer is empty, `false` otherwise.
     fn is_empty(&self) -> bool {
         self.len() == 0
