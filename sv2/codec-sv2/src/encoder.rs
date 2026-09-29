@@ -441,7 +441,7 @@ mod prop_tests {
         });
         assert!(result.is_err());
         assert_eq!(IsBuffer::len(&encoder.noise_buffer), 0);
-        assert!(encoder.noise_buffer.as_ref().is_empty());
+        assert!(encoder.noise_buffer.frame().is_empty());
 
         // The next frame must be one the peer can open, with nothing of the failed one in it.
         let (mut sender_enc, receiver_dec) = make_transport_state_pair();

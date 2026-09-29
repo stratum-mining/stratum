@@ -52,7 +52,6 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 pub use crate::buffer::BufferFromSystemMemory;
-pub use aes_gcm::aead::Buffer as AeadBuffer;
 pub use buffer_pool::BufferPool;
 pub use slice::Slice;
 
@@ -164,10 +163,6 @@ pub trait Buffer {
     /// buffer is returned.
     fn len(&self) -> usize;
 
-    /// Modifies the starting point of the buffer, effectively discarding data up to the given
-    /// `index`. This can be useful for performance optimizations in situations where older data
-    /// is no longer needed, but its use can be unsafe unless you understand its implications.
-    fn danger_set_start(&mut self, index: usize);
 
     /// Drops the committed bytes past `len`, like [`Vec::truncate`](alloc::vec::Vec::truncate): a `len` at or past the
     /// committed length changes nothing, so the frame can only shrink.

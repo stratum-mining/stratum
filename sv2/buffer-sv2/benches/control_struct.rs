@@ -202,10 +202,6 @@ impl Buffer for PPool {
         todo!()
     }
 
-    fn danger_set_start(&mut self, _index: usize) {
-        todo!()
-    }
-
     fn truncate(&mut self, _len: usize) {
         todo!()
     }
@@ -285,10 +281,6 @@ impl Buffer for MaxEfficiency {
     }
 
     fn frame(&self) -> &[u8] {
-        todo!()
-    }
-
-    fn danger_set_start(&mut self, _index: usize) {
         todo!()
     }
 

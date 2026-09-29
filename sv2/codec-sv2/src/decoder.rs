@@ -806,7 +806,7 @@ mod prop_tests {
             decoder.read_len(),
             ENCRYPTED_SV2_FRAME_HEADER_SIZE - SURPLUS
         );
-        assert_eq!(decoder.noise_buffer.as_ref(), &[0xff; SURPLUS]);
+        assert_eq!(decoder.noise_buffer.frame(), &[0xff; SURPLUS]);
     }
 
     #[cfg(feature = "noise_sv2")]
@@ -1133,7 +1133,9 @@ mod prop_tests {
             .reserve(SV2_FRAME_HEADER_SIZE)
             .copy_from_slice(&[0, 0, 0, 0xff, 0xff, 0xff]);
         header.commit(SV2_FRAME_HEADER_SIZE);
-        sender.encrypt(&mut header).unwrap();
+        sender
+            .encrypt(&mut crate::state::Chunk::new(&mut header, 0))
+            .unwrap();
         let header = header.get_data_owned();
 
         let mut decoder = NoiseDecoder::new();
@@ -1363,7 +1365,7 @@ mod prop_tests {
             .unwrap_err();
         assert!(matches!(failed, crate::Error::AeadError(_)));
         assert_eq!(IsBuffer::len(&decoder.sv2_buffer), 0);
-        assert!(decoder.sv2_buffer.as_ref().is_empty());
+        assert!(decoder.sv2_buffer.frame().is_empty());
 
         // The same decoder must now decode the frame from the start.
         let decoded = decode_noise_frame(&mut decoder, receiver_state, encrypted);

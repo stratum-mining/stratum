@@ -11,9 +11,6 @@ repository = "https://github.com/stratum-mining/stratum"
 license = "MIT OR Apache-2.0"
 keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
-[dependencies]
-aes-gcm = { workspace = true }
-
 [dev-dependencies]
 rand = { workspace = true, default-features = true }
 iai = { workspace = true }
