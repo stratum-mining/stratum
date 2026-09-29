@@ -206,7 +206,7 @@ pub enum PoolMode {
 //
 // The memory is only ever reached through raw pointers narrowed to the range being accessed, so
 // that no reference covers a range a live slice points into.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct InnerMemory {
     // Underlying contiguous block of memory to be managed.
     pool: Vec<u8>,
@@ -223,6 +223,19 @@ pub struct InnerMemory {
 
     // A pointer to the current slot. Represents how many slots are currently occupied.
     len: usize,
+}
+
+// Formats the bookkeeping only: the bytes may belong to live slices written on other threads.
+impl core::fmt::Debug for InnerMemory {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("InnerMemory")
+            .field("capacity", &self.pool.len())
+            .field("raw_offset", &self.raw_offset)
+            .field("raw_len", &self.raw_len)
+            .field("slots", &self.slots)
+            .field("len", &self.len)
+            .finish()
+    }
 }
 
 impl InnerMemory {

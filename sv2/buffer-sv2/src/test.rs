@@ -583,3 +583,18 @@ fn slice_view_survives_a_later_allocation() {
     view[0] = 9;
     assert_eq!(first.as_ref()[0], 9);
 }
+
+#[test]
+fn formatting_the_pool_does_not_race_a_live_slice() {
+    let mut pool = Pool::new(64);
+    pool.get_writable(8).copy_from_slice(&[1; 8]);
+    let mut live = pool.get_data_owned();
+
+    let worker = std::thread::spawn(move || {
+        live.as_mut()[0] = 9;
+        live
+    });
+    let _ = alloc::format!("{pool:?}");
+
+    drop(worker.join().unwrap());
+}
