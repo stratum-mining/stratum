@@ -167,14 +167,14 @@ impl PoolBack {
         //
         // The first 2 elements have been dropped so back start at 2 and `BufferPool` can go in
         // front mode
+        let old_back_start = self.back_start;
         self.back_start = shared_state.leading_zeros() as usize;
 
         if self.back_start >= 1 && memory.raw_len < memory.slots[self.back_start].0 {
-            if self.back_start >= self.len {
-                self.len = 0;
-            } else {
-                self.len -= self.back_start;
-            }
+            // `len` only counts slots from the old boundary on, so only the head slots freed
+            // since then leave the back.
+            let freed = self.back_start.saturating_sub(old_back_start);
+            self.len = self.len.saturating_sub(freed);
             let pool_front =
                 PoolFront::new(memory.get_front_capacity(self.back_start), self.back_start);
             Err(PoolMode::Front(pool_front))

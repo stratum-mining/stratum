@@ -608,3 +608,50 @@ fn slice_outlives_its_pool() {
 
     assert_eq!(slice.as_ref(), &[1; 8]);
 }
+
+#[test]
+fn front_and_back_cycle_keeps_the_live_tail_count() {
+    let mut pool = Pool::new_fail_system_memory(8);
+    let mut back = Vec::new();
+    for value in 0_u8..8 {
+        pool.get_writable(1)[0] = value;
+        back.push(pool.get_data_owned());
+    }
+    back.drain(..3);
+
+    let mut first_front = Vec::new();
+    for value in 8_u8..11 {
+        pool.get_writable(1)[0] = value;
+        first_front.push(pool.get_data_owned());
+    }
+    assert!(pool.is_front_mode());
+
+    drop(back.pop());
+    pool.get_writable(1)[0] = 11;
+    back.push(pool.get_data_owned());
+    assert!(pool.is_back_mode());
+
+    drop(first_front);
+    back.drain(..2);
+
+    let mut second_front = Vec::new();
+    for value in 12_u8..17 {
+        pool.get_writable(1)[0] = value;
+        second_front.push(pool.get_data_owned());
+    }
+    assert!(pool.is_front_mode());
+
+    // Slot 7 is free again, so the pool must reuse it instead of allocating.
+    drop(back.pop());
+    pool.get_writable(1)[0] = 17;
+    let reused = pool.get_data_owned();
+
+    assert!(pool.is_back_mode());
+    assert_eq!(reused.as_ref(), &[17]);
+    for (i, slice) in back.iter().enumerate() {
+        assert_eq!(slice.as_ref(), &[i as u8 + 5]);
+    }
+    for (i, slice) in second_front.iter().enumerate() {
+        assert_eq!(slice.as_ref(), &[i as u8 + 12]);
+    }
+}
