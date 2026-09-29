@@ -203,7 +203,6 @@ fn add_random_bytes_test(
 
 #[inline(always)]
 fn keep_slice_test_p(mut slice: Slice, mut control: Vec<u8>, ms: u64) {
-    let _i = slice.index;
     std::thread::spawn(move || {
         std::thread::sleep(core::time::Duration::from_micros(ms));
         let control: &mut [u8] = control.as_mut();
