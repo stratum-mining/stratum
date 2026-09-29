@@ -97,6 +97,10 @@ pub(crate) const DEFAULT_POOL_BUFFER_SIZE: usize = 2_usize.pow(16) * 5;
 
 /// A [`framing_sv2::framing::SerializedFrame`] over the buffer the `with_buffer_pool` feature
 /// selects, which is what the decoders hand back and what an encoder takes to forward one on.
+///
+/// With `with_buffer_pool`, a decoded frame holds a slot of the decoder's pool until it is
+/// dropped: decode its message and drop it, or keep a copy made with
+/// [`into_owned`](framing_sv2::framing::SerializedFrame::into_owned).
 pub type SerializedFrame = framing_sv2::framing::SerializedFrame<<Buffer as IsBuffer>::Slice>;
 
 #[cfg(test)]

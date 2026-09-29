@@ -15,8 +15,7 @@ using shared state tracking to safely manage memory across multiple threads.
 ## Main Components
 
 - **Buffer Trait**: An interface for working with memory buffers. This trait has two implementations
-  (`BufferPool` and `BufferFromSystemMemory`) that includes a `Write` trait to replace
-  `std::io::Write` in `no_std` environments.
+  (`BufferPool` and `BufferFromSystemMemory`).
 - **BufferPool**: A thread-safe pool of reusable memory buffers for high-throughput applications.
 - **BufferFromSystemMemory**: Manages a dynamically growing buffer in system memory for applications
   where performance is not a concern.
@@ -40,9 +39,9 @@ The pool's memory is shared by the pool and every `Slice` pointing into it, and 
 reached through raw pointers narrowed to the range being accessed. The unsafe code is:
 
 - `buffer_pool/mod.rs`:
-  - `fn get_writable_(..)` in the `impl<T: Buffer> BufferPool<T>`
-  - `fn raw_data`, `fn raw_data_mut`, `fn copy_within`, `fn prepend_raw_data`,
-    `fn get_writable_raw_unchecked` and `fn get_data_owned` in the `impl InnerMemory`
+  - `fn reserve_(..)` in the `impl<T: Buffer> BufferPool<T>`
+  - `fn raw_data`, `fn raw_data_mut`, `fn copy_within`, `fn prepend_raw_data`, `fn reserve_raw`
+    and `fn get_data_owned` in the `impl InnerMemory`
 - `slice.rs`:
   - `unsafe impl Send for Slice {}`
   - `unsafe impl Send for PoolMemory {}` and `unsafe impl Sync for PoolMemory {}`
@@ -75,43 +74,53 @@ The `Buffer` trait is designed to work with the
 4. Using the header and message to construct a
    [`framing_sv2::framing::SerializedFrame`](https://docs.rs/framing_sv2/latest/framing_sv2/framing/struct.SerializedFrame.html).
 
-To fill the buffer, the `codec_sv2` decoder must pass a reference of the buffer to a filler. To
-construct a `SerializedFrame`, the decoder must pass ownership of the buffer to the frame.
+To fill the buffer, the `codec_sv2` decoder hands a region of the buffer to a filler, such as a
+socket read. To construct a `SerializedFrame`, the decoder must pass ownership of the buffer to
+the frame.
 
 ```rust
-fn get_writable(&mut self, len: usize) -> &mut [u8];
+fn reserve(&mut self, len: usize) -> &mut [u8];
+fn commit(&mut self, len: usize);
 ```
 
-This `get_writable` method returns a mutable reference to the buffer, starting at the current
-length and ending at `len`, and sets the buffer length to the previous length plus `len`.
+`reserve` returns `len` bytes of space right after the data written so far, without counting any
+of it as written. `commit` counts the bytes actually written, and panics if that is more than the
+last reservation. A decoder reserves a read window, reads into it, and commits only what the read
+returned, so a short read is never counted as data.
 
 ```rust
-get_data_owned(&mut self) -> Slice;
+fn frame(&self) -> &[u8];
+fn get_data_owned(&mut self) -> Slice;
 ```
 
-This `get_data_owned` method returns a `Slice` that implements `AsMut<[u8]>` and `Send`.
+`frame` returns the committed bytes. `get_data_owned` hands them out as a `Slice` that implements
+`AsMut<[u8]>` and `Send`, and starts a new frame.
 
-The `Buffer` trait is implemented for `BufferFromSystemMemory` and `BufferPool`. It includes a
-`Write` trait to replace `std::io::Write` in `no_std` environments.
+The `Buffer` trait is implemented for `BufferFromSystemMemory` and `BufferPool`.
 
 ## `BufferPoolFromSystemMemory`
 `BufferFromSystemMemory` is a simple implementation of the `Buffer` trait. Each time a new buffer is
 needed, it creates a new `Vec<u8>`.
 
-- `get_writable(..)` returns mutable references to the inner vector.
+- `reserve(..)` returns space at the end of the inner vector, and `commit(..)` counts it.
 - `get_data_owned(..)` returns the inner vector.
 
 ## `BufferPool`
 While `BufferFromSystemMemory` is sufficient for many cases, `BufferPool` offers a more efficient
 solution for high-performance applications, such as proxies and pools with thousands of connections.
 
-When created, `BufferPool` preallocates a user-defined capacity of bytes in the heap using a
-`Vec<u8>`. When `get_data_owned(..)` is called, it creates a `Slice` that contains a view into the
-preallocated memory. `BufferPool` guarantees that slices never overlap and maintains unique
-ownership of each `Slice`.
+When created, `BufferPool` preallocates a user-defined capacity of bytes in the heap, shared by
+the pool and every `Slice` pointing into it. When `get_data_owned(..)` is called, it creates a
+`Slice` that contains a view into the preallocated memory. `BufferPool` guarantees that slices
+never overlap and maintains unique ownership of each `Slice`.
 
 `Slice` implements the `Drop`, allowing the view into the preallocated memory to be reused upon
-dropping.
+dropping. The memory itself is freed once the pool and every slice pointing into it are gone.
+
+A pooled `Slice` is scratch space: it is meant to be decoded and dropped. A slice held longer
+keeps its slot, and once every slot is held, each new frame falls back to system memory. Bytes
+that have to outlive decoding are copied out: cloning a `Slice` copies it into memory the clone
+owns.
 
 ### Buffer Management and Allocation
 

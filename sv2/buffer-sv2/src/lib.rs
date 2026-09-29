@@ -36,6 +36,14 @@
 //! [`Vec<u8>`](alloc::vec::Vec). In high-performance scenarios, [`Slice`] can reference externally managed memory
 //! from the [`BufferPool`], reducing dynamic memory allocations and increasing performance.
 //!
+//! ## Slices are scratch space
+//!
+//! A [`Slice`] handed out by a [`BufferPool`] holds one of its slots until it is dropped. The pool
+//! is meant for frames that are decoded and then dropped: a slice kept alive longer keeps its
+//! slot, and once every slot is held, each new frame falls back to system memory. Bytes that have
+//! to outlive decoding are copied out: cloning a [`Slice`] copies it into memory the clone owns,
+//! and the slot is freed as soon as the original is dropped.
+//!
 //! ### Debug Mode
 //! Provides additional tracking for debugging memory management issues.
 
