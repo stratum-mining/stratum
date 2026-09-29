@@ -535,3 +535,14 @@ fn pool_backed_slice_reports_its_length() {
     assert_eq!(slice.len(), 8);
     assert_eq!(slice.len(), slice.as_ref().len());
 }
+
+#[test]
+fn repeated_shared_views_of_a_slice_coexist() {
+    let mut pool = Pool::new(64);
+    pool.get_writable(8).copy_from_slice(&[1; 8]);
+    let slice = pool.get_data_owned();
+
+    let first = slice.as_ref();
+    let second = slice.as_ref();
+    assert_eq!(first, second);
+}
