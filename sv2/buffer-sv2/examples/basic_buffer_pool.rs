@@ -21,10 +21,11 @@ fn main() {
 
     // Get a writable buffer from the pool
     let data_to_write = b"Ciao, mundo!"; // 12 bytes
-    let writable = buffer_pool.get_writable(data_to_write.len());
+    let writable = buffer_pool.reserve(data_to_write.len());
 
-    // Write data (12 bytes) into the buffer.
+    // Write data (12 bytes) into the buffer, then count it as written.
     writable.copy_from_slice(data_to_write);
+    buffer_pool.commit(data_to_write.len());
     assert_eq!(buffer_pool.len(), 12);
 
     // Retrieve the data as a referenced slice

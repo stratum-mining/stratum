@@ -47,10 +47,11 @@ fn rejected_writable_range_leaves_the_length_untouched() {
 #[test]
 fn rejected_system_memory_request_leaves_the_length_untouched() {
     let mut memory = BufferFromSystemMemory::new(0);
-    memory.get_writable(1)[0] = 1;
+    memory.reserve(1)[0] = 1;
+    memory.commit(1);
 
     let rejected = catch_unwind(AssertUnwindSafe(|| {
-        memory.get_writable(usize::MAX);
+        memory.reserve(usize::MAX);
     }));
 
     assert!(rejected.is_err());

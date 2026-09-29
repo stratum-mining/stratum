@@ -87,13 +87,6 @@ impl Buffer for BufferFromSystemMemory {
         self.reserved = 0;
     }
 
-    #[inline]
-    fn get_writable(&mut self, len: usize) -> &mut [u8] {
-        self.reserve(len);
-        self.commit(len);
-        &mut self.inner[self.cursor - len..self.cursor]
-    }
-
     // Splits off the written portion of the buffer, returning it as a new `Vec<u8>`. Swaps the
     // internal buffer with a newly allocated empty one, effectively returning ownership of the
     // written data while resetting the internal buffer for future use.
@@ -164,10 +157,6 @@ impl Buffer for TestBufferFromMemory {
         panic!()
     }
 
-    fn get_writable(&mut self, _len: usize) -> &mut [u8] {
-        panic!()
-    }
-
     fn get_data_owned(&mut self) -> Self::Slice {
         panic!()
     }
@@ -217,7 +206,8 @@ impl AeadBuffer for BufferFromSystemMemory {
     /// Extends the internal buffer by appending the given byte slice. Dynamically resizes the
     /// internal buffer to accommodate the new data and copies the contents of `other` into it.
     fn extend_from_slice(&mut self, other: &[u8]) -> aes_gcm::aead::Result<()> {
-        self.get_writable(other.len()).copy_from_slice(other);
+        self.reserve(other.len()).copy_from_slice(other);
+        self.commit(other.len());
         Ok(())
     }
 

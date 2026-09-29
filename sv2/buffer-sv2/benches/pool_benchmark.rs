@@ -183,7 +183,7 @@ fn add_random_bytes_test(
             break;
         };
 
-        let writable: &mut [u8] = buffer.get_writable(w_len).as_mut();
+        let writable: &mut [u8] = buffer.reserve(w_len).as_mut();
         writable.copy_from_slice(&input[written..written + w_len]);
         v.extend_from_slice(&input[written..written + w_len]);
 
@@ -191,6 +191,7 @@ fn add_random_bytes_test(
             &writable[..] == &input[written..written + w_len]
                 && &writable[..] == &v[written..written + w_len]
         );
+        buffer.commit(w_len);
 
         written += w_len;
         i += 1;
