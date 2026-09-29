@@ -655,3 +655,88 @@ fn front_and_back_cycle_keeps_the_live_tail_count() {
         assert_eq!(slice.as_ref(), &[i as u8 + 12]);
     }
 }
+
+#[test]
+fn pool_leaves_alloc_mode_after_a_failed_head_clear() {
+    let mut pool = Pool::new(8);
+    let mut back = Vec::new();
+    for value in 0_u8..8 {
+        pool.get_writable(1)[0] = value;
+        back.push(pool.get_data_owned());
+    }
+    back.drain(..3);
+
+    let mut front = Vec::new();
+    for value in 8_u8..11 {
+        pool.get_writable(1)[0] = value;
+        front.push(pool.get_data_owned());
+    }
+    assert!(pool.is_front_mode());
+
+    drop(back.pop());
+    pool.get_writable(1)[0] = 11;
+    let replacement = pool.get_data_owned();
+    assert!(pool.is_back_mode());
+
+    // Every slot is live, so this frame falls back to system memory.
+    pool.get_writable(1)[0] = 12;
+    drop(pool.get_data_owned());
+    assert!(pool.is_alloc_mode());
+
+    // The last pooled slot is free again, so the pool must return to back mode and reuse it.
+    drop(replacement);
+    pool.get_writable(1)[0] = 13;
+    let reused = pool.get_data_owned();
+
+    assert!(pool.is_back_mode());
+    assert_eq!(reused.as_ref(), &[13]);
+    assert_eq!(front[0].as_ref(), &[8]);
+    assert_eq!(back[0].as_ref(), &[3]);
+}
+
+#[test]
+fn a_live_front_slot_past_the_free_prefix_keeps_the_back_usable() {
+    let mut pool = Pool::new(80);
+    let mut back = Vec::new();
+    for value in 0_u8..8 {
+        pool.get_writable(10).fill(value);
+        back.push(Some(pool.get_data_owned()));
+    }
+    for slot in &mut back[..3] {
+        *slot = None;
+    }
+
+    let mut front = Vec::new();
+    for value in 8_u8..11 {
+        pool.get_writable(10).fill(value);
+        front.push(Some(pool.get_data_owned()));
+    }
+    assert!(pool.is_front_mode());
+    front[0] = None;
+    front[2] = None;
+
+    // Nothing in the pool fits 11 bytes, so this frame falls back to system memory.
+    pool.get_writable(11).fill(11);
+    drop(pool.get_data_owned());
+    assert!(pool.is_alloc_mode());
+
+    // Only slot 0 is free before the live front slot 1, so the front shrinks to that slot.
+    pool.get_writable(10).fill(12);
+    let narrowed_front = pool.get_data_owned();
+    assert!(pool.is_front_mode());
+
+    // The back tail is free again, so the pool must reuse it while front slot 1 is still live.
+    for slot in &mut back[5..] {
+        *slot = None;
+    }
+    pool.get_writable(10).fill(13);
+    let reused = pool.get_data_owned();
+
+    assert!(pool.is_back_mode());
+    assert_eq!(reused.as_ref(), &[13; 10]);
+    assert_eq!(narrowed_front.as_ref(), &[12; 10]);
+    assert_eq!(front[1].as_ref().unwrap().as_ref(), &[9; 10]);
+    for (value, slot) in (3_u8..5).zip(&back[3..5]) {
+        assert_eq!(slot.as_ref().unwrap().as_ref(), &[value; 10]);
+    }
+}
