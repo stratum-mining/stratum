@@ -146,13 +146,6 @@ pub trait Buffer {
     /// Panics if `len` is larger than the last reservation.
     fn commit(&mut self, len: usize);
 
-    /// Borrows a mutable slice of the buffer, allowing the caller to write data into it. The
-    /// caller specifies the length of the data they need to write.
-    ///
-    /// All `len` bytes count as written straight away, as if reserved and then committed, so the
-    /// caller must fill the whole slice.
-    fn get_writable(&mut self, len: usize) -> &mut [u8];
-
     /// Provides ownership of a slice in the buffer pool to the caller and updates the buffer
     /// pool's state by modifying the position in `shared_state` that the slice occupies. The pool
     /// now points to the next set of uninitialized space.

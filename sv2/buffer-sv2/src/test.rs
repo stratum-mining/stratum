@@ -28,8 +28,9 @@ fn pool_capicity_without_alloc() {
         let n5: u8 = rng.gen();
         let mut src = [n1, n2, n3, n4, n5];
 
-        let writable = pool.get_writable(5);
+        let writable = pool.reserve(5);
         writable.copy_from_slice(&src[..]);
+        pool.commit(5);
 
         let mut owned = pool.get_data_owned();
         assert_eq!(&mut src[..], owned.as_mut());
@@ -54,8 +55,9 @@ fn it_drop() {
         let n5: u8 = rng.gen();
         let mut src = [n1, n2, n3, n4, n5];
 
-        let writable = pool.get_writable(5);
+        let writable = pool.reserve(5);
         writable.copy_from_slice(&src[..]);
+        pool.commit(5);
 
         let mut owned = pool.get_data_owned();
         assert_eq!(&mut src[..], owned.as_mut());
@@ -80,8 +82,9 @@ fn alloc_more_than_pool_capacity() {
         let n5: u8 = rng.gen();
         let mut src = [n1, n2, n3, n4, n5];
 
-        let writable = pool.get_writable(5);
+        let writable = pool.reserve(5);
         writable.copy_from_slice(&src[..]);
+        pool.commit(5);
 
         let mut owned = pool.get_data_owned();
         assert_eq!(&mut src[..], owned.as_mut());
@@ -109,8 +112,9 @@ fn alloc_more_than_pool_capacity_2() {
         let n5: u8 = rng.gen();
         let mut src = [n1, n2, n3, n4, n5];
 
-        let writable = pool.get_writable(5);
+        let writable = pool.reserve(5);
         writable.copy_from_slice(&src[..]);
+        pool.commit(5);
 
         let mut owned = pool.get_data_owned();
         assert_eq!(&mut src[..], owned.as_mut());
@@ -137,8 +141,9 @@ fn alloc_more_than_byte_capacity() {
         let n5: u8 = rng.gen();
         let mut src = [n1, n2, n3, n4, n5];
 
-        let writable = pool.get_writable(5);
+        let writable = pool.reserve(5);
         writable.copy_from_slice(&src[..]);
+        pool.commit(5);
 
         let mut owned = pool.get_data_owned();
         assert_eq!(&mut src[..], owned.as_mut());
@@ -166,8 +171,9 @@ fn alloc_more_than_byte_capacity_2() {
         let n5: u8 = rng.gen();
         let mut src = [n1, n2, n3, n4, n5];
 
-        let writable = pool.get_writable(5);
+        let writable = pool.reserve(5);
         writable.copy_from_slice(&src[..]);
+        pool.commit(5);
 
         let mut owned = pool.get_data_owned();
         assert_eq!(&mut src[..], owned.as_mut());
@@ -194,8 +200,9 @@ fn back_front_back() {
         let n5: u8 = rng.gen();
         let mut src = [n1, n2, n3, n4, n5];
 
-        let writable = pool.get_writable(5);
+        let writable = pool.reserve(5);
         writable.copy_from_slice(&src[..]);
+        pool.commit(5);
 
         let mut owned = pool.get_data_owned();
         assert_eq!(&mut src[..], owned.as_mut());
@@ -222,8 +229,9 @@ fn back_front_back() {
         let n5: u8 = rng.gen();
         let mut src = [n1, n2, n3, n4, n5];
 
-        let writable = pool.get_writable(5);
+        let writable = pool.reserve(5);
         writable.copy_from_slice(&src[..]);
+        pool.commit(5);
 
         let mut owned = pool.get_data_owned();
         assert_eq!(&mut src[..], owned.as_mut());
@@ -251,8 +259,9 @@ fn back_front_back() {
         let n5: u8 = rng.gen();
         let mut src = [n1, n2, n3, n4, n5];
 
-        let writable = pool.get_writable(5);
+        let writable = pool.reserve(5);
         writable.copy_from_slice(&src[..]);
+        pool.commit(5);
 
         let mut owned = pool.get_data_owned();
         assert_eq!(&mut src[..], owned.as_mut());
@@ -278,8 +287,9 @@ fn back_front_alloc() {
         let n5: u8 = rng.gen();
         let mut src = [n1, n2, n3, n4, n5];
 
-        let writable = pool.get_writable(5);
+        let writable = pool.reserve(5);
         writable.copy_from_slice(&src[..]);
+        pool.commit(5);
 
         let mut owned = pool.get_data_owned();
         assert_eq!(&mut src[..], owned.as_mut());
@@ -302,8 +312,9 @@ fn back_front_alloc() {
         let n5: u8 = rng.gen();
         let mut src = [n1, n2, n3, n4, n5];
 
-        let writable = pool.get_writable(5);
+        let writable = pool.reserve(5);
         writable.copy_from_slice(&src[..]);
+        pool.commit(5);
 
         let mut owned = pool.get_data_owned();
         assert_eq!(&mut src[..], owned.as_mut());
@@ -323,8 +334,9 @@ fn back_front_alloc() {
         let n5: u8 = rng.gen();
         let mut src = [n1, n2, n3, n4, n5];
 
-        let writable = pool.get_writable(5);
+        let writable = pool.reserve(5);
         writable.copy_from_slice(&src[..]);
+        pool.commit(5);
 
         let mut owned = pool.get_data_owned();
         assert_eq!(&mut src[..], owned.as_mut());
@@ -356,8 +368,9 @@ fn back_alloc_back() {
         let n5: u8 = rng.gen();
         let mut src = [n1, n2, n3, n4, n5];
 
-        let writable = pool.get_writable(5);
+        let writable = pool.reserve(5);
         writable.copy_from_slice(&src[..]);
+        pool.commit(5);
 
         let mut owned = pool.get_data_owned();
         assert_eq!(&mut src[..], owned.as_mut());
@@ -376,8 +389,9 @@ fn back_alloc_back() {
         let n5: u8 = rng.gen();
         let mut src = [n1, n2, n3, n4, n5];
 
-        let writable = pool.get_writable(5);
+        let writable = pool.reserve(5);
         writable.copy_from_slice(&src[..]);
+        pool.commit(5);
 
         let mut owned = pool.get_data_owned();
         assert_eq!(&mut src[..], owned.as_mut());
@@ -405,8 +419,9 @@ fn back_alloc_back() {
         let n5: u8 = rng.gen();
         let mut src = [n1, n2, n3, n4, n5];
 
-        let writable = pool.get_writable(5);
+        let writable = pool.reserve(5);
         writable.copy_from_slice(&src[..]);
+        pool.commit(5);
 
         let mut owned = pool.get_data_owned();
         assert_eq!(&mut src[..], owned.as_mut());
@@ -442,8 +457,9 @@ fn back_alloc_front() {
         let n5: u8 = rng.gen();
         let mut src = [n1, n2, n3, n4, n5];
 
-        let writable = pool.get_writable(5);
+        let writable = pool.reserve(5);
         writable.copy_from_slice(&src[..]);
+        pool.commit(5);
 
         let mut owned = pool.get_data_owned();
         assert_eq!(&mut src[..], owned.as_mut());
@@ -462,8 +478,9 @@ fn back_alloc_front() {
         let n5: u8 = rng.gen();
         let mut src = [n1, n2, n3, n4, n5];
 
-        let writable = pool.get_writable(5);
+        let writable = pool.reserve(5);
         writable.copy_from_slice(&src[..]);
+        pool.commit(5);
 
         let mut owned = pool.get_data_owned();
         assert_eq!(&mut src[..], owned.as_mut());
@@ -491,8 +508,9 @@ fn back_alloc_front() {
         let n5: u8 = rng.gen();
         let mut src = [n1, n2, n3, n4, n5];
 
-        let writable = pool.get_writable(5);
+        let writable = pool.reserve(5);
         writable.copy_from_slice(&src[..]);
+        pool.commit(5);
 
         let mut owned = pool.get_data_owned();
         assert_eq!(&mut src[..], owned.as_mut());
@@ -511,7 +529,8 @@ fn back_alloc_front() {
 #[test]
 fn slice_released_on_another_thread_is_safe_to_reuse() {
     let mut pool = Pool::new(64);
-    pool.get_writable(8).copy_from_slice(&[1; 8]);
+    pool.reserve(8).copy_from_slice(&[1; 8]);
+    pool.commit(8);
     let mut slice = pool.get_data_owned();
 
     let worker = std::thread::spawn(move || {
@@ -521,7 +540,8 @@ fn slice_released_on_another_thread_is_safe_to_reuse() {
     while !pool.droppable() {
         std::thread::yield_now();
     }
-    pool.get_writable(8).copy_from_slice(&[2; 8]);
+    pool.reserve(8).copy_from_slice(&[2; 8]);
+    pool.commit(8);
 
     worker.join().unwrap();
 }
@@ -529,7 +549,8 @@ fn slice_released_on_another_thread_is_safe_to_reuse() {
 #[test]
 fn pool_backed_slice_reports_its_length() {
     let mut pool = Pool::new(64);
-    pool.get_writable(8).copy_from_slice(&[1; 8]);
+    pool.reserve(8).copy_from_slice(&[1; 8]);
+    pool.commit(8);
     let slice = pool.get_data_owned();
 
     assert_eq!(slice.len(), 8);
@@ -539,7 +560,8 @@ fn pool_backed_slice_reports_its_length() {
 #[test]
 fn repeated_shared_views_of_a_slice_coexist() {
     let mut pool = Pool::new(64);
-    pool.get_writable(8).copy_from_slice(&[1; 8]);
+    pool.reserve(8).copy_from_slice(&[1; 8]);
+    pool.commit(8);
     let slice = pool.get_data_owned();
 
     let first = slice.as_ref();
@@ -550,12 +572,14 @@ fn repeated_shared_views_of_a_slice_coexist() {
 #[test]
 fn cloned_slice_keeps_its_bytes_after_the_original_is_released() {
     let mut pool = Pool::new(64);
-    pool.get_writable(8).copy_from_slice(&[1; 8]);
+    pool.reserve(8).copy_from_slice(&[1; 8]);
+    pool.commit(8);
     let original = pool.get_data_owned();
     let copy = original.clone();
     drop(original);
 
-    pool.get_writable(8).copy_from_slice(&[2; 8]);
+    pool.reserve(8).copy_from_slice(&[2; 8]);
+    pool.commit(8);
     let _reused = pool.get_data_owned();
 
     assert_eq!(copy.as_ref(), &[1; 8]);
@@ -573,11 +597,13 @@ fn empty_frame_does_not_take_a_slot() {
 #[test]
 fn slice_view_survives_a_later_allocation() {
     let mut pool = Pool::new(64);
-    pool.get_writable(8).copy_from_slice(&[1; 8]);
+    pool.reserve(8).copy_from_slice(&[1; 8]);
+    pool.commit(8);
     let mut first = pool.get_data_owned();
     let view = first.as_mut();
 
-    pool.get_writable(8).copy_from_slice(&[2; 8]);
+    pool.reserve(8).copy_from_slice(&[2; 8]);
+    pool.commit(8);
     let _second = pool.get_data_owned();
 
     view[0] = 9;
@@ -587,7 +613,8 @@ fn slice_view_survives_a_later_allocation() {
 #[test]
 fn formatting_the_pool_does_not_race_a_live_slice() {
     let mut pool = Pool::new(64);
-    pool.get_writable(8).copy_from_slice(&[1; 8]);
+    pool.reserve(8).copy_from_slice(&[1; 8]);
+    pool.commit(8);
     let mut live = pool.get_data_owned();
 
     let worker = std::thread::spawn(move || {
@@ -602,7 +629,8 @@ fn formatting_the_pool_does_not_race_a_live_slice() {
 #[test]
 fn slice_outlives_its_pool() {
     let mut pool = Pool::new(64);
-    pool.get_writable(8).copy_from_slice(&[1; 8]);
+    pool.reserve(8).copy_from_slice(&[1; 8]);
+    pool.commit(8);
     let slice = pool.get_data_owned();
     drop(pool);
 
@@ -614,20 +642,23 @@ fn front_and_back_cycle_keeps_the_live_tail_count() {
     let mut pool = Pool::new_fail_system_memory(8);
     let mut back = Vec::new();
     for value in 0_u8..8 {
-        pool.get_writable(1)[0] = value;
+        pool.reserve(1)[0] = value;
+        pool.commit(1);
         back.push(pool.get_data_owned());
     }
     back.drain(..3);
 
     let mut first_front = Vec::new();
     for value in 8_u8..11 {
-        pool.get_writable(1)[0] = value;
+        pool.reserve(1)[0] = value;
+        pool.commit(1);
         first_front.push(pool.get_data_owned());
     }
     assert!(pool.is_front_mode());
 
     drop(back.pop());
-    pool.get_writable(1)[0] = 11;
+    pool.reserve(1)[0] = 11;
+    pool.commit(1);
     back.push(pool.get_data_owned());
     assert!(pool.is_back_mode());
 
@@ -636,14 +667,16 @@ fn front_and_back_cycle_keeps_the_live_tail_count() {
 
     let mut second_front = Vec::new();
     for value in 12_u8..17 {
-        pool.get_writable(1)[0] = value;
+        pool.reserve(1)[0] = value;
+        pool.commit(1);
         second_front.push(pool.get_data_owned());
     }
     assert!(pool.is_front_mode());
 
     // Slot 7 is free again, so the pool must reuse it instead of allocating.
     drop(back.pop());
-    pool.get_writable(1)[0] = 17;
+    pool.reserve(1)[0] = 17;
+    pool.commit(1);
     let reused = pool.get_data_owned();
 
     assert!(pool.is_back_mode());
@@ -661,31 +694,36 @@ fn pool_leaves_alloc_mode_after_a_failed_head_clear() {
     let mut pool = Pool::new(8);
     let mut back = Vec::new();
     for value in 0_u8..8 {
-        pool.get_writable(1)[0] = value;
+        pool.reserve(1)[0] = value;
+        pool.commit(1);
         back.push(pool.get_data_owned());
     }
     back.drain(..3);
 
     let mut front = Vec::new();
     for value in 8_u8..11 {
-        pool.get_writable(1)[0] = value;
+        pool.reserve(1)[0] = value;
+        pool.commit(1);
         front.push(pool.get_data_owned());
     }
     assert!(pool.is_front_mode());
 
     drop(back.pop());
-    pool.get_writable(1)[0] = 11;
+    pool.reserve(1)[0] = 11;
+    pool.commit(1);
     let replacement = pool.get_data_owned();
     assert!(pool.is_back_mode());
 
     // Every slot is live, so this frame falls back to system memory.
-    pool.get_writable(1)[0] = 12;
+    pool.reserve(1)[0] = 12;
+    pool.commit(1);
     drop(pool.get_data_owned());
     assert!(pool.is_alloc_mode());
 
     // The last pooled slot is free again, so the pool must return to back mode and reuse it.
     drop(replacement);
-    pool.get_writable(1)[0] = 13;
+    pool.reserve(1)[0] = 13;
+    pool.commit(1);
     let reused = pool.get_data_owned();
 
     assert!(pool.is_back_mode());
@@ -699,7 +737,8 @@ fn a_live_front_slot_past_the_free_prefix_keeps_the_back_usable() {
     let mut pool = Pool::new(80);
     let mut back = Vec::new();
     for value in 0_u8..8 {
-        pool.get_writable(10).fill(value);
+        pool.reserve(10).fill(value);
+        pool.commit(10);
         back.push(Some(pool.get_data_owned()));
     }
     for slot in &mut back[..3] {
@@ -708,7 +747,8 @@ fn a_live_front_slot_past_the_free_prefix_keeps_the_back_usable() {
 
     let mut front = Vec::new();
     for value in 8_u8..11 {
-        pool.get_writable(10).fill(value);
+        pool.reserve(10).fill(value);
+        pool.commit(10);
         front.push(Some(pool.get_data_owned()));
     }
     assert!(pool.is_front_mode());
@@ -716,12 +756,14 @@ fn a_live_front_slot_past_the_free_prefix_keeps_the_back_usable() {
     front[2] = None;
 
     // Nothing in the pool fits 11 bytes, so this frame falls back to system memory.
-    pool.get_writable(11).fill(11);
+    pool.reserve(11).fill(11);
+    pool.commit(11);
     drop(pool.get_data_owned());
     assert!(pool.is_alloc_mode());
 
     // Only slot 0 is free before the live front slot 1, so the front shrinks to that slot.
-    pool.get_writable(10).fill(12);
+    pool.reserve(10).fill(12);
+    pool.commit(10);
     let narrowed_front = pool.get_data_owned();
     assert!(pool.is_front_mode());
 
@@ -729,7 +771,8 @@ fn a_live_front_slot_past_the_free_prefix_keeps_the_back_usable() {
     for slot in &mut back[5..] {
         *slot = None;
     }
-    pool.get_writable(10).fill(13);
+    pool.reserve(10).fill(13);
+    pool.commit(10);
     let reused = pool.get_data_owned();
 
     assert!(pool.is_back_mode());
@@ -746,16 +789,20 @@ fn switching_front_to_back_does_not_overwrite_a_live_slice() {
     let mut pool = Pool::new(80);
     let mut back = Vec::new();
     for _ in 0..8 {
-        pool.get_writable(10).fill(0x11);
+        pool.reserve(10).fill(0x11);
+        pool.commit(10);
         back.push(pool.get_data_owned());
     }
     back.drain(..3);
 
-    pool.get_writable(1).fill(0x22);
+    pool.reserve(1).fill(0x22);
+    pool.commit(1);
     let first_front = pool.get_data_owned();
-    pool.get_writable(1).fill(0x33);
+    pool.reserve(1).fill(0x33);
+    pool.commit(1);
     let second_front = pool.get_data_owned();
-    pool.get_writable(1).fill(0x44);
+    pool.reserve(1).fill(0x44);
+    pool.commit(1);
     let third_front = pool.get_data_owned();
     assert!(pool.is_front_mode());
 
@@ -763,13 +810,15 @@ fn switching_front_to_back_does_not_overwrite_a_live_slice() {
     // extent.
     drop(second_front);
     drop(third_front);
-    pool.get_writable(10).fill(0x55);
+    pool.reserve(10).fill(0x55);
+    pool.commit(10);
     let live_front = pool.get_data_owned();
 
     // Every back slot is free, and 20 bytes don't fit before the old boundary, so the pool
     // switches back to the back.
     drop(back);
-    pool.get_writable(20).fill(0x66);
+    pool.reserve(20).fill(0x66);
+    pool.commit(20);
     let new_back = pool.get_data_owned();
 
     assert_eq!(first_front.as_ref(), &[0x22]);
@@ -782,17 +831,20 @@ fn freeing_every_front_slot_keeps_the_back_slices_live() {
     let mut pool = Pool::new(80);
     let mut back = Vec::new();
     for value in 0_u8..8 {
-        pool.get_writable(10).fill(value);
+        pool.reserve(10).fill(value);
+        pool.commit(10);
         back.push(pool.get_data_owned());
     }
     back.remove(0);
 
-    pool.get_writable(1).fill(0x11);
+    pool.reserve(1).fill(0x11);
+    pool.commit(1);
     let front = pool.get_data_owned();
     assert!(pool.is_front_mode());
     drop(front);
 
-    pool.get_writable(1).fill(0x22);
+    pool.reserve(1).fill(0x22);
+    pool.commit(1);
     let next = pool.get_data_owned();
 
     assert_eq!(next.as_ref(), &[0x22]);
@@ -822,7 +874,8 @@ fn random_slice_lifetimes_match_a_model_of_the_pool() {
                             _ => rng.gen_range(1..=capacity / 3 + 1),
                         };
                         let byte: u8 = rng.gen();
-                        pool.get_writable(len).fill(byte);
+                        pool.reserve(len).fill(byte);
+                        pool.commit(len);
                         expected.resize(expected.len() + len, byte);
                     }
                     live.push((pool.get_data_owned(), expected));

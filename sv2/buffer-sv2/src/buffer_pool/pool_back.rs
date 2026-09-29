@@ -221,7 +221,7 @@ impl PoolBack {
     // Returns `Ok(*mut u8)` if writable memory is available, otherwise an `Err(PoolMode)` if a
     // mode change is required.
     #[inline(always)]
-    pub fn get_writable(
+    pub fn reserve(
         &mut self,
         len: usize,
         memory: &mut InnerMemory,

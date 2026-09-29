@@ -161,7 +161,7 @@ impl PoolFront {
     // `Err(PoolMode::Back)` if the memory cannot be cleared or lacks capacity. This error
     // indicates the `BufferPool` should attempt a transition to use the back of the buffer pool.
     #[inline(always)]
-    fn get_writable(
+    fn reserve(
         &mut self,
         len: usize,
         memory: &mut InnerMemory,
@@ -680,7 +680,7 @@ impl<T: Buffer> BufferPool<T> {
     // remain in back or front pool modes. When `without_check` is `true`, the function bypasses
     // memory checks and allocates directly from the heap.
     #[inline(never)]
-    fn get_writable_from_system_memory(
+    fn reserve_from_system_memory(
         &mut self,
         len: usize,
         shared_state: u8,
@@ -702,11 +702,11 @@ impl<T: Buffer> BufferPool<T> {
             {
                 Ok(_) => {
                     self.change_mode(PoolMode::Back, len, shared_state);
-                    self.get_writable_(len, shared_state, false)
+                    self.reserve_(len, shared_state, false)
                 }
                 Err(PoolMode::Front(f)) => {
                     self.change_mode(PoolMode::Front(f), len, shared_state);
-                    self.get_writable_(len, shared_state, false)
+                    self.reserve_(len, shared_state, false)
                 }
                 Err(PoolMode::Alloc) => {
                     self.inner_memory.reset_raw();
@@ -817,15 +817,14 @@ impl<T: Buffer> BufferPool<T> {
     // unsuccessful, switches modes and retries, starting with the memory pool before resorting to
     // system memory.
     #[inline(always)]
-    fn get_writable_(&mut self, len: usize, shared_state: u8, without_check: bool) -> &mut [u8] {
+    fn reserve_(&mut self, len: usize, shared_state: u8, without_check: bool) -> &mut [u8] {
         let writable = match &mut self.mode {
-            PoolMode::Back => {
-                self.pool_back
-                    .get_writable(len, &mut self.inner_memory, shared_state)
-            }
-            PoolMode::Front(front) => front.get_writable(len, &mut self.inner_memory, shared_state),
+            PoolMode::Back => self
+                .pool_back
+                .reserve(len, &mut self.inner_memory, shared_state),
+            PoolMode::Front(front) => front.reserve(len, &mut self.inner_memory, shared_state),
             PoolMode::Alloc => {
-                return self.get_writable_from_system_memory(len, shared_state, without_check)
+                return self.reserve_from_system_memory(len, shared_state, without_check)
             }
         };
 
@@ -840,7 +839,7 @@ impl<T: Buffer> BufferPool<T> {
             Err(mode) => {
                 self.change_mode(mode, len, shared_state);
                 let without_check = self.is_alloc_mode();
-                self.get_writable_(len, shared_state, without_check)
+                self.reserve_(len, shared_state, without_check)
             }
         }
     }
@@ -867,7 +866,7 @@ impl<T: Buffer> Buffer for BufferPool<T> {
         self.reserved = len;
 
         // Attempt to reserve writable memory, potentially switching pool modes
-        self.get_writable_(len, shared_state, false)
+        self.reserve_(len, shared_state, false)
     }
 
     // Counts the first `len` bytes of the last reservation as written, in whichever memory the
@@ -880,14 +879,6 @@ impl<T: Buffer> Buffer for BufferPool<T> {
             PoolMode::Alloc => self.system_memory.commit(len),
             _ => self.inner_memory.commit_raw(len),
         }
-    }
-
-    #[inline(always)]
-    fn get_writable(&mut self, len: usize) -> &mut [u8] {
-        self.reserve(len);
-        self.commit(len);
-        let written = Buffer::len(self);
-        &mut self.get_data_by_ref(written)[written - len..]
     }
 
     // Transfers ownership of the written data as a `Slice`, handling different pool modes.
@@ -1026,7 +1017,8 @@ impl<T: Buffer> AsMut<[u8]> for BufferPool<T> {
 
 impl<T: Buffer + AeadBuffer> AeadBuffer for BufferPool<T> {
     fn extend_from_slice(&mut self, other: &[u8]) -> aes_gcm::aead::Result<()> {
-        self.get_writable(other.len()).copy_from_slice(other);
+        self.reserve(other.len()).copy_from_slice(other);
+        self.commit(other.len());
         Ok(())
     }
 

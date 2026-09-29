@@ -12,8 +12,9 @@ pub fn add_random_bytes(message_len: usize, buffer: &mut impl Buffer, input: &[u
     let rounds = message_len / 10;
 
     for i in 0..rounds {
-        let writable: &mut [u8] = buffer.get_writable(10).as_mut();
+        let writable: &mut [u8] = buffer.reserve(10).as_mut();
         writable.copy_from_slice(&input[i..i + 10]);
+        buffer.commit(10);
     }
 }
 
@@ -174,26 +175,6 @@ impl Buffer for PPool {
     }
 
     #[inline(always)]
-    fn get_writable(&mut self, len: usize) -> &mut [u8] {
-        if self.free_slots.len() > 0 {
-            let slot = self.free_slots[self.free_slots.len() - 1];
-
-            let b = self.pool.get_mut(&slot).unwrap();
-            let offset = b.len();
-
-            if offset + len <= b.capacity() {
-                unsafe { b.set_len(offset + len) };
-                &mut b[offset..offset + len]
-            } else {
-                panic!()
-            }
-        } else {
-            self.free();
-            self.get_writable(len)
-        }
-    }
-
-    #[inline(always)]
     fn get_data_owned(&mut self) -> Self::Slice {
         let slot = self.free_slots.pop().unwrap();
 
@@ -280,11 +261,6 @@ impl Buffer for MaxEfficiency {
 
     #[inline(always)]
     fn commit(&mut self, _len: usize) {}
-
-    #[inline(always)]
-    fn get_writable(&mut self, len: usize) -> &mut [u8] {
-        &mut self.inner[0..len]
-    }
 
     #[inline(always)]
     fn get_data_owned(&mut self) -> Self::Slice {

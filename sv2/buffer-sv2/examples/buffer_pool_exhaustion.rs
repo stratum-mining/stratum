@@ -42,9 +42,10 @@ fn main() {
     // Write data to fill back slots
     for _ in 0..4 {
         let data_bytes = b"a"; // 1 byte
-        let writable = buffer_pool.get_writable(data_bytes.len()); // Mutable slice to internal
-                                                                   // buffer
+        let writable = buffer_pool.reserve(data_bytes.len()); // Mutable slice to internal
+                                                              // buffer
         writable.copy_from_slice(data_bytes);
+        buffer_pool.commit(data_bytes.len());
         let data_slice = buffer_pool.get_data_owned(); // Take ownership of allocated segment
         slices.push_back(data_slice);
     }
@@ -54,8 +55,9 @@ fn main() {
     // to front mode)
     slices.pop_front(); // Free the slice's associated segment in the buffer pool
     let data_bytes = b"b"; // 1 byte
-    let writable = buffer_pool.get_writable(data_bytes.len());
+    let writable = buffer_pool.reserve(data_bytes.len());
     writable.copy_from_slice(data_bytes);
+    buffer_pool.commit(data_bytes.len());
     let data_slice = buffer_pool.get_data_owned();
     slices.push_back(data_slice);
     assert!(buffer_pool.is_back_mode()); // Still in back mode
@@ -63,8 +65,9 @@ fn main() {
     // Write data to switch to front mode
     for _ in 0..4 {
         let data_bytes = b"c"; // 1 byte
-        let writable = buffer_pool.get_writable(data_bytes.len());
+        let writable = buffer_pool.reserve(data_bytes.len());
         writable.copy_from_slice(data_bytes);
+        buffer_pool.commit(data_bytes.len());
         let data_slice = buffer_pool.get_data_owned();
         slices.push_back(data_slice);
     }
@@ -72,8 +75,9 @@ fn main() {
 
     // Add another slice, causing a switch to alloc mode
     let data_bytes = b"d"; // 1 byte
-    let writable = buffer_pool.get_writable(data_bytes.len());
+    let writable = buffer_pool.reserve(data_bytes.len());
     writable.copy_from_slice(data_bytes);
+    buffer_pool.commit(data_bytes.len());
     let data_slice = buffer_pool.get_data_owned();
     slices.push_back(data_slice);
     assert!(buffer_pool.is_alloc_mode());
