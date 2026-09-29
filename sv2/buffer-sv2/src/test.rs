@@ -971,3 +971,18 @@ fn frame_returns_exactly_the_committed_bytes_in_every_mode() {
     assert!(pool.is_alloc_mode());
     assert_eq!(pool.frame(), &[2; 4]);
 }
+
+#[test]
+fn truncate_never_grows_the_frame() {
+    for capacity in [0, 64] {
+        let mut pool = Pool::new(capacity);
+        pool.reserve(4).copy_from_slice(&[1, 2, 3, 4]);
+        pool.commit(4);
+
+        Buffer::truncate(&mut pool, 10);
+        assert_eq!(pool.frame(), &[1, 2, 3, 4]);
+
+        Buffer::truncate(&mut pool, 2);
+        assert_eq!(pool.frame(), &[1, 2]);
+    }
+}

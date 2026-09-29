@@ -132,6 +132,13 @@ impl Buffer for BufferFromSystemMemory {
         self.start = index;
     }
 
+    // Moves the cursor back to `len`, if it is past it.
+    #[inline]
+    fn truncate(&mut self, len: usize) {
+        self.cursor = self.cursor.min(len);
+        self.reserved = 0;
+    }
+
     // Indicates that the buffer is always safe to drop, as `Vec<u8>` manages memory internally.
     #[inline]
     fn is_droppable(&self) -> bool {
@@ -175,6 +182,10 @@ impl Buffer for TestBufferFromMemory {
         todo!()
     }
 
+    fn truncate(&mut self, _len: usize) {
+        panic!()
+    }
+
     fn is_droppable(&self) -> bool {
         true
     }
@@ -209,11 +220,8 @@ impl AeadBuffer for BufferFromSystemMemory {
     }
 
     /// Truncates the internal buffer to the specified length, adjusting for the `start` index.
-    /// Resets the buffer cursor to reflect the new size, effectively discarding any data beyond
-    /// the truncated length.
+    /// Discards any data beyond the truncated length; a length past the data changes nothing.
     fn truncate(&mut self, len: usize) {
-        let len = len + self.start;
-        self.cursor = len;
-        self.reserved = 0;
+        Buffer::truncate(self, self.start.saturating_add(len));
     }
 }

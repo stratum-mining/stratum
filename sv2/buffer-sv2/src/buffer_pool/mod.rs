@@ -981,6 +981,15 @@ impl<T: Buffer> Buffer for BufferPool<T> {
         self.start = index;
     }
 
+    // Drops the committed bytes past `len`, in whichever memory holds the frame, if there are any.
+    fn truncate(&mut self, len: usize) {
+        self.reserved = 0;
+        match self.mode {
+            PoolMode::Alloc => Buffer::truncate(&mut self.system_memory, len),
+            _ => self.inner_memory.raw_len = self.inner_memory.raw_len.min(len),
+        }
+    }
+
     // Returns `true` if all memory slices have been released (`shared_state` is zero), indicating
     // that no other threads or components are using the pool's memory.
     #[inline(always)]
@@ -1022,12 +1031,6 @@ impl<T: Buffer + AeadBuffer> AeadBuffer for BufferPool<T> {
     }
 
     fn truncate(&mut self, len: usize) {
-        let len = len + self.start;
-        self.reserved = 0;
-        match self.mode {
-            PoolMode::Back => self.inner_memory.raw_len = len,
-            PoolMode::Front(_) => self.inner_memory.raw_len = len,
-            PoolMode::Alloc => self.system_memory.truncate(len),
-        }
+        Buffer::truncate(self, self.start.saturating_add(len));
     }
 }

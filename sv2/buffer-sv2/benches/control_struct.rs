@@ -206,6 +206,10 @@ impl Buffer for PPool {
         todo!()
     }
 
+    fn truncate(&mut self, _len: usize) {
+        todo!()
+    }
+
     fn is_droppable(&self) -> bool {
         todo!()
     }
@@ -285,6 +289,10 @@ impl Buffer for MaxEfficiency {
     }
 
     fn danger_set_start(&mut self, _index: usize) {
+        todo!()
+    }
+
+    fn truncate(&mut self, _len: usize) {
         todo!()
     }
 
