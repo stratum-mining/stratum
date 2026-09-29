@@ -408,7 +408,7 @@ impl InnerMemory {
     #[inline(always)]
     fn try_change_len(&mut self, slot_len: usize, raw_offset: usize, raw_len: usize) -> bool {
         let end = raw_offset + self.raw_len;
-        if end + raw_len <= self.capacity() {
+        if self.in_bounds(end, raw_len) {
             self.len = slot_len;
             self.move_raw_at_offset_unchecked(raw_offset);
             true
@@ -456,15 +456,16 @@ impl InnerMemory {
     // bytes.
     #[inline(always)]
     fn has_tail_capacity(&self, len: usize) -> bool {
-        let end = self.raw_offset + self.raw_len;
-        end + len <= self.capacity()
+        self.in_bounds(self.raw_offset + self.raw_len, len)
     }
 
     // Checks if there is enough capacity in the memory pool up to the specified offset to
     // accommodate `len` bytes.
     #[inline(always)]
     fn has_capacity_until_offset(&self, len: usize, offset: usize) -> bool {
-        self.raw_offset + self.raw_len + len <= offset
+        (self.raw_offset + self.raw_len)
+            .checked_add(len)
+            .is_some_and(|end| end <= offset)
     }
 
     // Returns a raw pointer to the writable memory region of the memory pool, marking the section
@@ -472,8 +473,8 @@ impl InnerMemory {
     #[inline(always)]
     fn get_writable_raw_unchecked(&mut self, len: usize) -> *mut u8 {
         let writable_offset = self.raw_offset + self.raw_len;
-        self.raw_len += len;
         assert!(self.in_bounds(writable_offset, len));
+        self.raw_len += len;
         unsafe { self.memory.bytes().add(writable_offset) }
     }
 
