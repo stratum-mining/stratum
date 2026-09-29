@@ -173,8 +173,9 @@ impl<B: IsBuffer + AeadBuffer> WithNoise<B> {
         let carried = &bytes.as_ref()[expected..];
         if !carried.is_empty() {
             self.noise_buffer
-                .get_writable(carried.len())
+                .reserve(carried.len())
                 .copy_from_slice(carried);
+            self.noise_buffer.commit(carried.len());
         }
         bytes
     }
@@ -334,8 +335,10 @@ impl<B: IsBuffer + AeadBuffer> WithNoise<B> {
         if IsBuffer::len(&self.sv2_buffer) < SV2_FRAME_HEADER_SIZE {
             // HERE THE SV2 HEADER IS READY TO BE DECRYPTED
             let src = self.take(expected);
-            let decrypted_header = self.sv2_buffer.get_writable(expected);
-            decrypted_header.copy_from_slice(&src.as_ref()[..expected]);
+            self.sv2_buffer
+                .reserve(expected)
+                .copy_from_slice(&src.as_ref()[..expected]);
+            self.sv2_buffer.commit(expected);
             decrypt(&mut self.sv2_buffer)?;
             let header =
                 Header::from_bytes(self.sv2_buffer.get_data_by_ref(SV2_FRAME_HEADER_SIZE))?;
@@ -368,8 +371,10 @@ impl<B: IsBuffer + AeadBuffer> WithNoise<B> {
         let mut decrypted_len = SV2_FRAME_HEADER_SIZE;
         while start < expected {
             let end = (start + SV2_FRAME_CHUNK_SIZE).min(expected);
-            let decrypted_payload = self.sv2_buffer.get_writable(end - start);
-            decrypted_payload.copy_from_slice(&encrypted_payload[start..end]);
+            self.sv2_buffer
+                .reserve(end - start)
+                .copy_from_slice(&encrypted_payload[start..end]);
+            self.sv2_buffer.commit(end - start);
             self.sv2_buffer.danger_set_start(decrypted_len);
             decrypt(&mut self.sv2_buffer)?;
             start = end;
@@ -462,11 +467,11 @@ impl<B: IsBuffer> WithoutNoise<B> {
             Err(SizeHint::Surplus(surplus)) => {
                 let bytes = self.buffer.get_data_owned();
                 let (frame, carried) = bytes.as_ref().split_at(len - surplus);
-                self.buffer.get_writable(frame.len()).copy_from_slice(frame);
+                self.buffer.reserve(frame.len()).copy_from_slice(frame);
+                self.buffer.commit(frame.len());
                 let frame = self.buffer.get_data_owned();
-                self.buffer
-                    .get_writable(carried.len())
-                    .copy_from_slice(carried);
+                self.buffer.reserve(carried.len()).copy_from_slice(carried);
+                self.buffer.commit(carried.len());
                 self.missing_b = Header::SIZE.saturating_sub(carried.len());
                 Ok(Decoded::Frame(SerializedFrame::<B::Slice>::from_bytes(
                     frame,
@@ -760,8 +765,9 @@ mod prop_tests {
         decoder.advance(first.len() - Header::SIZE).unwrap();
         decoder
             .buffer
-            .get_writable(SURPLUS)
+            .reserve(SURPLUS)
             .copy_from_slice(&second[..SURPLUS]);
+        decoder.buffer.commit(SURPLUS);
 
         let Ok(Decoded::Frame(mut frame)) = decoder.next_frame() else {
             panic!("expected the first frame");
@@ -795,8 +801,9 @@ mod prop_tests {
         decoder.advance(decoder.read_len()).unwrap();
         decoder
             .noise_buffer
-            .get_writable(SURPLUS)
+            .reserve(SURPLUS)
             .copy_from_slice(&[0xff; SURPLUS]);
+        decoder.noise_buffer.commit(SURPLUS);
 
         let Ok(Decoded::Frame(frame)) = decoder.next_handshake_frame::<Responder>() else {
             panic!("expected the handshake message");
@@ -835,8 +842,9 @@ mod prop_tests {
         decoder.advance(first_header.len()).unwrap();
         decoder
             .noise_buffer
-            .get_writable(SURPLUS)
+            .reserve(SURPLUS)
             .copy_from_slice(&first_payload[..SURPLUS]);
+        decoder.noise_buffer.commit(SURPLUS);
         let Ok(Decrypted::Incomplete(_, receiver)) = decoder.next_transport_frame(receiver) else {
             panic!("expected the decoder to want the payload");
         };
@@ -848,8 +856,9 @@ mod prop_tests {
         decoder.advance(first_payload.len() - SURPLUS).unwrap();
         decoder
             .noise_buffer
-            .get_writable(second.len())
+            .reserve(second.len())
             .copy_from_slice(&second);
+        decoder.noise_buffer.commit(second.len());
         let Ok(Decrypted::Frame(mut frame, receiver)) = decoder.next_transport_frame(receiver)
         else {
             panic!("expected the first frame");
@@ -1129,8 +1138,9 @@ mod prop_tests {
 
         let mut header = Buffer::new(crate::DEFAULT_POOL_BUFFER_SIZE);
         header
-            .get_writable(SV2_FRAME_HEADER_SIZE)
+            .reserve(SV2_FRAME_HEADER_SIZE)
             .copy_from_slice(&[0, 0, 0, 0xff, 0xff, 0xff]);
+        header.commit(SV2_FRAME_HEADER_SIZE);
         sender.encrypt(&mut header).unwrap();
         let header = header.get_data_owned();
 
