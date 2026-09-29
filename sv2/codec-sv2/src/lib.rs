@@ -243,9 +243,10 @@ mod tests {
     ) -> framing_sv2::framing::HandshakeMessage {
         let mut offset = 0;
         loop {
-            let writable = decoder.writable();
+            let writable = decoder.read_buf();
             let len = writable.len();
             writable.copy_from_slice(&encoded[offset..offset + len]);
+            decoder.advance(len).unwrap();
             offset += len;
 
             match decoder.next_handshake_frame::<R>() {

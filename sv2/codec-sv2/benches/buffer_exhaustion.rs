@@ -299,9 +299,10 @@ fn bench_decoder_pool_back_vs_alloc(
             let mut total = Duration::ZERO;
             for _ in 0..iters {
                 let mut dec = Decoder::new();
-                let w = dec.writable();
+                let w = dec.read_buf();
                 let len = w.len();
                 w.copy_from_slice(&enc_buf[..len]);
+                dec.advance(len).unwrap();
                 let mut offset = len;
                 let t = Instant::now();
                 loop {
@@ -312,9 +313,10 @@ fn bench_decoder_pool_back_vs_alloc(
                             break;
                         }
                         Ok(Decoded::Incomplete(_)) => {
-                            let w = dec.writable();
+                            let w = dec.read_buf();
                             let n = w.len();
                             w.copy_from_slice(&enc_buf[offset..offset + n]);
+                            dec.advance(n).unwrap();
                             offset += n;
                         }
                         Err(e) => panic!("decode error: {:?}", e),
@@ -333,9 +335,10 @@ fn bench_decoder_pool_back_vs_alloc(
                 let mut held = Vec::with_capacity(9);
 
                 for _ in 0..8 {
-                    let w = dec.writable();
+                    let w = dec.read_buf();
                     let len = w.len();
                     w.copy_from_slice(&enc_buf[..len]);
+                    dec.advance(len).unwrap();
                     let mut offset = len;
                     loop {
                         match dec.next_frame() {
@@ -344,9 +347,10 @@ fn bench_decoder_pool_back_vs_alloc(
                                 break;
                             }
                             Ok(Decoded::Incomplete(_)) => {
-                                let w = dec.writable();
+                                let w = dec.read_buf();
                                 let n = w.len();
                                 w.copy_from_slice(&enc_buf[offset..offset + n]);
+                                dec.advance(n).unwrap();
                                 offset += n;
                             }
                             Err(e) => panic!("decode error: {:?}", e),
@@ -354,9 +358,10 @@ fn bench_decoder_pool_back_vs_alloc(
                     }
                 }
 
-                let w = dec.writable();
+                let w = dec.read_buf();
                 let len = w.len();
                 w.copy_from_slice(&enc_buf[..len]);
+                dec.advance(len).unwrap();
                 let mut offset = len;
                 let t = Instant::now();
                 loop {
@@ -367,9 +372,10 @@ fn bench_decoder_pool_back_vs_alloc(
                             break;
                         }
                         Ok(Decoded::Incomplete(_)) => {
-                            let w = dec.writable();
+                            let w = dec.read_buf();
                             let n = w.len();
                             w.copy_from_slice(&enc_buf[offset..offset + n]);
+                            dec.advance(n).unwrap();
                             offset += n;
                         }
                         Err(e) => panic!("decode error: {:?}", e),
@@ -398,9 +404,10 @@ fn bench_decoder_per_slot_latency(c: &mut Criterion, group_name: &str, enc_buf: 
                         let mut pre = Vec::with_capacity(held + 1);
 
                         for _ in 0..held {
-                            let w = dec.writable();
+                            let w = dec.read_buf();
                             let len = w.len();
                             w.copy_from_slice(&enc_buf[..len]);
+                            dec.advance(len).unwrap();
                             let mut offset = len;
                             loop {
                                 match dec.next_frame() {
@@ -409,9 +416,10 @@ fn bench_decoder_per_slot_latency(c: &mut Criterion, group_name: &str, enc_buf: 
                                         break;
                                     }
                                     Ok(Decoded::Incomplete(_)) => {
-                                        let w = dec.writable();
+                                        let w = dec.read_buf();
                                         let n = w.len();
                                         w.copy_from_slice(&enc_buf[offset..offset + n]);
+                                        dec.advance(n).unwrap();
                                         offset += n;
                                     }
                                     Err(e) => panic!("decode error: {:?}", e),
@@ -419,9 +427,10 @@ fn bench_decoder_per_slot_latency(c: &mut Criterion, group_name: &str, enc_buf: 
                             }
                         }
 
-                        let w = dec.writable();
+                        let w = dec.read_buf();
                         let len = w.len();
                         w.copy_from_slice(&enc_buf[..len]);
+                        dec.advance(len).unwrap();
                         let mut offset = len;
                         let t = Instant::now();
                         loop {
@@ -432,9 +441,10 @@ fn bench_decoder_per_slot_latency(c: &mut Criterion, group_name: &str, enc_buf: 
                                     break;
                                 }
                                 Ok(Decoded::Incomplete(_)) => {
-                                    let w = dec.writable();
+                                    let w = dec.read_buf();
                                     let n = w.len();
                                     w.copy_from_slice(&enc_buf[offset..offset + n]);
+                                    dec.advance(n).unwrap();
                                     offset += n;
                                 }
                                 Err(e) => panic!("decode error: {:?}", e),

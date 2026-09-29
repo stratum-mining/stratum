@@ -34,7 +34,10 @@ use framing_sv2::{
     SV2_FRAME_CHUNK_SIZE,
 };
 
-use crate::{error::Result, Buffer};
+use crate::{
+    error::{Error, Result},
+    Buffer,
+};
 #[cfg(feature = "noise_sv2")]
 use crate::{
     state::ExpectsHandshakeMessage, TransportDecryptState, ENCRYPTED_SV2_FRAME_HEADER_SIZE,
@@ -75,8 +78,12 @@ pub struct WithNoise<B: IsBuffer> {
     // Number of encrypted bytes still missing before the current frame can progress.
     //
     // Set from the header once it is decrypted, and to the size of the next expected message
-    // or header otherwise; [`Self::writable_len`] caps it at one chunk.
+    // or header otherwise; [`Self::read_len`] caps it at one chunk.
     missing_noise_b: usize,
+
+    // Size of the window the last `read_buf` returned, `0` once it is advanced or a frame step
+    // ends it.
+    window: usize,
 }
 
 /// The outcome of a decode round.
@@ -87,7 +94,7 @@ pub enum Decoded<F> {
     /// The frame is not fully buffered yet.
     ///
     /// Carries the number of bytes the decoder will accept on the next read, which is always
-    /// `writable_len` and never more than one chunk, not the number of bytes left in the frame.
+    /// `read_len` and never more than one chunk, not the number of bytes left in the frame.
     /// Zero means the bytes are already buffered: call again without reading.
     Incomplete(usize),
 }
@@ -104,7 +111,7 @@ pub enum Decrypted<F> {
     /// The frame is not fully buffered yet.
     ///
     /// Carries the number of bytes the decoder will accept on the next read, which is always
-    /// [`WithNoise::writable_len`] and never more than one chunk, not the number of bytes left in
+    /// [`WithNoise::read_len`] and never more than one chunk, not the number of bytes left in
     /// the frame, along with the state to call again with. Zero means the bytes are already
     /// buffered: call again without reading.
     Incomplete(usize, TransportDecryptState),
@@ -117,11 +124,11 @@ impl<B: IsBuffer + AeadBuffer> WithNoise<B> {
     /// Handshake messages have a fixed size that depends on the role `state` plays, so no header
     /// is read: the decoder buffers exactly that many bytes.
     ///
-    /// On [`Decoded::Incomplete`], resize the decoder buffer using `writable`, read another chunk
-    /// from the stream, and call this method again until it returns a [`Decoded::Frame`]. The
-    /// count it carries is what the decoder will accept on the next read, which is always
-    /// [`Self::writable_len`] and never more than one chunk, not the number of bytes left in the
-    /// message.
+    /// On [`Decoded::Incomplete`], read another chunk from the stream into [`Self::read_buf`],
+    /// report it with [`Self::advance`], and call this method again until it returns a
+    /// [`Decoded::Frame`]. The count it carries is what the decoder will accept on the next read,
+    /// which is always [`Self::read_len`] and never more than one chunk, not the number of bytes
+    /// left in the message.
     ///
     /// Bytes buffered past the end of the message are kept as the start of the next one, or of
     /// the first encrypted header.
@@ -140,6 +147,7 @@ impl<B: IsBuffer + AeadBuffer> WithNoise<B> {
     pub fn next_handshake_frame<R: ExpectsHandshakeMessage>(
         &mut self,
     ) -> Result<Decoded<HandshakeMessage>> {
+        self.window = 0;
         if let Some(missing) = self.missing(R::EXPECTED_MESSAGE_SIZE) {
             return Ok(Decoded::Incomplete(missing));
         }
@@ -155,7 +163,7 @@ impl<B: IsBuffer + AeadBuffer> WithNoise<B> {
             0 => None,
             missing => {
                 self.missing_noise_b = missing;
-                Some(self.writable_len())
+                Some(self.read_len())
             }
         }
     }
@@ -178,11 +186,11 @@ impl<B: IsBuffer + AeadBuffer> WithNoise<B> {
     /// Attempts to decode the next encrypted frame with the decrypting half of a completed
     /// handshake.
     ///
-    /// On [`Decrypted::Incomplete`], resize the decoder buffer using `writable`, read another
-    /// chunk from the stream, and call this method again with the state it carries until it
-    /// returns a [`Decrypted::Frame`]. The count it carries is what the decoder will accept on
-    /// the next read, which is always [`Self::writable_len`] and never more than one chunk, not
-    /// the number of bytes left in the frame.
+    /// On [`Decrypted::Incomplete`], read another chunk from the stream into [`Self::read_buf`],
+    /// report it with [`Self::advance`], and call this method again with the state it carries
+    /// until it returns a [`Decrypted::Frame`]. The count it carries is what the decoder will
+    /// accept on the next read, which is always [`Self::read_len`] and never more than one
+    /// chunk, not the number of bytes left in the frame.
     ///
     /// Bytes buffered past the end of the frame are kept as the start of the next one.
     ///
@@ -220,6 +228,7 @@ impl<B: IsBuffer + AeadBuffer> WithNoise<B> {
         &mut self,
         decrypt: impl FnMut(&mut B) -> Result<()>,
     ) -> Result<Decoded<SerializedFrame<B::Slice>>> {
+        self.window = 0;
         let expected = if IsBuffer::len(&self.sv2_buffer) < SV2_FRAME_HEADER_SIZE {
             ENCRYPTED_SV2_FRAME_HEADER_SIZE
         } else {
@@ -242,20 +251,38 @@ impl<B: IsBuffer + AeadBuffer> WithNoise<B> {
     /// data that actually arrives.
     ///
     /// The returned length dynamically updates as data is received and processed.
-    pub fn writable_len(&self) -> usize {
+    pub fn read_len(&self) -> usize {
         self.missing_noise_b.min(SV2_FRAME_CHUNK_SIZE)
     }
 
-    /// Provides a writable buffer for receiving incoming Noise-encrypted Sv2 data.
+    /// Returns the window to read incoming Noise-encrypted Sv2 data into, [`Self::read_len`]
+    /// bytes long.
     ///
-    /// This buffer is used to store incoming data, and its size is [`Self::writable_len`]. As new
-    /// data is read, it is written into this buffer until enough data has been received to fully
-    /// decode a frame. The buffer must have the correct number of bytes available to progress to
-    /// the decoding process.
+    /// None of it counts as received until [`Self::advance`] reports how many bytes the read
+    /// actually filled. Calling this again first returns a new window, and bytes left in the old
+    /// one are not kept.
     #[inline]
-    pub fn writable(&mut self) -> &mut [u8] {
-        let writable_len = self.writable_len();
-        self.noise_buffer.get_writable(writable_len)
+    pub fn read_buf(&mut self) -> &mut [u8] {
+        self.window = self.read_len();
+        self.noise_buffer.reserve(self.window)
+    }
+
+    /// Counts the first `n` bytes of the window from [`Self::read_buf`] as received.
+    ///
+    /// Errors with [`Error::ReadBeyondWindow`] if `n` is larger than that window. The window also
+    /// ends once a `next_` call runs.
+    #[inline]
+    pub fn advance(&mut self, n: usize) -> Result<()> {
+        if n > self.window {
+            return Err(Error::ReadBeyondWindow {
+                read: n,
+                window: self.window,
+            });
+        }
+        self.noise_buffer.commit(n);
+        self.window = 0;
+        self.missing_noise_b = self.missing_noise_b.saturating_sub(n);
+        Ok(())
     }
 
     /// Determines whether the decoder's internal buffers can be safely dropped.
@@ -315,7 +342,7 @@ impl<B: IsBuffer + AeadBuffer> WithNoise<B> {
             let payload = crate::encrypted_payload_length(&header);
             if payload > 0 {
                 self.expect(payload);
-                return Ok(Decoded::Incomplete(self.writable_len()));
+                return Ok(Decoded::Incomplete(self.read_len()));
             }
             // A frame that declares no payload is already whole, so return it in this same round
             // rather than handing the caller a zero-length read window to come back through.
@@ -360,7 +387,7 @@ impl<B: IsBuffer + AeadBuffer> WithNoise<B> {
 impl WithNoise<Buffer> {
     /// Crates a new [`WithNoise`] decoder with default buffer sizes.
     ///
-    /// It starts waiting for an encrypted Sv2 header, so [`Self::writable`] is that wide before
+    /// It starts waiting for an encrypted Sv2 header, so [`Self::read_buf`] is that wide before
     /// the first `next_` call. A handshake message is longer; the first `next_handshake_frame`
     /// moves the decoder into the handshake phase and asks for the rest.
     pub fn new() -> Self {
@@ -368,6 +395,7 @@ impl WithNoise<Buffer> {
             noise_buffer: Buffer::new(crate::DEFAULT_POOL_BUFFER_SIZE),
             sv2_buffer: Buffer::new(crate::DEFAULT_POOL_BUFFER_SIZE),
             missing_noise_b: ENCRYPTED_SV2_FRAME_HEADER_SIZE,
+            window: 0,
         }
     }
 }
@@ -397,20 +425,25 @@ pub struct WithoutNoise<B: IsBuffer> {
     // Ensures that the full Sv2 frame has been received by keeping track of the remaining bytes.
     // Once the complete frame is received, decoding can proceed.
     missing_b: usize,
+
+    // Size of the window the last `read_buf` returned, `0` once it is advanced or `next_frame`
+    // ends it.
+    window: usize,
 }
 
 impl<B: IsBuffer> WithoutNoise<B> {
     /// Attempts to decode the next frame.
     ///
     /// [`Decoded::Incomplete`] carries the number of bytes the decoder will accept on the next
-    /// read: resize the decoder buffer using `writable`, read that many bytes from the stream,
-    /// and call `next_frame` again until it returns a [`Decoded::Frame`]. The count always equals
-    /// [`Self::writable_len`], so it is capped at one chunk and is not the number of bytes left
-    /// in the frame — a frame longer than that takes several rounds.
+    /// read: read up to that many bytes from the stream into [`Self::read_buf`], report them with
+    /// [`Self::advance`], and call `next_frame` again until it returns a [`Decoded::Frame`]. The
+    /// count always equals [`Self::read_len`], so it is capped at one chunk and is not the number
+    /// of bytes left in the frame — a frame longer than that takes several rounds.
     ///
     /// Bytes buffered past the end of the frame are kept as the start of the next one.
     #[inline]
     pub fn next_frame(&mut self) -> Result<Decoded<SerializedFrame<B::Slice>>> {
+        self.window = 0;
         let len = self.buffer.len();
         let src = self.buffer.get_data_by_ref(len);
 
@@ -424,7 +457,7 @@ impl<B: IsBuffer> WithoutNoise<B> {
             }
             Err(SizeHint::Missing(missing)) => {
                 self.missing_b = missing;
-                Ok(Decoded::Incomplete(self.writable_len()))
+                Ok(Decoded::Incomplete(self.read_len()))
             }
             Err(SizeHint::Surplus(surplus)) => {
                 let bytes = self.buffer.get_data_owned();
@@ -449,19 +482,35 @@ impl<B: IsBuffer> WithoutNoise<B> {
     /// sends before any of that payload, so buffering the whole declared length up front would
     /// let it reserve close to 16 MiB with a six-byte write; the frame is instead read a chunk at
     /// a time, and the buffer grows with the data that actually arrives.
-    pub fn writable_len(&self) -> usize {
+    pub fn read_len(&self) -> usize {
         self.missing_b.min(SV2_FRAME_CHUNK_SIZE)
     }
 
-    /// Provides a writable buffer for receiving incoming Sv2 data.
+    /// Returns the window to read incoming Sv2 data into, [`Self::read_len`] bytes long.
     ///
-    /// This buffer is used to store incoming data, and its size is [`Self::writable_len`]. As new
-    /// data is read, it is written into this buffer until enough data has been received to fully
-    /// decode a frame. The buffer must have the correct number of bytes available to progress to
-    /// the decoding process.
-    pub fn writable(&mut self) -> &mut [u8] {
-        let writable_len = self.writable_len();
-        self.buffer.get_writable(writable_len)
+    /// None of it counts as received until [`Self::advance`] reports how many bytes the read
+    /// actually filled. Calling this again first returns a new window, and bytes left in the old
+    /// one are not kept.
+    pub fn read_buf(&mut self) -> &mut [u8] {
+        self.window = self.read_len();
+        self.buffer.reserve(self.window)
+    }
+
+    /// Counts the first `n` bytes of the window from [`Self::read_buf`] as received.
+    ///
+    /// Errors with [`Error::ReadBeyondWindow`] if `n` is larger than that window. The window also
+    /// ends once [`Self::next_frame`] runs.
+    pub fn advance(&mut self, n: usize) -> Result<()> {
+        if n > self.window {
+            return Err(Error::ReadBeyondWindow {
+                read: n,
+                window: self.window,
+            });
+        }
+        self.buffer.commit(n);
+        self.window = 0;
+        self.missing_b = self.missing_b.saturating_sub(n);
+        Ok(())
     }
 }
 
@@ -474,6 +523,7 @@ impl WithoutNoise<Buffer> {
         Self {
             buffer: Buffer::new(crate::DEFAULT_POOL_BUFFER_SIZE),
             missing_b: Header::SIZE,
+            window: 0,
         }
     }
 }
@@ -496,9 +546,9 @@ mod tests {
     pub struct TestMessage {}
 
     #[test]
-    fn unencrypted_writable_with_missing_b_initialized_as_header_size() {
+    fn unencrypted_read_buf_with_missing_b_initialized_as_header_size() {
         let mut decoder = Decoder::new();
-        let actual = decoder.writable();
+        let actual = decoder.read_buf();
         let expect = [0u8; Header::SIZE];
         assert_eq!(actual, expect);
     }
@@ -514,7 +564,7 @@ mod tests {
             decoder.next_handshake_frame::<Responder>(),
             Ok(Decoded::Incomplete(n)) if n == Responder::EXPECTED_MESSAGE_SIZE
         ));
-        assert_eq!(decoder.writable_len(), Responder::EXPECTED_MESSAGE_SIZE);
+        assert_eq!(decoder.read_len(), Responder::EXPECTED_MESSAGE_SIZE);
 
         let mut decoder = NoiseDecoder::new();
         assert!(matches!(
@@ -574,13 +624,14 @@ mod prop_tests {
     ) -> Option<SerializedFrame<Slice>> {
         let mut offset = 0;
         while offset < encoded_bytes.len() {
-            let writable = decoder.writable();
+            let writable = decoder.read_buf();
             let available = encoded_bytes.len() - offset;
             let to_copy = match chunk_size {
                 Some(c) => core::cmp::min(core::cmp::min(writable.len(), c), available),
                 None => core::cmp::min(writable.len(), available),
             };
             writable[..to_copy].copy_from_slice(&encoded_bytes[offset..offset + to_copy]);
+            decoder.advance(to_copy).unwrap();
             offset += to_copy;
 
             match decoder.next_frame() {
@@ -663,12 +714,13 @@ mod prop_tests {
         let mut offset = 0;
         let mut missing_bytes_count = 0;
         while offset < encoded_bytes.len() {
-            let writable = decoder.writable();
+            let writable = decoder.read_buf();
             let to_copy = core::cmp::min(
                 core::cmp::min(writable.len(), chunk_size),
                 encoded_bytes.len() - offset,
             );
             writable[..to_copy].copy_from_slice(&encoded_bytes[offset..offset + to_copy]);
+            decoder.advance(to_copy).unwrap();
             offset += to_copy;
 
             match decoder.next_frame() {
@@ -701,9 +753,11 @@ mod prop_tests {
         let second = encode(2);
 
         let mut decoder = Decoder::new();
-        decoder.writable().copy_from_slice(&first[..Header::SIZE]);
+        decoder.read_buf().copy_from_slice(&first[..Header::SIZE]);
+        decoder.advance(Header::SIZE).unwrap();
         assert!(matches!(decoder.next_frame(), Ok(Decoded::Incomplete(_))));
-        decoder.writable().copy_from_slice(&first[Header::SIZE..]);
+        decoder.read_buf().copy_from_slice(&first[Header::SIZE..]);
+        decoder.advance(first.len() - Header::SIZE).unwrap();
         decoder
             .buffer
             .get_writable(SURPLUS)
@@ -716,7 +770,7 @@ mod prop_tests {
             binary_sv2::from_bytes::<TestMessage>(frame.payload()).unwrap(),
             TestMessage { value: 1 }
         );
-        assert_eq!(decoder.writable_len(), Header::SIZE - SURPLUS);
+        assert_eq!(decoder.read_len(), Header::SIZE - SURPLUS);
 
         let mut frame = decode_frame(&mut decoder, &second[SURPLUS..], None).unwrap();
         assert_eq!(
@@ -737,7 +791,8 @@ mod prop_tests {
             decoder.next_handshake_frame::<Responder>(),
             Ok(Decoded::Incomplete(ELLSWIFT_ENCODING_SIZE))
         ));
-        decoder.writable().fill(0);
+        decoder.read_buf().fill(0);
+        decoder.advance(decoder.read_len()).unwrap();
         decoder
             .noise_buffer
             .get_writable(SURPLUS)
@@ -748,7 +803,7 @@ mod prop_tests {
         };
         assert_eq!(frame.payload().len(), ELLSWIFT_ENCODING_SIZE);
         assert_eq!(
-            decoder.writable_len(),
+            decoder.read_len(),
             ENCRYPTED_SV2_FRAME_HEADER_SIZE - SURPLUS
         );
         assert_eq!(decoder.noise_buffer.as_ref(), &[0xff; SURPLUS]);
@@ -776,7 +831,8 @@ mod prop_tests {
         let (first_header, first_payload) = first.split_at(ENCRYPTED_SV2_FRAME_HEADER_SIZE);
 
         let mut decoder = NoiseDecoder::new();
-        decoder.writable().copy_from_slice(first_header);
+        decoder.read_buf().copy_from_slice(first_header);
+        decoder.advance(first_header.len()).unwrap();
         decoder
             .noise_buffer
             .get_writable(SURPLUS)
@@ -784,11 +840,12 @@ mod prop_tests {
         let Ok(Decrypted::Incomplete(_, receiver)) = decoder.next_transport_frame(receiver) else {
             panic!("expected the decoder to want the payload");
         };
-        assert_eq!(decoder.writable_len(), first_payload.len() - SURPLUS);
+        assert_eq!(decoder.read_len(), first_payload.len() - SURPLUS);
 
         decoder
-            .writable()
+            .read_buf()
             .copy_from_slice(&first_payload[SURPLUS..]);
+        decoder.advance(first_payload.len() - SURPLUS).unwrap();
         decoder
             .noise_buffer
             .get_writable(second.len())
@@ -801,7 +858,7 @@ mod prop_tests {
             binary_sv2::from_bytes::<TestMessage>(frame.payload()).unwrap(),
             TestMessage { value: 1 }
         );
-        assert_eq!(decoder.writable_len(), 0);
+        assert_eq!(decoder.read_len(), 0);
 
         let Ok(Decrypted::Incomplete(0, receiver)) = decoder.next_transport_frame(receiver) else {
             panic!("expected an empty read window");
@@ -813,11 +870,11 @@ mod prop_tests {
             binary_sv2::from_bytes::<TestMessage>(frame.payload()).unwrap(),
             TestMessage { value: 2 }
         );
-        assert_eq!(decoder.writable_len(), ENCRYPTED_SV2_FRAME_HEADER_SIZE);
+        assert_eq!(decoder.read_len(), ENCRYPTED_SV2_FRAME_HEADER_SIZE);
     }
     /// A frame that declares no payload is whole as soon as its header is decrypted, so it comes
     /// back in that same round rather than through a zero-length read window a caller reading
-    /// into `writable` would take for EOF.
+    /// into `read_buf` would take for EOF.
     #[cfg(feature = "noise_sv2")]
     #[test]
     fn a_frame_with_no_payload_is_returned_without_a_further_read() {
@@ -832,19 +889,17 @@ mod prop_tests {
         assert_eq!(encoded.len(), crate::ENCRYPTED_SV2_FRAME_HEADER_SIZE);
 
         let mut decoder = NoiseDecoder::new();
-        decoder.writable().copy_from_slice(&encoded);
+        decoder.read_buf().copy_from_slice(&encoded);
+        decoder.advance(encoded.len()).unwrap();
         let Ok(Decrypted::Frame(frame, _)) = decoder.next_transport_frame(receiver) else {
             panic!("expected the frame in the same round as its header");
         };
         assert_eq!(frame.header().payload_length(), 0);
         assert_eq!(frame.as_bytes().len(), Header::SIZE);
-        assert_eq!(
-            decoder.writable_len(),
-            crate::ENCRYPTED_SV2_FRAME_HEADER_SIZE
-        );
+        assert_eq!(decoder.read_len(), crate::ENCRYPTED_SV2_FRAME_HEADER_SIZE);
     }
 
-    /// A caller that sizes its read from `writable` before calling `next_` — the shape both
+    /// A caller that sizes its read from `read_buf` before calling `next_` — the shape both
     /// examples use — must never be handed a zero-length window, and the handshake must complete
     /// straight into the encrypted Sv2 header rather than into a short read of its own.
     #[cfg(feature = "noise_sv2")]
@@ -855,15 +910,16 @@ mod prop_tests {
         let (initiator, _responder) = make_handshake_pair();
 
         let mut decoder = NoiseDecoder::new();
-        assert_ne!(decoder.writable_len(), 0, "a fresh decoder");
+        assert_ne!(decoder.read_len(), 0, "a fresh decoder");
 
         let mut first = initiator.step_0().unwrap().0.payload().to_vec();
         let mut offset = 0;
         loop {
-            let w = decoder.writable();
+            let w = decoder.read_buf();
             assert_ne!(w.len(), 0, "while reading the handshake message");
             let n = w.len().min(first.len() - offset);
             w[..n].copy_from_slice(&first[offset..offset + n]);
+            decoder.advance(n).unwrap();
             offset += n;
             match decoder.next_handshake_frame::<Responder>() {
                 Ok(Decoded::Frame(_)) => break,
@@ -873,7 +929,7 @@ mod prop_tests {
         }
         first.clear();
 
-        assert_eq!(decoder.writable_len(), ENCRYPTED_SV2_FRAME_HEADER_SIZE);
+        assert_eq!(decoder.read_len(), ENCRYPTED_SV2_FRAME_HEADER_SIZE);
     }
 
     /// The first transport frame after a handshake takes one read for its header, not a short
@@ -891,9 +947,10 @@ mod prop_tests {
         };
         let mut offset = 0;
         loop {
-            let w = decoder.writable();
+            let w = decoder.read_buf();
             let n = w.len().min(initiator_first.len() - offset);
             w[..n].copy_from_slice(&initiator_first[offset..offset + n]);
+            decoder.advance(n).unwrap();
             offset += n;
             match decoder.next_handshake_frame::<Responder>() {
                 Ok(Decoded::Frame(_)) => break,
@@ -913,10 +970,11 @@ mod prop_tests {
         let mut sizes = alloc::vec::Vec::new();
         let mut offset = 0;
         loop {
-            let w = decoder.writable();
+            let w = decoder.read_buf();
             sizes.push(w.len());
             let n = w.len().min(encrypted.len() - offset);
             w[..n].copy_from_slice(&encrypted[offset..offset + n]);
+            decoder.advance(n).unwrap();
             offset += n;
             match decoder.next_transport_frame(receiver) {
                 Ok(Decrypted::Frame(..)) => break,
@@ -959,9 +1017,10 @@ mod prop_tests {
                 Ok(Decrypted::Frame(..)) => panic!("the tampered frame should not decode"),
                 Ok(Decrypted::Incomplete(_, state)) => {
                     receiver = state;
-                    let w = decoder.writable();
+                    let w = decoder.read_buf();
                     let n = w.len().min(encrypted.len() - offset);
                     w[..n].copy_from_slice(&encrypted[offset..offset + n]);
+                    decoder.advance(n).unwrap();
                     offset += n;
                 }
                 Err(_) => break,
@@ -972,7 +1031,8 @@ mod prop_tests {
         let Ok(Decrypted::Incomplete(_, receiver)) = decoder.next_transport_frame(receiver) else {
             panic!("expected the decoder to want a header");
         };
-        decoder.writable().fill(0);
+        decoder.read_buf().fill(0);
+        decoder.advance(decoder.read_len()).unwrap();
         let _ = decoder.next_transport_frame(receiver);
     }
 
@@ -982,18 +1042,19 @@ mod prop_tests {
     fn a_declared_frame_length_does_not_widen_the_read_window() {
         let mut decoder = Decoder::new();
         decoder
-            .writable()
+            .read_buf()
             .copy_from_slice(&[0, 0, 0, 0xff, 0xff, 0xff]);
+        decoder.advance(Header::SIZE).unwrap();
 
         assert!(matches!(
             decoder.next_frame(),
             Ok(Decoded::Incomplete(SV2_FRAME_CHUNK_SIZE))
         ));
-        assert_eq!(decoder.writable_len(), SV2_FRAME_CHUNK_SIZE);
-        assert_eq!(decoder.writable().len(), SV2_FRAME_CHUNK_SIZE);
+        assert_eq!(decoder.read_len(), SV2_FRAME_CHUNK_SIZE);
+        assert_eq!(decoder.read_buf().len(), SV2_FRAME_CHUNK_SIZE);
     }
 
-    /// A caller that sizes its read from `Incomplete` and one that sizes it from `writable`
+    /// A caller that sizes its read from `Incomplete` and one that sizes it from `read_buf`
     /// must agree, on every round of a frame that takes more than one.
     #[test]
     fn incomplete_always_reports_the_next_read_window() {
@@ -1011,9 +1072,10 @@ mod prop_tests {
                 Ok(Decoded::Incomplete(n)) => n,
                 Err(e) => panic!("failed to decode a multi-chunk frame: {e:?}"),
             };
-            let writable = decoder.writable();
+            let writable = decoder.read_buf();
             assert_eq!(missing, writable.len());
             writable[..missing].copy_from_slice(&encoded[offset..offset + missing]);
+            decoder.advance(missing).unwrap();
             offset += missing;
         }
         assert_eq!(offset, encoded.len());
@@ -1036,9 +1098,10 @@ mod prop_tests {
         let mut offset = 0;
         let mut rounds = 0;
         let frame = loop {
-            let writable = decoder.writable();
+            let writable = decoder.read_buf();
             let n = writable.len().min(encoded.len() - offset);
             writable[..n].copy_from_slice(&encoded[offset..offset + n]);
+            decoder.advance(n).unwrap();
             offset += n;
             rounds += 1;
 
@@ -1077,14 +1140,16 @@ mod prop_tests {
         else {
             panic!("expected the decoder to want a header");
         };
-        decoder.writable().copy_from_slice(header.as_ref());
+        let header: &[u8] = header.as_ref();
+        decoder.read_buf().copy_from_slice(header);
+        decoder.advance(header.len()).unwrap();
 
         assert!(matches!(
             decoder.next_transport_frame(receiver),
             Ok(Decrypted::Incomplete(..))
         ));
-        assert_eq!(decoder.writable_len(), SV2_FRAME_CHUNK_SIZE);
-        assert_eq!(decoder.writable().len(), SV2_FRAME_CHUNK_SIZE);
+        assert_eq!(decoder.read_len(), SV2_FRAME_CHUNK_SIZE);
+        assert_eq!(decoder.read_buf().len(), SV2_FRAME_CHUNK_SIZE);
     }
 
     /// A Noise frame whose payload spans several chunks survives the round trip, and every round
@@ -1115,9 +1180,10 @@ mod prop_tests {
                 Ok(Decrypted::Frame(frame, _)) => break frame,
                 Ok(Decrypted::Incomplete(n, state)) => {
                     receiver = state;
-                    let writable = decoder.writable();
+                    let writable = decoder.read_buf();
                     assert_eq!(n, writable.len());
                     writable.copy_from_slice(&encrypted[offset..offset + n]);
+                    decoder.advance(n).unwrap();
                     offset += n;
                     rounds += 1;
                 }
@@ -1247,11 +1313,12 @@ mod prop_tests {
         let mut missing_bytes_count = 0;
 
         loop {
-            let writable = decoder.writable();
+            let writable = decoder.read_buf();
             let n = writable
                 .len()
                 .min(encoded_bytes.len().saturating_sub(offset));
             writable[..n].copy_from_slice(&encoded_bytes[offset..offset + n]);
+            decoder.advance(n).unwrap();
             offset += n;
 
             match decoder.next_transport_frame(receiver_state) {
@@ -1285,9 +1352,10 @@ mod prop_tests {
             decoder.next_transport(|_| Err(crate::Error::AeadError(noise_sv2::AeadError))),
             Ok(Decoded::Incomplete(_))
         ));
-        let writable = decoder.writable();
+        let writable = decoder.read_buf();
         let len = writable.len();
         writable.copy_from_slice(&encrypted[..len]);
+        decoder.advance(len).unwrap();
         let failed = decoder
             .next_transport(|_| Err(crate::Error::AeadError(noise_sv2::AeadError)))
             .unwrap_err();
@@ -1360,5 +1428,71 @@ mod prop_tests {
         };
 
         TestResult::from_bool(decoded_msg1 == msg1 && decoded_msg2 == msg2)
+    }
+
+    #[test]
+    fn a_short_read_and_a_repeated_read_buf_are_not_counted_as_received() {
+        let mut encoder = Encoder::new();
+        let frame =
+            MessageFrame::<TestMessage>::from_message(TestMessage { value: 7 }, 0, 0, false)
+                .unwrap();
+        let encoded = encoder.encode(frame).unwrap();
+        let encoded: &[u8] = encoded.as_ref();
+
+        let mut decoder = Decoder::new();
+        decoder.read_buf().fill(0xff);
+        decoder.read_buf()[..2].copy_from_slice(&encoded[..2]);
+        decoder.advance(2).unwrap();
+        assert_eq!(decoder.read_len(), Header::SIZE - 2);
+
+        let mut frame = decode_frame(&mut decoder, &encoded[2..], Some(1)).unwrap();
+        assert_eq!(
+            binary_sv2::from_bytes::<TestMessage>(frame.payload()).unwrap(),
+            TestMessage { value: 7 }
+        );
+    }
+
+    #[test]
+    fn advancing_past_the_read_window_is_an_error() {
+        let mut decoder = Decoder::new();
+        let window = decoder.read_buf().len();
+        assert_eq!(
+            decoder.advance(window + 1),
+            Err(crate::Error::ReadBeyondWindow {
+                read: window + 1,
+                window,
+            })
+        );
+
+        decoder.read_buf();
+        let _ = decoder.next_frame();
+        assert_eq!(
+            decoder.advance(1),
+            Err(crate::Error::ReadBeyondWindow { read: 1, window: 0 })
+        );
+    }
+
+    #[cfg(feature = "noise_sv2")]
+    #[test]
+    fn a_short_read_is_not_counted_by_the_noise_decoder() {
+        let (initiator, _) = make_handshake_pair();
+        let first = initiator.step_0().unwrap().0.payload().to_vec();
+
+        let mut decoder = NoiseDecoder::new();
+        let _ = decoder.next_handshake_frame::<Responder>();
+        decoder.read_buf().fill(0xff);
+        decoder.read_buf()[..10].copy_from_slice(&first[..10]);
+        decoder.advance(10).unwrap();
+        assert!(matches!(
+            decoder.next_handshake_frame::<Responder>(),
+            Ok(Decoded::Incomplete(n)) if n == first.len() - 10
+        ));
+
+        decoder.read_buf().copy_from_slice(&first[10..]);
+        decoder.advance(first.len() - 10).unwrap();
+        let Ok(Decoded::Frame(message)) = decoder.next_handshake_frame::<Responder>() else {
+            panic!("expected the handshake message");
+        };
+        assert_eq!(message.payload(), &first[..]);
     }
 }
