@@ -233,8 +233,7 @@ impl<B: IsBuffer + AeadBuffer> WithNoise<B> {
         let expected = if IsBuffer::len(&self.sv2_buffer) < SV2_FRAME_HEADER_SIZE {
             ENCRYPTED_SV2_FRAME_HEADER_SIZE
         } else {
-            let src = self.sv2_buffer.get_data_by_ref(SV2_FRAME_HEADER_SIZE);
-            crate::encrypted_payload_length(&Header::from_bytes(src)?)
+            crate::encrypted_payload_length(&Header::from_bytes(self.sv2_buffer.frame())?)
         };
         if let Some(missing) = self.missing(expected) {
             return Ok(Decoded::Incomplete(missing));
@@ -340,8 +339,7 @@ impl<B: IsBuffer + AeadBuffer> WithNoise<B> {
                 .copy_from_slice(&src.as_ref()[..expected]);
             self.sv2_buffer.commit(expected);
             decrypt(&mut self.sv2_buffer)?;
-            let header =
-                Header::from_bytes(self.sv2_buffer.get_data_by_ref(SV2_FRAME_HEADER_SIZE))?;
+            let header = Header::from_bytes(self.sv2_buffer.frame())?;
             let payload = crate::encrypted_payload_length(&header);
             if payload > 0 {
                 self.expect(payload);
@@ -450,7 +448,7 @@ impl<B: IsBuffer> WithoutNoise<B> {
     pub fn next_frame(&mut self) -> Result<Decoded<SerializedFrame<B::Slice>>> {
         self.window = 0;
         let len = self.buffer.len();
-        let src = self.buffer.get_data_by_ref(len);
+        let src = self.buffer.frame();
 
         match SerializedFrame::<B::Slice>::parse_header(src) {
             Ok(header) => {

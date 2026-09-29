@@ -190,7 +190,7 @@ impl Buffer for PPool {
         }
     }
 
-    fn get_data_by_ref(&mut self, _len: usize) -> &mut [u8] {
+    fn frame_mut(&mut self) -> &mut [u8] {
         todo!()
     }
 
@@ -198,7 +198,7 @@ impl Buffer for PPool {
         todo!()
     }
 
-    fn get_data_by_ref_(&self, _len: usize) -> &[u8] {
+    fn frame(&self) -> &[u8] {
         todo!()
     }
 
@@ -272,7 +272,7 @@ impl Buffer for MaxEfficiency {
         }
     }
 
-    fn get_data_by_ref(&mut self, _len: usize) -> &mut [u8] {
+    fn frame_mut(&mut self) -> &mut [u8] {
         todo!()
     }
 
@@ -280,7 +280,7 @@ impl Buffer for MaxEfficiency {
         todo!()
     }
 
-    fn get_data_by_ref_(&self, _len: usize) -> &[u8] {
+    fn frame(&self) -> &[u8] {
         todo!()
     }
 

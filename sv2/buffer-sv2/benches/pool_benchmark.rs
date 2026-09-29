@@ -197,7 +197,7 @@ fn add_random_bytes_test(
         i += 1;
     }
     //println!("END {}", buffer.is_back_mode());
-    let i = buffer.get_data_by_ref(written);
+    let i = buffer.frame();
     assert!(&v[..] == i);
     v
 }
