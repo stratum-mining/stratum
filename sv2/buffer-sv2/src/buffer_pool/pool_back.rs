@@ -128,7 +128,12 @@ impl PoolBack {
                             != POOL_CAPACITY)
                 );
 
-                let cleared = memory.try_change_len(back_len + self.back_start, len);
+                // With the whole back free, the back resumes after the live front slices.
+                let raw_offset = match back_len {
+                    0 => memory.front_end(shared_state, self.back_start),
+                    _ => memory.raw_offset_from_len(back_len + self.back_start),
+                };
+                let cleared = memory.try_change_len(back_len + self.back_start, raw_offset, len);
                 if cleared {
                     self.len = back_len;
                 }

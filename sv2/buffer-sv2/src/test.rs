@@ -740,3 +740,39 @@ fn a_live_front_slot_past_the_free_prefix_keeps_the_back_usable() {
         assert_eq!(slot.as_ref().unwrap().as_ref(), &[value; 10]);
     }
 }
+
+#[test]
+fn switching_front_to_back_does_not_overwrite_a_live_slice() {
+    let mut pool = Pool::new(80);
+    let mut back = Vec::new();
+    for _ in 0..8 {
+        pool.get_writable(10).fill(0x11);
+        back.push(pool.get_data_owned());
+    }
+    back.drain(..3);
+
+    pool.get_writable(1).fill(0x22);
+    let first_front = pool.get_data_owned();
+    pool.get_writable(1).fill(0x33);
+    let second_front = pool.get_data_owned();
+    pool.get_writable(1).fill(0x44);
+    let third_front = pool.get_data_owned();
+    assert!(pool.is_front_mode());
+
+    // Front slot 1 is reused for a larger slice, while freed slot 2 still records its old
+    // extent.
+    drop(second_front);
+    drop(third_front);
+    pool.get_writable(10).fill(0x55);
+    let live_front = pool.get_data_owned();
+
+    // Every back slot is free, and 20 bytes don't fit before the old boundary, so the pool
+    // switches back to the back.
+    drop(back);
+    pool.get_writable(20).fill(0x66);
+    let new_back = pool.get_data_owned();
+
+    assert_eq!(first_front.as_ref(), &[0x22]);
+    assert_eq!(live_front.as_ref(), &[0x55; 10]);
+    assert_eq!(new_back.as_ref(), &[0x66; 20]);
+}
