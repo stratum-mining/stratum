@@ -203,6 +203,9 @@ pub enum PoolMode {
 // copying data, and managing capacity. It uses a contiguous block of memory (`Vec<u8>`), tracking
 // its usage through offsets (`raw_offset`, `raw_length`), and manages slice allocations through
 // `slots`. Used by `BufferPool` to optimize memory reused and minimize heap allocations.
+//
+// The memory is only ever reached through raw pointers narrowed to the range being accessed, so
+// that no reference covers a range a live slice points into.
 #[derive(Debug, Clone)]
 pub struct InnerMemory {
     // Underlying contiguous block of memory to be managed.
@@ -234,6 +237,38 @@ impl InnerMemory {
             slots: [(0_usize, 0_usize); POOL_CAPACITY],
             len: 0,
         }
+    }
+
+    // Checks that `len` bytes starting at `offset` lie within the underlying memory.
+    #[inline(always)]
+    fn in_bounds(&self, offset: usize, len: usize) -> bool {
+        offset
+            .checked_add(len)
+            .is_some_and(|end| end <= self.pool.len())
+    }
+
+    // Returns the data written so far, from `raw_offset` to `raw_offset + raw_len`.
+    #[inline(always)]
+    fn raw_data(&self) -> &[u8] {
+        assert!(self.in_bounds(self.raw_offset, self.raw_len));
+        unsafe { core::slice::from_raw_parts(self.pool.as_ptr().add(self.raw_offset), self.raw_len) }
+    }
+
+    // Returns the data written so far, from `raw_offset` to `raw_offset + raw_len`.
+    #[inline(always)]
+    fn raw_data_mut(&mut self) -> &mut [u8] {
+        assert!(self.in_bounds(self.raw_offset, self.raw_len));
+        unsafe {
+            core::slice::from_raw_parts_mut(self.pool.as_mut_ptr().add(self.raw_offset), self.raw_len)
+        }
+    }
+
+    // Copies `len` bytes from offset `src` to offset `dst`. The two ranges may overlap.
+    #[inline(always)]
+    fn copy_within(&mut self, src: usize, len: usize, dst: usize) {
+        assert!(self.in_bounds(src, len) && self.in_bounds(dst, len));
+        let bytes = self.pool.as_mut_ptr();
+        unsafe { core::ptr::copy(bytes.add(src), bytes.add(dst), len) }
     }
 
     // Resets the internal memory pool, clearing all used memory and resetting the slot tracking.
@@ -322,8 +357,7 @@ impl InnerMemory {
         match self.raw_len {
             0 => self.raw_offset = 0,
             _ => {
-                self.pool
-                    .copy_within(self.raw_offset..self.raw_offset + self.raw_len, 0);
+                self.copy_within(self.raw_offset, self.raw_len, 0);
                 self.raw_offset = 0;
             }
         }
@@ -355,8 +389,7 @@ impl InnerMemory {
         match self.raw_len {
             0 => self.raw_offset = offset,
             _ => {
-                self.pool
-                    .copy_within(self.raw_offset..self.raw_offset + self.raw_len, offset);
+                self.copy_within(self.raw_offset, self.raw_len, offset);
                 self.raw_offset = offset;
             }
         }
@@ -365,12 +398,12 @@ impl InnerMemory {
     // Inserts raw data at the front of the memory pool, adjusting the raw offset and length.
     #[inline(never)]
     fn prepend_raw_data(&mut self, raw_data: &[u8]) {
+        assert!(self.in_bounds(0, raw_data.len()));
+        let dest = self.pool.as_mut_ptr();
+        unsafe { core::ptr::copy_nonoverlapping(raw_data.as_ptr(), dest, raw_data.len()) };
+
         self.raw_offset = 0;
         self.raw_len = raw_data.len();
-
-        let dest = &mut self.pool[0..self.raw_len];
-
-        dest.copy_from_slice(raw_data);
     }
 
     // Copies the internal raw memory into another buffer. Used when transitioning memory between
@@ -378,7 +411,7 @@ impl InnerMemory {
     #[inline(never)]
     fn copy_into_buffer(&mut self, buffer: &mut impl Buffer) {
         let writable = buffer.get_writable(self.raw_len);
-        writable.copy_from_slice(&self.pool[self.raw_offset..self.raw_offset + self.raw_len]);
+        writable.copy_from_slice(self.raw_data());
     }
 
     // Checks if there is enough capacity at the tail of the memory pool to accommodate `len`
@@ -402,7 +435,8 @@ impl InnerMemory {
     fn get_writable_raw_unchecked(&mut self, len: usize) -> *mut u8 {
         let writable_offset = self.raw_offset + self.raw_len;
         self.raw_len += len;
-        self.pool[writable_offset..writable_offset + len].as_mut_ptr()
+        assert!(self.in_bounds(writable_offset, len));
+        unsafe { self.pool.as_mut_ptr().add(writable_offset) }
     }
 
     /// Provides access to the raw memory slice containing the data written into the buffer,
@@ -857,10 +891,7 @@ impl<T: Buffer> Buffer for BufferPool<T> {
     fn get_data_by_ref(&mut self, len: usize) -> &mut [u8] {
         match self.mode {
             PoolMode::Alloc => self.system_memory.get_data_by_ref(len),
-            _ => {
-                &mut self.inner_memory.pool[self.inner_memory.raw_offset
-                    ..self.inner_memory.raw_offset + self.inner_memory.raw_len]
-            }
+            _ => self.inner_memory.raw_data_mut(),
         }
     }
 
@@ -870,10 +901,7 @@ impl<T: Buffer> Buffer for BufferPool<T> {
     fn get_data_by_ref_(&self, len: usize) -> &[u8] {
         match self.mode {
             PoolMode::Alloc => self.system_memory.get_data_by_ref_(len),
-            _ => {
-                &self.inner_memory.pool[self.inner_memory.raw_offset
-                    ..self.inner_memory.raw_offset + self.inner_memory.raw_len]
-            }
+            _ => self.inner_memory.raw_data(),
         }
     }
 
