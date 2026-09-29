@@ -119,16 +119,20 @@ impl PoolBack {
             (0, _, _, _) => {
                 let element_to_drop = element_to_drop - already_dropped;
 
-                self.len -= element_to_drop;
+                let back_len = self.len - element_to_drop;
 
                 #[cfg(feature = "fuzz")]
                 assert!(
-                    !(self.len + self.back_start > POOL_CAPACITY
-                        || self.len + element_to_drop + already_dropped + self.back_start
+                    !(back_len + self.back_start > POOL_CAPACITY
+                        || back_len + element_to_drop + already_dropped + self.back_start
                             != POOL_CAPACITY)
                 );
 
-                memory.try_change_len(self.len + self.back_start, len)
+                let cleared = memory.try_change_len(back_len + self.back_start, len);
+                if cleared {
+                    self.len = back_len;
+                }
+                cleared
             }
             // If leading_0 is > than 0 return and clear the head
             (_, _, _, _) => false,
