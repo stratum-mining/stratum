@@ -46,6 +46,8 @@ use aes_gcm::aead::Buffer as AeadBuffer;
 
 mod pool_back;
 pub use pool_back::PoolBack;
+#[cfg(test)]
+mod test;
 
 // Maximum number of memory slices the buffer pool can concurrently manage.
 //
