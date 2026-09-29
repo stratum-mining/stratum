@@ -79,8 +79,10 @@ impl<B: IsBuffer + AeadBuffer> WithNoise<B> {
     #[inline]
     pub fn encode_handshake(&mut self, message: HandshakeMessage) -> B::Slice {
         let payload = message.payload();
-        let writable = self.noise_buffer.get_writable(payload.len());
-        writable.copy_from_slice(payload);
+        self.noise_buffer
+            .reserve(payload.len())
+            .copy_from_slice(payload);
+        self.noise_buffer.commit(payload.len());
 
         self.noise_buffer.get_data_owned()
     }
@@ -128,17 +130,18 @@ impl<B: IsBuffer + AeadBuffer> WithNoise<B> {
         if len < SV2_FRAME_HEADER_SIZE {
             return Err(framing_sv2::Error::UnexpectedHeaderLength(len).into());
         }
-        let writable = self.sv2_buffer.get_writable(len);
-
         // ENCODE THE SV2 FRAME
-        frame.encode_into(writable)?;
+        frame.encode_into(self.sv2_buffer.reserve(len))?;
+        self.sv2_buffer.commit(len);
 
         let sv2 = self.sv2_buffer.get_data_owned();
         let sv2: &[u8] = sv2.as_ref();
 
         // ENCRYPT THE HEADER
-        let to_encrypt = self.noise_buffer.get_writable(SV2_FRAME_HEADER_SIZE);
-        to_encrypt.copy_from_slice(&sv2[..SV2_FRAME_HEADER_SIZE]);
+        self.noise_buffer
+            .reserve(SV2_FRAME_HEADER_SIZE)
+            .copy_from_slice(&sv2[..SV2_FRAME_HEADER_SIZE]);
+        self.noise_buffer.commit(SV2_FRAME_HEADER_SIZE);
         encrypt(&mut self.noise_buffer)?;
 
         // ENCRYPT THE PAYLOAD IN CHUNKS
@@ -146,8 +149,10 @@ impl<B: IsBuffer + AeadBuffer> WithNoise<B> {
         let mut encrypted_len = ENCRYPTED_SV2_FRAME_HEADER_SIZE;
         while start < sv2.len() {
             let end = (start + SV2_FRAME_PLAINTEXT_CHUNK_SIZE).min(sv2.len());
-            let to_encrypt = self.noise_buffer.get_writable(end - start);
-            to_encrypt.copy_from_slice(&sv2[start..end]);
+            self.noise_buffer
+                .reserve(end - start)
+                .copy_from_slice(&sv2[start..end]);
+            self.noise_buffer.commit(end - start);
             self.noise_buffer.danger_set_start(encrypted_len);
             encrypt(&mut self.noise_buffer)?;
             encrypted_len += self.noise_buffer.as_ref().len();
@@ -208,12 +213,8 @@ impl<B: IsBuffer> WithoutNoise<B> {
         if len < SV2_FRAME_HEADER_SIZE {
             return Err(framing_sv2::Error::UnexpectedHeaderLength(len).into());
         }
-        let writable = self.buffer.get_writable(len);
-
-        if let Err(e) = item.encode_into(writable) {
-            self.buffer.get_data_owned();
-            return Err(e.into());
-        }
+        item.encode_into(self.buffer.reserve(len))?;
+        self.buffer.commit(len);
 
         Ok(self.buffer.get_data_owned())
     }
@@ -440,7 +441,8 @@ mod prop_tests {
             calls += 1;
             if calls == 1 {
                 // Stand in for the header encryption, which grows the buffer by a MAC.
-                buf.get_writable(AEAD_MAC_LEN);
+                buf.reserve(AEAD_MAC_LEN);
+                buf.commit(AEAD_MAC_LEN);
                 Ok(())
             } else {
                 Err(crate::Error::AeadError(noise_sv2::AeadError))
