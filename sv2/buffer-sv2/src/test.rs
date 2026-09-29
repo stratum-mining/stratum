@@ -569,3 +569,17 @@ fn empty_frame_does_not_take_a_slot() {
     assert!(empty.is_empty());
     assert!(pool.droppable());
 }
+
+#[test]
+fn slice_view_survives_a_later_allocation() {
+    let mut pool = Pool::new(64);
+    pool.get_writable(8).copy_from_slice(&[1; 8]);
+    let mut first = pool.get_data_owned();
+    let view = first.as_mut();
+
+    pool.get_writable(8).copy_from_slice(&[2; 8]);
+    let _second = pool.get_data_owned();
+
+    view[0] = 9;
+    assert_eq!(first.as_ref()[0], 9);
+}
