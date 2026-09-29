@@ -101,13 +101,12 @@ pub struct Slice {
 impl Slice {
     /// Returns the length of the slice in bytes.
     ///
-    /// If the slice owns its memory (`owned`), it returns the length of the owned buffer. If the
-    /// slice does not own the memory, it returns `0`.
+    /// If the slice owns its memory (`owned`), it returns the length of the owned buffer.
+    /// Otherwise it returns the length of the region it points to in the pool.
     pub fn len(&self) -> usize {
-        if let Some(owned) = &self.owned {
-            owned.len()
-        } else {
-            0
+        match &self.owned {
+            Some(owned) => owned.len(),
+            None => self.len,
         }
     }
 

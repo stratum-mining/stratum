@@ -525,3 +525,13 @@ fn slice_released_on_another_thread_is_safe_to_reuse() {
 
     worker.join().unwrap();
 }
+
+#[test]
+fn pool_backed_slice_reports_its_length() {
+    let mut pool = Pool::new(64);
+    pool.get_writable(8).copy_from_slice(&[1; 8]);
+    let slice = pool.get_data_owned();
+
+    assert_eq!(slice.len(), 8);
+    assert_eq!(slice.len(), slice.as_ref().len());
+}
