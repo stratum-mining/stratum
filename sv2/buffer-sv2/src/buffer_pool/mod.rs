@@ -422,39 +422,28 @@ impl InnerMemory {
         shared_state: &mut SharedState,
         #[cfg(feature = "debug")] mode: u8,
     ) -> Slice {
-        let offset = unsafe { self.pool.as_mut_ptr().add(self.raw_offset) };
-
-        let mut index: u8 = crate::slice::INGORE_INDEX;
-
-        if self.raw_len > 0 {
-            self.slots[self.len] = (self.raw_offset, self.raw_len);
-
-            self.len += 1;
-            index = self.len as u8;
-
-            shared_state.claim(
-                index,
-                #[cfg(feature = "debug")]
-                mode,
-            );
+        if self.raw_len == 0 {
+            return Slice::from(Vec::new());
         }
 
-        let len = self.raw_len;
+        let offset = unsafe { self.pool.as_mut_ptr().add(self.raw_offset) };
+
+        self.slots[self.len] = (self.raw_offset, self.raw_len);
+        self.len += 1;
+
+        let slice = Slice::pooled(
+            shared_state.clone(),
+            offset,
+            self.raw_len,
+            self.len as u8,
+            #[cfg(feature = "debug")]
+            mode,
+        );
 
         self.raw_offset += self.raw_len;
         self.raw_len = 0;
 
-        Slice {
-            offset,
-            len,
-            index,
-            shared_state: shared_state.clone(),
-            owned: None,
-            #[cfg(feature = "debug")]
-            mode,
-            #[cfg(feature = "debug")]
-            time: SystemTime::now(),
-        }
+        slice
     }
 }
 

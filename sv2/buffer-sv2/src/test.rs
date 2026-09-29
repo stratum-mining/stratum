@@ -560,3 +560,12 @@ fn cloned_slice_keeps_its_bytes_after_the_original_is_released() {
 
     assert_eq!(copy.as_ref(), &[1; 8]);
 }
+
+#[test]
+fn empty_frame_does_not_take_a_slot() {
+    let mut pool = Pool::new(64);
+    let empty = pool.get_data_owned();
+
+    assert!(empty.is_empty());
+    assert!(pool.droppable());
+}

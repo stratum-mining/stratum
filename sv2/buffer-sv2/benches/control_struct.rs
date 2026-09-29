@@ -31,7 +31,7 @@ impl Load for Vec<u8> {
 impl Load for Slice {
     #[inline(always)]
     fn load(&mut self) -> usize {
-        self.shared_state.load() as usize
+        self.len()
     }
 }
 

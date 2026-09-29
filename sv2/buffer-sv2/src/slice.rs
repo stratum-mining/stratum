@@ -26,15 +26,6 @@ use core::sync::atomic::{AtomicU8, Ordering};
 #[cfg(feature = "debug")]
 use std::time::SystemTime;
 
-// A special index value used to mark `Slice` as ignored in certain operations, such as memory pool
-// tracking or state management.
-//
-// It can be used as a sentinel value for slices that should not be processed or tracked, helping
-// differentiate valid slices from those that need to be skipped. When a `Slice`'s `index` is set
-// to `INGORE_INDEX`, it is flagged to be ignored and by any logic that processes or tracks slice
-// indices.
-pub const INGORE_INDEX: u8 = 59;
-
 /// Allows [`Slice`] to be safely transferred between threads.
 ///
 /// [`Slice`] contains a raw pointer (`*mut u8`), so Rust cannot automatically implement [`Send`].
@@ -49,38 +40,8 @@ unsafe impl Send for Slice {}
 /// dynamically allocated buffer (via [`Vec<u8>`]).
 #[derive(Debug)]
 pub struct Slice {
-    // Raw pointer to the start of the memory block.
-    //
-    // Allows for efficient access to the underlying memory. Care should be taken when working with
-    // raw pointers to avoid memory safety issues. The pointer must be valid and must point to a
-    // properly allocated and initialized memory region.
-    pub(crate) offset: *mut u8,
-
-    // Length of the memory block in bytes.
-    //
-    // Represents how much memory is being used. This is critical for safe memory access, as it
-    // prevents reading or writing outside the bounds of the buffer.
-    pub(crate) len: usize,
-
-    /// Unique identifier (index) of the slice in the shared memory pool.
-    ///
-    /// When in back or front mode, tracks the slice within the pool and manages memory reuse. It
-    /// allows for quick identification of slices when freeing or reassigning memory. If in alloc
-    /// mode, it is set to `IGNORE_INDEX`.
-    pub index: u8,
-
-    /// Shared state of the memory pool.
-    ///
-    /// When in back or front mode, tracks how many slices are currently in use and ensures proper
-    /// synchronization of memory access across multiple contexts.
-    pub shared_state: SharedState,
-
-    /// Optional dynamically allocated buffer.
-    ///
-    /// If present, the slice owns the memory and is responsible for managing its lifecycle. If
-    /// [`None`], the buffer pool is in back or front mode and the slice points to memory managed
-    /// by the memory pool. Is `Some(Vec<u8>)` when in alloc mode.
-    pub owned: Option<Vec<u8>>,
+    // Where the bytes live: a region of a buffer pool, or memory the slice owns.
+    repr: Repr,
 
     // Mode flag to track the state of the slice during development.
     //
@@ -88,25 +49,67 @@ pub struct Slice {
     // whether is is currently being written to or read from). Typically used for logging and
     // debugging.
     #[cfg(feature = "debug")]
-    pub mode: u8,
+    mode: u8,
 
-    /// Timestamp to track when the slice was created.
-    ///
-    /// Useful for diagnosing time-related issues and tracking the lifespan of memory slices during
-    /// development and debugging.
+    // Timestamp to track when the slice was created.
+    //
+    // Useful for diagnosing time-related issues and tracking the lifespan of memory slices during
+    // development and debugging.
     #[cfg(feature = "debug")]
-    pub time: SystemTime,
+    #[allow(dead_code)]
+    time: SystemTime,
+}
+
+#[derive(Debug)]
+enum Repr {
+    // A region of a buffer pool's memory, whose slot stays claimed until the slice is dropped.
+    //
+    // `ptr` and `len` bound the region; `slot` is the bit that tracks it in `state`.
+    Pooled {
+        state: SharedState,
+        ptr: *mut u8,
+        len: usize,
+        slot: u8,
+    },
+
+    // Memory the slice owns, used when the pool falls back to system memory.
+    Heap(Vec<u8>),
 }
 
 impl Slice {
+    // Hands out the `len` bytes at `ptr` in a buffer pool's memory, claiming `slot` in `state`
+    // until the slice is dropped.
+    pub(crate) fn pooled(
+        state: SharedState,
+        ptr: *mut u8,
+        len: usize,
+        slot: u8,
+        #[cfg(feature = "debug")] mode: u8,
+    ) -> Self {
+        state.claim(
+            slot,
+            #[cfg(feature = "debug")]
+            mode,
+        );
+        Slice {
+            repr: Repr::Pooled {
+                state,
+                ptr,
+                len,
+                slot,
+            },
+            #[cfg(feature = "debug")]
+            mode,
+            #[cfg(feature = "debug")]
+            time: SystemTime::now(),
+        }
+    }
+
     /// Returns the length of the slice in bytes.
-    ///
-    /// If the slice owns its memory (`owned`), it returns the length of the owned buffer.
-    /// Otherwise it returns the length of the region it points to in the pool.
     pub fn len(&self) -> usize {
-        match &self.owned {
-            Some(owned) => owned.len(),
-            None => self.len,
+        match &self.repr {
+            Repr::Pooled { len, .. } => *len,
+            Repr::Heap(owned) => owned.len(),
         }
     }
 
@@ -195,13 +198,13 @@ impl core::ops::Index<core::ops::RangeFull> for Slice {
 impl AsMut<[u8]> for Slice {
     /// Converts the [`Slice`] into a mutable slice of bytes (`&mut [u8]`).
     ///
-    /// Returns the owned buffer if present, otherwise converts the raw pointer and length into a
-    /// mutable slice.
+    /// Returns the owned buffer, or converts the pool region's pointer and length into a mutable
+    /// slice.
     #[inline(always)]
     fn as_mut(&mut self) -> &mut [u8] {
-        match self.owned.as_mut() {
-            None => unsafe { core::slice::from_raw_parts_mut(self.offset, self.len) },
-            Some(x) => x,
+        match &mut self.repr {
+            Repr::Pooled { ptr, len, .. } => unsafe { core::slice::from_raw_parts_mut(*ptr, *len) },
+            Repr::Heap(owned) => owned,
         }
     }
 }
@@ -209,13 +212,13 @@ impl AsMut<[u8]> for Slice {
 impl AsRef<[u8]> for Slice {
     /// Converts the [`Slice`] into an immutable slice of bytes (`&[u8]`).
     ///
-    /// Returns the owned buffer if present, otherwise converts the raw pointer and length into an
+    /// Returns the owned buffer, or converts the pool region's pointer and length into an
     /// immutable slice.
     #[inline(always)]
     fn as_ref(&self) -> &[u8] {
-        match self.owned.as_ref() {
-            None => unsafe { core::slice::from_raw_parts(self.offset, self.len) },
-            Some(x) => x,
+        match &self.repr {
+            Repr::Pooled { ptr, len, .. } => unsafe { core::slice::from_raw_parts(*ptr, *len) },
+            Repr::Heap(owned) => owned,
         }
     }
 }
@@ -232,28 +235,23 @@ impl Drop for Slice {
     ///
     /// In debug mode, it also tracks the `mode` of the slice when it is dropped.
     fn drop(&mut self) {
-        self.shared_state.release(
-            self.index,
-            #[cfg(feature = "debug")]
-            self.mode,
-        );
+        if let Repr::Pooled { state, slot, .. } = &self.repr {
+            state.release(
+                *slot,
+                #[cfg(feature = "debug")]
+                self.mode,
+            );
+        }
     }
 }
 
 impl From<Vec<u8>> for Slice {
     /// Creates a [`Slice`] from a [`Vec<u8>`], taking ownership of the vector.
     ///
-    /// Initializes the [`Slice`] with the vector's pointer and sets the length to `0`.
-    fn from(mut v: Vec<u8>) -> Self {
-        let offset = v[0..].as_mut_ptr();
+    /// The slice owns the vector's memory, so it takes no slot in any buffer pool.
+    fn from(v: Vec<u8>) -> Self {
         Slice {
-            offset,
-            len: 0,
-            // The slice's memory is owned by a `Vec<u8>`, so the slice does not need an `index` in
-            // the pool to manage the memory
-            index: crate::slice::INGORE_INDEX,
-            shared_state: SharedState::new(),
-            owned: Some(v),
+            repr: Repr::Heap(v),
             #[cfg(feature = "debug")]
             mode: 2,
             #[cfg(feature = "debug")]
@@ -282,20 +280,12 @@ impl From<Vec<u8>> for Slice {
 // shared state indicates that all references have been dropped (i.e., no unprocessed messages
 // remain) can the buffer pool safely clear or reuse the memory.
 #[derive(Clone, Debug)]
-pub struct SharedState(Arc<AtomicU8>);
-
-impl Default for SharedState {
-    // Creates a new `SharedState` with an internal `AtomicU8` initialized to `0`, indicating no
-    // memory slots are in use.
-    fn default() -> Self {
-        Self::new()
-    }
-}
+pub(crate) struct SharedState(Arc<AtomicU8>);
 
 impl SharedState {
     // Creates a new `SharedState` with an internal `AtomicU8` initialized to `0`, indicating no
     // memory slots are in use.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self(Arc::new(AtomicU8::new(0)))
     }
 
@@ -303,18 +293,17 @@ impl SharedState {
     //
     // Acquires what dropped slices released, so the memory they freed is safe to reuse.
     #[inline(always)]
-    pub fn load(&self) -> u8 {
+    pub(crate) fn load(&self) -> u8 {
         self.0.load(Ordering::Acquire)
     }
 
-    // Returns the bit that tracks slot `position`, or `None` for `INGORE_INDEX`.
+    // Returns the bit that tracks slot `position`.
     //
     // Panics if the `position` is outside the range of 1-8, as this refers to an invalid bit.
     #[inline(always)]
-    fn mask(position: u8) -> Option<u8> {
+    fn mask(position: u8) -> u8 {
         match position {
-            1..=8 => Some(0b1000_0000 >> (position - 1)),
-            INGORE_INDEX => None,
+            1..=8 => 0b1000_0000 >> (position - 1),
             _ => panic!("{}", position),
         }
     }
@@ -323,10 +312,8 @@ impl SharedState {
     //
     // Only the pool sets bits, on the thread that hands the slice out, so no ordering is needed.
     #[inline(always)]
-    pub fn claim(&self, position: u8, #[cfg(feature = "debug")] mode: u8) {
-        let Some(mask) = Self::mask(position) else {
-            return;
-        };
+    pub(crate) fn claim(&self, position: u8, #[cfg(feature = "debug")] mode: u8) {
+        let mask = Self::mask(position);
         let pre = self.0.fetch_or(mask, Ordering::Relaxed);
         assert_eq!(pre & mask, 0, "slot {position} is held by a live slice");
 
@@ -338,10 +325,8 @@ impl SharedState {
     //
     // The release ordering publishes the slice's accesses before the pool reuses that memory.
     #[inline(always)]
-    pub fn release(&self, position: u8, #[cfg(feature = "debug")] mode: u8) {
-        let Some(mask) = Self::mask(position) else {
-            return;
-        };
+    pub(crate) fn release(&self, position: u8, #[cfg(feature = "debug")] mode: u8) {
+        let mask = Self::mask(position);
         let pre = self.0.fetch_and(!mask, Ordering::Release);
         debug_assert_ne!(pre & mask, 0);
 
