@@ -598,3 +598,13 @@ fn formatting_the_pool_does_not_race_a_live_slice() {
 
     drop(worker.join().unwrap());
 }
+
+#[test]
+fn slice_outlives_its_pool() {
+    let mut pool = Pool::new(64);
+    pool.get_writable(8).copy_from_slice(&[1; 8]);
+    let slice = pool.get_data_owned();
+    drop(pool);
+
+    assert_eq!(slice.as_ref(), &[1; 8]);
+}
