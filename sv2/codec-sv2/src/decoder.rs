@@ -23,8 +23,6 @@
 //! - If this feature is not enabled, a system memory buffer [`buffer_sv2::BufferFromSystemMemory`]
 //!   is used for simpler applications where memory efficiency is less critical.
 
-#[cfg(feature = "noise_sv2")]
-use buffer_sv2::AeadBuffer;
 use buffer_sv2::Buffer as IsBuffer;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::{framing::HandshakeMessage, SV2_FRAME_HEADER_SIZE};
@@ -40,7 +38,8 @@ use crate::{
 };
 #[cfg(feature = "noise_sv2")]
 use crate::{
-    state::ExpectsHandshakeMessage, TransportDecryptState, ENCRYPTED_SV2_FRAME_HEADER_SIZE,
+    state::{Chunk, ExpectsHandshakeMessage},
+    TransportDecryptState, ENCRYPTED_SV2_FRAME_HEADER_SIZE,
 };
 
 /// Sv2 decoder with Noise protocol support.
@@ -118,7 +117,7 @@ pub enum Decrypted<F> {
 }
 
 #[cfg(feature = "noise_sv2")]
-impl<B: IsBuffer + AeadBuffer> WithNoise<B> {
+impl<B: IsBuffer> WithNoise<B> {
     /// Attempts to decode the next handshake frame.
     ///
     /// Handshake messages have a fixed size that depends on the role `state` plays, so no header
@@ -227,7 +226,7 @@ impl<B: IsBuffer + AeadBuffer> WithNoise<B> {
     #[inline]
     fn next_transport(
         &mut self,
-        decrypt: impl FnMut(&mut B) -> Result<()>,
+        decrypt: impl FnMut(&mut Chunk<'_, B>) -> Result<()>,
     ) -> Result<Decoded<SerializedFrame<B::Slice>>> {
         self.window = 0;
         let expected = if IsBuffer::len(&self.sv2_buffer) < SV2_FRAME_HEADER_SIZE {
@@ -311,12 +310,11 @@ impl<B: IsBuffer + AeadBuffer> WithNoise<B> {
     fn decode_noise_frame(
         &mut self,
         expected: usize,
-        decrypt: impl FnMut(&mut B) -> Result<()>,
+        decrypt: impl FnMut(&mut Chunk<'_, B>) -> Result<()>,
     ) -> Result<Decoded<SerializedFrame<B::Slice>>> {
         let result = self.try_decode_noise_frame(expected, decrypt);
 
         if result.is_err() {
-            self.sv2_buffer.danger_set_start(0);
             self.sv2_buffer.get_data_owned();
             self.noise_buffer.get_data_owned();
             self.expect(ENCRYPTED_SV2_FRAME_HEADER_SIZE);
@@ -329,7 +327,7 @@ impl<B: IsBuffer + AeadBuffer> WithNoise<B> {
     fn try_decode_noise_frame(
         &mut self,
         expected: usize,
-        mut decrypt: impl FnMut(&mut B) -> Result<()>,
+        mut decrypt: impl FnMut(&mut Chunk<'_, B>) -> Result<()>,
     ) -> Result<Decoded<SerializedFrame<B::Slice>>> {
         if IsBuffer::len(&self.sv2_buffer) < SV2_FRAME_HEADER_SIZE {
             // HERE THE SV2 HEADER IS READY TO BE DECRYPTED
@@ -338,7 +336,7 @@ impl<B: IsBuffer + AeadBuffer> WithNoise<B> {
                 .reserve(expected)
                 .copy_from_slice(&src.as_ref()[..expected]);
             self.sv2_buffer.commit(expected);
-            decrypt(&mut self.sv2_buffer)?;
+            decrypt(&mut Chunk::new(&mut self.sv2_buffer, 0))?;
             let header = Header::from_bytes(self.sv2_buffer.frame())?;
             let payload = crate::encrypted_payload_length(&header);
             if payload > 0 {
@@ -359,26 +357,23 @@ impl<B: IsBuffer + AeadBuffer> WithNoise<B> {
     fn decrypt_payload(
         &mut self,
         expected: usize,
-        mut decrypt: impl FnMut(&mut B) -> Result<()>,
+        mut decrypt: impl FnMut(&mut Chunk<'_, B>) -> Result<()>,
     ) -> Result<Decoded<SerializedFrame<B::Slice>>> {
         let encrypted_payload = self.take(expected);
         self.expect(ENCRYPTED_SV2_FRAME_HEADER_SIZE);
         let encrypted_payload = &encrypted_payload.as_ref()[..expected];
         let mut start = 0;
-        // Do not try to decrypt the header cause it is already decrypted
-        let mut decrypted_len = SV2_FRAME_HEADER_SIZE;
+        // The header is already decrypted, so each chunk starts past what the buffer holds.
         while start < expected {
             let end = (start + SV2_FRAME_CHUNK_SIZE).min(expected);
+            let chunk_start = IsBuffer::len(&self.sv2_buffer);
             self.sv2_buffer
                 .reserve(end - start)
                 .copy_from_slice(&encrypted_payload[start..end]);
             self.sv2_buffer.commit(end - start);
-            self.sv2_buffer.danger_set_start(decrypted_len);
-            decrypt(&mut self.sv2_buffer)?;
+            decrypt(&mut Chunk::new(&mut self.sv2_buffer, chunk_start))?;
             start = end;
-            decrypted_len += self.sv2_buffer.as_ref().len();
         }
-        self.sv2_buffer.danger_set_start(0);
         let src = self.sv2_buffer.get_data_owned();
         Ok(Decoded::Frame(SerializedFrame::<B::Slice>::from_bytes(
             src,
@@ -994,11 +989,10 @@ mod prop_tests {
         assert_eq!(sizes.len(), 2, "header then payload, got {sizes:?}");
     }
 
-    /// A chunk past the first failing must leave the decrypt offset where the next frame can
-    /// use it: `get_data_owned` clears the cursor but not the offset `danger_set_start` moved.
+    /// A chunk past the first failing must leave the decoder ready for the next frame.
     #[cfg(feature = "noise_sv2")]
     #[test]
-    fn a_failed_later_chunk_does_not_strand_the_decrypt_offset() {
+    fn a_failed_later_chunk_leaves_the_decoder_ready_for_the_next_frame() {
         use crate::ENCRYPTED_SV2_FRAME_HEADER_SIZE;
 
         const PAYLOAD: usize = 2 * SV2_FRAME_CHUNK_SIZE;
