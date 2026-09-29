@@ -133,8 +133,24 @@ pub trait Buffer {
     /// The type of slice that the buffer uses.
     type Slice: AsMut<[u8]> + AsRef<[u8]> + Into<Slice>;
 
+    /// Makes room for `len` more bytes after the data written so far and returns that space,
+    /// without counting any of it as written.
+    ///
+    /// Only [`Buffer::commit`] counts bytes as written. Reserving again before committing
+    /// replaces the reservation, and bytes written into it are not kept.
+    fn reserve(&mut self, len: usize) -> &mut [u8];
+
+    /// Counts the first `len` bytes of the last reservation as written, and ends that
+    /// reservation.
+    ///
+    /// Panics if `len` is larger than the last reservation.
+    fn commit(&mut self, len: usize);
+
     /// Borrows a mutable slice of the buffer, allowing the caller to write data into it. The
     /// caller specifies the length of the data they need to write.
+    ///
+    /// All `len` bytes count as written straight away, as if reserved and then committed, so the
+    /// caller must fill the whole slice.
     fn get_writable(&mut self, len: usize) -> &mut [u8];
 
     /// Provides ownership of a slice in the buffer pool to the caller and updates the buffer

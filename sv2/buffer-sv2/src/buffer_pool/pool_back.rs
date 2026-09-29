@@ -233,7 +233,7 @@ impl PoolBack {
         if pool_has_byte_capacity && pool_has_slice_capacity {
             #[cfg(feature = "fuzz")]
             assert!(self.len + self.back_start < POOL_CAPACITY);
-            return Ok(memory.get_writable_raw_unchecked(len));
+            return Ok(memory.reserve_raw(len));
         }
 
         if !self.tail_is_clearable(shared_state) {
@@ -248,7 +248,7 @@ impl PoolBack {
                 if pool_has_byte_capacity && pool_has_slice_capacity {
                     #[cfg(feature = "fuzz")]
                     assert!(self.len + self.back_start < POOL_CAPACITY);
-                    Ok(memory.get_writable_raw_unchecked(len))
+                    Ok(memory.reserve_raw(len))
                 } else {
                     Err(PoolMode::Alloc)
                 }

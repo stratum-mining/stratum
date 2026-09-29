@@ -37,7 +37,7 @@ fn rejected_writable_range_leaves_the_length_untouched() {
     memory.raw_offset = 1;
 
     let rejected = catch_unwind(AssertUnwindSafe(|| {
-        memory.get_writable_raw_unchecked(usize::MAX);
+        memory.reserve_raw(usize::MAX);
     }));
 
     assert!(rejected.is_err());
