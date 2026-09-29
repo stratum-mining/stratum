@@ -38,6 +38,9 @@ unsafe impl Send for Slice {}
 /// It serves as a lightweight handle to a memory buffer, allowing for direct manipulation and
 /// shared access. It can either hold a reference to a preallocated memory block or own a
 /// dynamically allocated buffer (via [`Vec<u8>`]).
+///
+/// A slice from a [`crate::BufferPool`] holds a slot of that pool until it is dropped, so it is
+/// meant to be decoded and dropped. Cloning it copies the bytes into memory the clone owns.
 #[derive(Debug)]
 pub struct Slice {
     // Where the bytes live: a region of a buffer pool, or memory the slice owns.
