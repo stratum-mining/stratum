@@ -29,7 +29,7 @@ fn main() {
     assert_eq!(buffer_pool.len(), 12);
 
     // Retrieve the data as a referenced slice
-    let _data_slice = buffer_pool.get_data_by_ref(12);
+    let _data_slice = buffer_pool.frame();
     assert_eq!(buffer_pool.len(), 12);
 
     // Retrieve the data as an owned slice

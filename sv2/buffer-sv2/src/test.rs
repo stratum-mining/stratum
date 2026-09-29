@@ -943,3 +943,31 @@ fn committing_more_than_system_memory_reserved_panics() {
     memory.reserve(2);
     memory.commit(3);
 }
+
+#[test]
+fn frame_returns_exactly_the_committed_bytes_in_every_mode() {
+    let mut pool = Pool::new(64);
+    pool.reserve(10)[..4].fill(1);
+    pool.commit(4);
+    assert!(pool.is_back_mode());
+    assert_eq!(pool.frame(), &[1; 4]);
+
+    let mut pool = Pool::new(80);
+    let mut back = Vec::new();
+    for value in 0_u8..8 {
+        pool.reserve(10).fill(value);
+        pool.commit(10);
+        back.push(pool.get_data_owned());
+    }
+    back.remove(0);
+    pool.reserve(4)[0] = 9;
+    pool.commit(1);
+    assert!(pool.is_front_mode());
+    assert_eq!(pool.frame(), &[9]);
+
+    let mut pool = Pool::new(0);
+    pool.reserve(10)[..4].fill(2);
+    pool.commit(4);
+    assert!(pool.is_alloc_mode());
+    assert_eq!(pool.frame(), &[2; 4]);
+}

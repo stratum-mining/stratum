@@ -660,7 +660,7 @@ impl<T: Buffer> BufferPool<T> {
                     let raw_len = self.system_memory.len();
                     if raw_len > 0 {
                         self.inner_memory
-                            .prepend_raw_data(self.system_memory.get_data_by_ref(raw_len));
+                            .prepend_raw_data(self.system_memory.frame());
                         self.system_memory.get_data_owned();
                     } else {
                         self.inner_memory.reset();
@@ -942,23 +942,22 @@ impl<T: Buffer> Buffer for BufferPool<T> {
         }
     }
 
-    // Retrieves data differently based on the current buffer pool mode:
-    // - In alloc mode, it delegates to the system memory buffer.
-    // - In back or front modes, it returns a mutable slice of the internal memory buffer.
-    fn get_data_by_ref(&mut self, len: usize) -> &mut [u8] {
+    // Returns the committed bytes of the frame being written:
+    // - In back or front modes, from the internal memory buffer.
+    // - In alloc mode, from the system memory buffer.
+    fn frame(&self) -> &[u8] {
         match self.mode {
-            PoolMode::Alloc => self.system_memory.get_data_by_ref(len),
-            _ => self.inner_memory.raw_data_mut(),
+            PoolMode::Alloc => self.system_memory.frame(),
+            _ => self.inner_memory.raw_data(),
         }
     }
 
-    // Retrieves data differently based on the current pool mode:
-    // - In back or front modes, it returns an immutable slice of the internal memory buffer.
-    // - In alloc mode, it delegates to the system memory buffer.
-    fn get_data_by_ref_(&self, len: usize) -> &[u8] {
+    // Returns the committed bytes of the frame being written, mutably, from the same memory as
+    // `frame`.
+    fn frame_mut(&mut self) -> &mut [u8] {
         match self.mode {
-            PoolMode::Alloc => self.system_memory.get_data_by_ref_(len),
-            _ => self.inner_memory.raw_data(),
+            PoolMode::Alloc => self.system_memory.frame_mut(),
+            _ => self.inner_memory.raw_data_mut(),
         }
     }
 
@@ -1004,14 +1003,14 @@ impl<T: Buffer> BufferPool<T> {
 
 impl<T: Buffer> AsRef<[u8]> for BufferPool<T> {
     fn as_ref(&self) -> &[u8] {
-        &self.get_data_by_ref_(Buffer::len(self))[self.start..]
+        &self.frame()[self.start..]
     }
 }
 
 impl<T: Buffer> AsMut<[u8]> for BufferPool<T> {
     fn as_mut(&mut self) -> &mut [u8] {
         let start = self.start;
-        self.get_data_by_ref(Buffer::len(self))[start..].as_mut()
+        &mut self.frame_mut()[start..]
     }
 }
 

@@ -106,18 +106,16 @@ impl Buffer for BufferFromSystemMemory {
         head
     }
 
-    // Returns a mutable reference to the written portion of the internal buffer that has been
-    // filled up with data, up to the specified length (`len`).
+    // Returns the portion of the internal buffer that has been committed, up to the cursor.
     #[inline]
-    fn get_data_by_ref(&mut self, len: usize) -> &mut [u8] {
-        &mut self.inner[..usize::min(len, self.cursor)]
+    fn frame(&self) -> &[u8] {
+        &self.inner[..self.cursor]
     }
 
-    // Returns an immutable reference to the written portion of the internal buffer that has been
-    // filled up with data, up to the specified length (`len`).
+    // Returns the portion of the internal buffer that has been committed, up to the cursor.
     #[inline]
-    fn get_data_by_ref_(&self, len: usize) -> &[u8] {
-        &self.inner[..usize::min(len, self.cursor)]
+    fn frame_mut(&mut self) -> &mut [u8] {
+        &mut self.inner[..self.cursor]
     }
 
     // Returns the current write position (cursor) in the buffer, representing how much of the
@@ -161,12 +159,12 @@ impl Buffer for TestBufferFromMemory {
         panic!()
     }
 
-    fn get_data_by_ref(&mut self, _len: usize) -> &mut [u8] {
-        &mut self.0[0..0]
+    fn frame(&self) -> &[u8] {
+        &self.0[0..0]
     }
 
-    fn get_data_by_ref_(&self, _len: usize) -> &[u8] {
-        &self.0[0..0]
+    fn frame_mut(&mut self) -> &mut [u8] {
+        &mut self.0[0..0]
     }
 
     fn len(&self) -> usize {
@@ -187,8 +185,7 @@ impl AsRef<[u8]> for BufferFromSystemMemory {
     /// `start` index. Provides an immutable view into the buffer's contents, allowing it to be
     /// used as a regular slice for reading.
     fn as_ref(&self) -> &[u8] {
-        let start = self.start;
-        &self.get_data_by_ref_(Buffer::len(self))[start..]
+        &self.frame()[self.start..]
     }
 }
 
@@ -198,7 +195,7 @@ impl AsMut<[u8]> for BufferFromSystemMemory {
     /// restricting access to the data after the `start` index.
     fn as_mut(&mut self) -> &mut [u8] {
         let start = self.start;
-        self.get_data_by_ref(Buffer::len(self))[start..].as_mut()
+        &mut self.frame_mut()[start..]
     }
 }
 

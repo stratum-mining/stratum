@@ -151,15 +151,13 @@ pub trait Buffer {
     /// now points to the next set of uninitialized space.
     fn get_data_owned(&mut self) -> Self::Slice;
 
-    /// Provides a mutable reference to the written portion of the buffer, up to the specified
-    /// length, without transferring ownership of the buffer. This allows the caller to modify the
-    /// buffer’s contents directly without taking ownership.
-    fn get_data_by_ref(&mut self, len: usize) -> &mut [u8];
+    /// Returns the committed bytes of the frame being written, without transferring ownership of
+    /// the buffer.
+    fn frame(&self) -> &[u8];
 
-    /// Provides an immutable reference to the written portion of the buffer, up to the specified
-    /// length, without transferring ownership of the buffer. This allows the caller to inspect the
-    /// buffer’s contents without modifying or taking ownership.
-    fn get_data_by_ref_(&self, len: usize) -> &[u8];
+    /// Returns the committed bytes of the frame being written, mutably, without transferring
+    /// ownership of the buffer.
+    fn frame_mut(&mut self) -> &mut [u8];
 
     /// Returns the size of the written portion of the buffer. This is useful for tracking how much
     /// of the buffer has been filled with data. The number of bytes currently written in the
