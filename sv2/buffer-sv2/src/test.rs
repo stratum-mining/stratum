@@ -1,3 +1,5 @@
+extern crate std;
+
 use alloc::vec::Vec;
 
 use crate::{buffer_pool::BufferPool as Pool, slice::Slice, Buffer};
@@ -504,4 +506,22 @@ fn back_alloc_front() {
     for i in 0..slices.len() {
         assert!(slices[i].as_mut() == &mut control_slices[i][..]);
     }
+}
+
+#[test]
+fn slice_released_on_another_thread_is_safe_to_reuse() {
+    let mut pool = Pool::new(64);
+    pool.get_writable(8).copy_from_slice(&[1; 8]);
+    let mut slice = pool.get_data_owned();
+
+    let worker = std::thread::spawn(move || {
+        slice.as_mut()[0] = 9;
+        drop(slice);
+    });
+    while !pool.droppable() {
+        std::thread::yield_now();
+    }
+    pool.get_writable(8).copy_from_slice(&[2; 8]);
+
+    worker.join().unwrap();
 }

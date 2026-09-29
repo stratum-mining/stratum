@@ -32,7 +32,6 @@
 // using methods like `get_data_owned()` and then let the slice be dropped.
 
 use alloc::{vec, vec::Vec};
-use core::sync::atomic::Ordering;
 
 #[cfg(test)]
 use crate::buffer::TestBufferFromMemory;
@@ -433,11 +432,11 @@ impl InnerMemory {
             self.len += 1;
             index = self.len as u8;
 
-            #[cfg(feature = "debug")]
-            shared_state.toogle(index, mode);
-
-            #[cfg(not(feature = "debug"))]
-            shared_state.toogle(index);
+            shared_state.claim(
+                index,
+                #[cfg(feature = "debug")]
+                mode,
+            );
         }
 
         let len = self.raw_len;
@@ -791,7 +790,7 @@ impl<T: Buffer> Buffer for BufferPool<T> {
     // between different modes as needed.
     #[inline(always)]
     fn get_writable(&mut self, len: usize) -> &mut [u8] {
-        let shared_state = self.shared_state.load(Ordering::Relaxed);
+        let shared_state = self.shared_state.load();
 
         // If all the slices have been dropped, reset the pool to free up memory
         if shared_state == 0 && self.pool_back.len() != 0 {
@@ -913,7 +912,7 @@ impl<T: Buffer> Buffer for BufferPool<T> {
     // that no other threads or components are using the pool's memory.
     #[inline(always)]
     fn is_droppable(&self) -> bool {
-        self.shared_state.load(Ordering::Relaxed) == 0
+        self.shared_state.load() == 0
     }
 }
 
@@ -922,7 +921,7 @@ impl<T: Buffer> Drop for BufferPool<T> {
     // Waits until all slices are released before dropping the `BufferPool`. Will not drop the
     // buffer pool while slices are still in use.
     fn drop(&mut self) {
-        while self.shared_state.load(Ordering::Relaxed) != 0 {
+        while self.shared_state.load() != 0 {
             core::hint::spin_loop();
         }
     }
@@ -936,7 +935,7 @@ impl<T: Buffer> BufferPool<T> {
     /// the `shared_state` is zero), indicating that all the slices are dropped. This check helps
     /// prevent dropping the buffer pool while it's still in use.
     pub fn droppable(&self) -> bool {
-        self.shared_state.load(Ordering::Relaxed) == 0
+        self.shared_state.load() == 0
     }
 }
 

@@ -1,7 +1,7 @@
 use buffer_sv2::{Buffer, Slice};
 use std::sync::{Arc, Mutex};
 
-use core::{sync::atomic::Ordering, time::Duration};
+use core::time::Duration;
 use rand::Rng;
 
 const FILE_LEN: usize = 5242880;
@@ -31,7 +31,7 @@ impl Load for Vec<u8> {
 impl Load for Slice {
     #[inline(always)]
     fn load(&mut self) -> usize {
-        self.shared_state.load(Ordering::SeqCst) as usize
+        self.shared_state.load() as usize
     }
 }
 
