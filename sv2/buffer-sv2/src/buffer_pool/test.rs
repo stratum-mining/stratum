@@ -1,4 +1,8 @@
+extern crate std;
+
 use super::{InnerMemory, PoolBack, POOL_CAPACITY};
+use crate::{buffer::BufferFromSystemMemory, Buffer};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 
 #[test]
 fn failed_tail_clear_keeps_the_back_length() {
@@ -16,4 +20,39 @@ fn failed_tail_clear_keeps_the_back_length() {
 
     assert!(!cleared);
     assert_eq!(back.len(), POOL_CAPACITY);
+}
+
+#[test]
+fn oversized_request_does_not_fit() {
+    let mut memory = InnerMemory::new(8);
+    memory.raw_offset = 1;
+
+    assert!(!memory.has_tail_capacity(usize::MAX));
+    assert!(!memory.has_capacity_until_offset(usize::MAX, 8));
+}
+
+#[test]
+fn rejected_writable_range_leaves_the_length_untouched() {
+    let mut memory = InnerMemory::new(8);
+    memory.raw_offset = 1;
+
+    let rejected = catch_unwind(AssertUnwindSafe(|| {
+        memory.get_writable_raw_unchecked(usize::MAX);
+    }));
+
+    assert!(rejected.is_err());
+    assert_eq!(memory.raw_len, 0);
+}
+
+#[test]
+fn rejected_system_memory_request_leaves_the_length_untouched() {
+    let mut memory = BufferFromSystemMemory::new(0);
+    memory.get_writable(1)[0] = 1;
+
+    let rejected = catch_unwind(AssertUnwindSafe(|| {
+        memory.get_writable(usize::MAX);
+    }));
+
+    assert!(rejected.is_err());
+    assert_eq!(Buffer::len(&memory), 1);
 }

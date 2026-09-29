@@ -62,7 +62,10 @@ impl Buffer for BufferFromSystemMemory {
         let cursor = self.cursor;
 
         // Reserve space in the buffer for writing based on the requested `len`
-        let len = self.cursor + len;
+        let len = self
+            .cursor
+            .checked_add(len)
+            .expect("writable length overflows usize");
 
         // If the internal buffer is not large enough to hold the new data, resize it
         if len > self.inner.len() {
