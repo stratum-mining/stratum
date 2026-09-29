@@ -222,15 +222,15 @@ impl AsRef<[u8]> for Slice {
 }
 
 impl Drop for Slice {
-    /// Toggles the shared state when the slice is dropped, allowing the memory to be reused.
+    /// Releases the slice's slot in the shared state, allowing the memory to be reused.
     ///
     /// In debug mode, it also tracks the `mode` of the slice when it is dropped.
     fn drop(&mut self) {
-        #[cfg(feature = "debug")]
-        self.shared_state.toogle(self.index, self.mode);
-
-        #[cfg(not(feature = "debug"))]
-        self.shared_state.toogle(self.index);
+        self.shared_state.release(
+            self.index,
+            #[cfg(feature = "debug")]
+            self.mode,
+        );
     }
 }
 
@@ -267,9 +267,9 @@ impl From<Vec<u8>> for Slice {
 // multiple slices.
 //
 // `SharedState` acts like a reference counter, helping the buffer pool know when a buffer slice is
-// safe to clear. Each time a memory slice is used or released, the corresponding bit in the shared
-// state is toggled. When no slices are in use (all bits are zero), the buffer pool can safely
-// reclaim or reuse the memory.
+// safe to clear. The corresponding bit in the shared state is set when a memory slice is handed
+// out and cleared when it is dropped. When no slices are in use (all bits are zero), the buffer
+// pool can safely reclaim or reuse the memory.
 //
 // This system ensures that no memory is prematurely cleared while it is still being referenced.
 // The buffer pool checks whether any slice is still in use before clearing, and only when the
@@ -293,88 +293,53 @@ impl SharedState {
         Self(Arc::new(AtomicU8::new(0)))
     }
 
-    // Atomically loads and returns the current value of the `SharedState` using the specified
-    // memory ordering.
+    // Atomically loads and returns the current state of the memory slots as an 8-bit value.
     //
-    // Returns the current state of the memory slots as an 8-bit value.
+    // Acquires what dropped slices released, so the memory they freed is safe to reuse.
     #[inline(always)]
-    pub fn load(&self, ordering: Ordering) -> u8 {
-        self.0.load(ordering)
+    pub fn load(&self) -> u8 {
+        self.0.load(Ordering::Acquire)
     }
 
-    // Toggles the bit at the specified `position` in the `SharedState`, including logs regarding
-    // the shared state of the memory after toggling. The `mode` parameter is used to differentiate
-    // between different states or operations (e.g., reading or writing) for debugging purposes.
-    //
-    // After a message held by a buffer slice has been processed, the corresponding bit in the
-    // shared state is toggled (flipped). When the shared state for a given region reaches zero
-    // (i.e., all bits are cleared), the buffer pool knows it can safely reclaim or reuse that
-    // memory slice.
-    //
-    // Uses atomic bitwise operations to ensure thread-safe toggling without locks. It manipulates
-    // the shared state in-place using the `AtomicU8::fetch_update` method, which atomically
-    // applies a bitwise XOR (`^`) to toggle the bit at the specified `position`.
+    // Returns the bit that tracks slot `position`, or `None` for `INGORE_INDEX`.
     //
     // Panics if the `position` is outside the range of 1-8, as this refers to an invalid bit.
-    #[cfg(feature = "debug")]
-    pub fn toogle(&self, position: u8, mode: u8) {
-        let mask: u8 = match position {
-            1 => 0b10000000,
-            2 => 0b01000000,
-            3 => 0b00100000,
-            4 => 0b00010000,
-            5 => 0b00001000,
-            6 => 0b00000100,
-            7 => 0b00000010,
-            8 => 0b00000001,
-            INGORE_INDEX => return,
+    #[inline(always)]
+    fn mask(position: u8) -> Option<u8> {
+        match position {
+            1..=8 => Some(0b1000_0000 >> (position - 1)),
+            INGORE_INDEX => None,
             _ => panic!("{}", position),
-        };
-        //if position == 2 {
-        //    let bt = Backtrace::force_capture();
-        //    println!("{:#?}", bt);
-        //};
-        self.0
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |mut shared_state| {
-                let pre = shared_state;
-                shared_state ^= mask;
-                println!("TOOGLE:: {} {:b} {:b}", mode, pre, shared_state);
-                Some(shared_state)
-            })
-            .unwrap();
+        }
     }
 
-    // Toggles the bit at the specified `position` in the `SharedState`.
+    // Marks slot `position` as taken by the slice the pool is handing out.
     //
-    // After a message held by a buffer slice has been processed, the corresponding bit in the
-    // shared state is toggled (flipped). When the shared state for a given region reaches zero
-    // (i.e., all bits are cleared), the buffer pool knows it can safely reclaim or reuse that
-    // memory slice.
-    //
-    // Uses atomic bitwise operations to ensure thread-safe toggling without locks. It manipulates
-    // the shared state in-place using the `AtomicU8::fetch_update` method, which atomically
-    // applies a bitwise XOR (`^`) to toggle the bit at the specified `position`.
-    //
-    // Panics if the `position` is outside the range of 1-8, as this refers to an invalid bit.
-    #[cfg(not(feature = "debug"))]
-    pub fn toogle(&self, position: u8) {
-        let mask: u8 = match position {
-            1 => 0b10000000,
-            2 => 0b01000000,
-            3 => 0b00100000,
-            4 => 0b00010000,
-            5 => 0b00001000,
-            6 => 0b00000100,
-            7 => 0b00000010,
-            8 => 0b00000001,
-            INGORE_INDEX => return,
-            _ => panic!("{}", position),
+    // Only the pool sets bits, on the thread that hands the slice out, so no ordering is needed.
+    #[inline(always)]
+    pub fn claim(&self, position: u8, #[cfg(feature = "debug")] mode: u8) {
+        let Some(mask) = Self::mask(position) else {
+            return;
         };
-        self.0
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |mut shared_state| {
-                shared_state ^= mask;
-                Some(shared_state)
-            })
-            .unwrap();
+        let pre = self.0.fetch_or(mask, Ordering::Relaxed);
+        assert_eq!(pre & mask, 0, "slot {position} is held by a live slice");
+
+        #[cfg(feature = "debug")]
+        println!("CLAIM:: {} {:b} {:b}", mode, pre, pre | mask);
+    }
+
+    // Marks slot `position` as free once the slice holding it is dropped.
+    //
+    // The release ordering publishes the slice's accesses before the pool reuses that memory.
+    #[inline(always)]
+    pub fn release(&self, position: u8, #[cfg(feature = "debug")] mode: u8) {
+        let Some(mask) = Self::mask(position) else {
+            return;
+        };
+        let pre = self.0.fetch_and(!mask, Ordering::Release);
+        debug_assert_ne!(pre & mask, 0);
+
+        #[cfg(feature = "debug")]
+        println!("RELEASE:: {} {:b} {:b}", mode, pre, pre & !mask);
     }
 }
