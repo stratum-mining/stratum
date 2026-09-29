@@ -209,6 +209,18 @@ impl<B: AsMut<[u8]> + AsRef<[u8]>> SerializedFrame<B> {
         self.bytes
     }
 
+    /// Copies the frame into bytes it owns, for a frame that has to be kept or passed on after it
+    /// is decoded. A frame backed by a decoder's buffer pool releases its slot as it is consumed.
+    pub fn into_owned(self) -> Self
+    where
+        B: From<Vec<u8>>,
+    {
+        Self {
+            header: self.header,
+            bytes: B::from(self.bytes.as_ref().to_vec()),
+        }
+    }
+
     /// Parses the [`Header`] and checks it against the length of `bytes`, returning it only when
     /// they hold exactly one complete frame and the [`SizeHint`] that describes the mismatch
     /// otherwise.
@@ -848,5 +860,26 @@ mod tests {
 
         let parsed = SerializedFrame::<Vec<u8>>::parse_header(&full).unwrap();
         assert_eq!(parsed.payload_length(), payload_len);
+    }
+
+    #[cfg(feature = "with_buffer_pool")]
+    #[test]
+    fn an_owned_copy_of_a_frame_frees_its_pool_slot() {
+        use buffer_sv2::{Buffer, BufferPool};
+
+        let bytes = [0, 0, 1, 2, 0, 0, 7, 8];
+        let mut pool = BufferPool::new(64);
+        pool.reserve(bytes.len()).copy_from_slice(&bytes);
+        pool.commit(bytes.len());
+        let frame = SerializedFrame::<Slice>::from_bytes(pool.get_data_owned()).unwrap();
+        let pooled_at = frame.as_bytes().as_ptr();
+
+        let owned = frame.into_owned();
+
+        pool.reserve(bytes.len()).fill(0xaa);
+        pool.commit(bytes.len());
+        let reused = pool.get_data_owned();
+        assert_eq!(reused.as_ref().as_ptr(), pooled_at);
+        assert_eq!(owned.as_bytes(), &bytes);
     }
 }
