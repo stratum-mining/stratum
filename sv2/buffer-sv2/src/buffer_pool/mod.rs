@@ -471,8 +471,8 @@ pub struct BufferPool<T: Buffer> {
     // Manages memory allocation from the back section of the buffer pool.
     pool_back: PoolBack,
 
-    /// Tracks the current mode of memory allocation (back, front, or system).
-    pub mode: PoolMode,
+    // Tracks the current mode of memory allocation (back, front, or system).
+    mode: PoolMode,
 
     // Tracks the usage state of memory slices using atomic operations, ensuring memory is not
     // prematurely reused and allowing safe concurrent access across threads.
