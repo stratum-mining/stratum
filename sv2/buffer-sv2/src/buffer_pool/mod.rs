@@ -384,12 +384,29 @@ impl InnerMemory {
         }
     }
 
-    // Tries to update the length and offset of the memory pool and moves the raw offset if there
-    // is enough capacity to accommodate new memory. Returns `true` if successful, otherwise false.
+    // Returns the offset right after the highest front slot still live in `shared_state`, or `0`
+    // if none is. Freed front slots are skipped, since a front slot reused for a larger slice can
+    // leave a later, freed entry pointing inside it.
     #[inline(always)]
-    fn try_change_len(&mut self, slot_len: usize, raw_len: usize) -> bool {
-        let raw_offset = self.raw_offset_from_len(slot_len);
+    fn front_end(&self, shared_state: u8, back_start: usize) -> usize {
+        if back_start == 0 {
+            return 0;
+        }
+        match shared_state >> (POOL_CAPACITY - back_start) {
+            0 => 0,
+            front => {
+                let highest = back_start - 1 - front.trailing_zeros() as usize;
+                let (offset, len) = self.slots[highest];
+                offset + len
+            }
+        }
+    }
 
+    // Tries to update the length of the memory pool and to move the raw data to `raw_offset` if
+    // there is enough capacity to accommodate new memory. Returns `true` if successful, otherwise
+    // false.
+    #[inline(always)]
+    fn try_change_len(&mut self, slot_len: usize, raw_offset: usize, raw_len: usize) -> bool {
         let end = raw_offset + self.raw_len;
         if end + raw_len <= self.capacity() {
             self.len = slot_len;
