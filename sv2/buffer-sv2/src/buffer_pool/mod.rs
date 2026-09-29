@@ -42,7 +42,6 @@ use crate::{
 #[cfg(feature = "debug")]
 use std::time::SystemTime;
 
-use aes_gcm::aead::Buffer as AeadBuffer;
 
 mod pool_back;
 pub use pool_back::PoolBack;
@@ -550,11 +549,6 @@ pub struct BufferPool<T: Buffer> {
     // fallback when preallocated memory cannot satisfy buffer requests.
     system_memory: T,
 
-    // Tracks the starting index for buffer access, determining where data begins to be read or
-    // written in the buffer pool. Primarily used when `as_ref` or `as_mut` is called, ensuring
-    // that the buffer starts at the element specified by `start`.
-    start: usize,
-
     // Length of the last reservation, `0` once it is committed.
     reserved: usize,
 }
@@ -571,7 +565,6 @@ impl BufferPool<BufferFromSystemMemory> {
             mode: PoolMode::Back,
             inner_memory: InnerMemory::new(capacity),
             system_memory: BufferFromSystemMemory::default(),
-            start: 0,
             reserved: 0,
         }
     }
@@ -586,7 +579,6 @@ impl BufferPool<TestBufferFromMemory> {
             mode: PoolMode::Back,
             inner_memory: InnerMemory::new(capacity),
             system_memory: TestBufferFromMemory(Vec::new()),
-            start: 0,
             reserved: 0,
         }
     }
@@ -975,12 +967,6 @@ impl<T: Buffer> Buffer for BufferPool<T> {
         }
     }
 
-    // Sets the start index for the buffer, adjusting where reads and writes begin. Used to discard
-    // part of the buffer by adjusting the starting point for future operations.
-    fn danger_set_start(&mut self, index: usize) {
-        self.start = index;
-    }
-
     // Drops the committed bytes past `len`, in whichever memory holds the frame, if there are any.
     fn truncate(&mut self, len: usize) {
         self.reserved = 0;
@@ -1007,30 +993,5 @@ impl<T: Buffer> BufferPool<T> {
     /// until the last slice pointing into it is dropped.
     pub fn droppable(&self) -> bool {
         self.inner_memory.memory.load() == 0
-    }
-}
-
-impl<T: Buffer> AsRef<[u8]> for BufferPool<T> {
-    fn as_ref(&self) -> &[u8] {
-        &self.frame()[self.start..]
-    }
-}
-
-impl<T: Buffer> AsMut<[u8]> for BufferPool<T> {
-    fn as_mut(&mut self) -> &mut [u8] {
-        let start = self.start;
-        &mut self.frame_mut()[start..]
-    }
-}
-
-impl<T: Buffer + AeadBuffer> AeadBuffer for BufferPool<T> {
-    fn extend_from_slice(&mut self, other: &[u8]) -> aes_gcm::aead::Result<()> {
-        self.reserve(other.len()).copy_from_slice(other);
-        self.commit(other.len());
-        Ok(())
-    }
-
-    fn truncate(&mut self, len: usize) {
-        Buffer::truncate(self, self.start.saturating_add(len));
     }
 }
