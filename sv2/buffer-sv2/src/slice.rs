@@ -47,7 +47,7 @@ unsafe impl Send for Slice {}
 /// It serves as a lightweight handle to a memory buffer, allowing for direct manipulation and
 /// shared access. It can either hold a reference to a preallocated memory block or own a
 /// dynamically allocated buffer (via [`Vec<u8>`]).
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Slice {
     // Raw pointer to the start of the memory block.
     //
@@ -217,6 +217,13 @@ impl AsRef<[u8]> for Slice {
             None => unsafe { core::slice::from_raw_parts(self.offset, self.len) },
             Some(x) => x,
         }
+    }
+}
+
+impl Clone for Slice {
+    /// Copies the bytes into a new [`Slice`] that owns its memory, independent of the pool.
+    fn clone(&self) -> Self {
+        Slice::from(self.as_ref().to_vec())
     }
 }
 

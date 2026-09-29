@@ -546,3 +546,17 @@ fn repeated_shared_views_of_a_slice_coexist() {
     let second = slice.as_ref();
     assert_eq!(first, second);
 }
+
+#[test]
+fn cloned_slice_keeps_its_bytes_after_the_original_is_released() {
+    let mut pool = Pool::new(64);
+    pool.get_writable(8).copy_from_slice(&[1; 8]);
+    let original = pool.get_data_owned();
+    let copy = original.clone();
+    drop(original);
+
+    pool.get_writable(8).copy_from_slice(&[2; 8]);
+    let _reused = pool.get_data_owned();
+
+    assert_eq!(copy.as_ref(), &[1; 8]);
+}
