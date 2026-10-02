@@ -764,7 +764,7 @@ impl ExtendedChannel {
                 // try to activate the future job, and also mark past jobs as stale
                 if !self.job_store.activate_future_job(
                     set_new_prev_hash.template_id,
-                    set_new_prev_hash.header_timestamp,
+                    set_new_prev_hash.ntime_start,
                 ) {
                     return Err(ExtendedChannelError::TemplateIdNotFound);
                 }
@@ -1310,7 +1310,7 @@ mod tests {
                 205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
             ]
             .into(),
-            header_timestamp: ntime,
+            ntime_start: ntime,
             n_bits: 503543726,
             target: [
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -2494,7 +2494,7 @@ mod tests {
                     .on_set_new_prev_hash(SetNewPrevHash {
                         template_id: 1,
                         prev_hash: [2; 32].into(),
-                        header_timestamp: 1745596970,
+                        ntime_start: 1745596970,
                         n_bits: 453040064,
                         target: [0xff; 32].into(),
                     })
@@ -2511,7 +2511,7 @@ mod tests {
                 .on_set_new_prev_hash(SetNewPrevHash {
                     template_id: 999,
                     prev_hash: [1; 32].into(),
-                    header_timestamp: 1745597510,
+                    ntime_start: 1745597510,
                     n_bits: 453040064,
                     target: [0xff; 32].into(),
                 })
@@ -2563,7 +2563,7 @@ mod tests {
                 205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
             ]
             .into(),
-            header_timestamp: 1745596910 + 600,
+            ntime_start: 1745596910 + 600,
             n_bits: 453040064,
             target: [0xff; 32].into(),
         };
@@ -3019,7 +3019,7 @@ mod tests {
                 205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
             ]
             .into(),
-            header_timestamp: ntime + 600,
+            ntime_start: ntime + 600,
             n_bits,
             target: [0xff; 32].into(),
         };
@@ -3319,7 +3319,7 @@ mod tests {
                 205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
             ]
             .into(),
-            header_timestamp: ntime + 600,
+            ntime_start: ntime + 600,
             n_bits: 453040064,
             target: [0xff; 32].into(),
         };
@@ -4473,7 +4473,7 @@ mod tests {
             .on_set_new_prev_hash(SetNewPrevHash {
                 template_id: 999,
                 prev_hash: next_prev_hash.clone(),
-                header_timestamp: next_tip_ntime,
+                ntime_start: next_tip_ntime,
                 n_bits,
                 target: [0xff; 32].into(),
             })
@@ -4706,7 +4706,7 @@ mod tests {
         let set_new_prev_hash = |template_id: u64| SetNewPrevHash {
             template_id,
             prev_hash: prev_hash.clone(),
-            header_timestamp: 1745596910,
+            ntime_start: 1745596910,
             n_bits: 453040064,
             target: [0xff; 32].into(),
         };

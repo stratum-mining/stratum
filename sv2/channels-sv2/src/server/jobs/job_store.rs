@@ -241,9 +241,9 @@ impl<T: Job> JobStore<T> {
     pub fn activate_future_job_replacing_active(
         &mut self,
         template_id: u64,
-        prev_hash_header_timestamp: u32,
+        prev_hash_ntime_start: u32,
     ) -> bool {
-        let activated = self.activate_future_job(template_id, prev_hash_header_timestamp);
+        let activated = self.activate_future_job(template_id, prev_hash_ntime_start);
         if activated {
             // group channels keep no job history: the job displaced by this activation went
             // stale above and is dropped here
@@ -254,11 +254,7 @@ impl<T: Job> JobStore<T> {
 
     /// Activates a future job given by template ID and header timestamp.
     /// Returns `true` if successful, `false` if not found.
-    pub fn activate_future_job(
-        &mut self,
-        template_id: u64,
-        prev_hash_header_timestamp: u32,
-    ) -> bool {
+    pub fn activate_future_job(&mut self, template_id: u64, prev_hash_ntime_start: u32) -> bool {
         let mut future_job =
             if let Some(job_id) = self.future_template_to_job_id.remove(&template_id) {
                 if let Some(job) = self.future_jobs.remove(&job_id) {
@@ -277,7 +273,7 @@ impl<T: Job> JobStore<T> {
         self.retire_active_to_past_uncapped();
 
         // Activate the future job
-        future_job.activate(prev_hash_header_timestamp);
+        future_job.activate(prev_hash_ntime_start);
         let activated_job_id = future_job.get_job_id();
         self.active_job = Some(future_job);
         self.future_jobs.clear();
@@ -397,7 +393,7 @@ mod tests {
             &[]
         }
 
-        fn activate(&mut self, _prev_hash_header_timestamp: u32) {}
+        fn activate(&mut self, _prev_hash_ntime_start: u32) {}
     }
 
     #[test]
@@ -504,7 +500,7 @@ mod tests {
             &self.prefix
         }
 
-        fn activate(&mut self, _prev_hash_header_timestamp: u32) {}
+        fn activate(&mut self, _prev_hash_ntime_start: u32) {}
     }
 
     #[test]

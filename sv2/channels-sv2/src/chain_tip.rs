@@ -57,7 +57,7 @@ impl From<SetNewPrevHashTdpOwned> for ChainTip {
         Self::new(
             set_new_prev_hash.prev_hash,
             set_new_prev_hash.n_bits,
-            set_new_prev_hash.header_timestamp,
+            set_new_prev_hash.ntime_start,
         )
     }
 }
@@ -78,7 +78,7 @@ impl From<SetNewPrevHashTdp<'_>> for ChainTip {
         let set_new_prev_hash_static = set_new_prev_hash.into_owned();
         let prev_hash = set_new_prev_hash_static.prev_hash;
         let nbits = set_new_prev_hash_static.n_bits;
-        let ntime_start = set_new_prev_hash_static.header_timestamp;
+        let ntime_start = set_new_prev_hash_static.ntime_start;
         Self::new(prev_hash, nbits, ntime_start)
     }
 }

@@ -375,7 +375,7 @@ impl GroupChannel {
                 // dropped instead of being retired into past/stale history
                 if !self.job_store.activate_future_job_replacing_active(
                     set_new_prev_hash.template_id,
-                    set_new_prev_hash.header_timestamp,
+                    set_new_prev_hash.ntime_start,
                 ) {
                     return Err(GroupChannelError::TemplateIdNotFound);
                 }
@@ -508,7 +508,7 @@ mod tests {
                 205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
             ]
             .into(),
-            header_timestamp: ntime,
+            ntime_start: ntime,
             n_bits: 503543726,
             target: [
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -799,7 +799,7 @@ mod tests {
                 205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
             ]
             .into(),
-            header_timestamp: 1746839905,
+            ntime_start: 1746839905,
             n_bits: 503543726,
             target: [
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -837,7 +837,7 @@ mod tests {
         let set_new_prev_hash = SetNewPrevHash {
             template_id: 0,
             prev_hash: prev_hash.clone(),
-            header_timestamp: 1746839905,
+            ntime_start: 1746839905,
             n_bits: 503543726,
             target: [
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1092,7 +1092,7 @@ mod tests {
                 205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
             ]
             .into(),
-            header_timestamp: 1746839905,
+            ntime_start: 1746839905,
             n_bits: 503543726,
             target: [
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,

@@ -48,5 +48,5 @@ pub trait Job: Send + Sync {
     fn get_extranonce_prefix(&self) -> &[u8];
 
     /// Activates the job for a new chain tip or prev_hash header timestamp.
-    fn activate(&mut self, prev_hash_header_timestamp: u32);
+    fn activate(&mut self, prev_hash_ntime_start: u32);
 }
