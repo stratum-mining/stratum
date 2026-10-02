@@ -475,7 +475,7 @@ mod tests {
         let expected_job = NewExtendedMiningJob {
             channel_id: 1,
             job_id: 1,
-            min_ntime: Sv2Option::new(None),
+            ntime_start: Sv2Option::new(None),
             version: 536870912,
             version_rolling_allowed: true,
             coinbase_tx_prefix: vec![
@@ -602,7 +602,7 @@ mod tests {
         let expected_job = NewExtendedMiningJob {
             channel_id: 1,
             job_id: 1,
-            min_ntime: Sv2Option::new(Some(ntime)),
+            ntime_start: Sv2Option::new(Some(ntime)),
             version: 536870912,
             version_rolling_allowed: true,
             coinbase_tx_prefix: vec![
@@ -852,7 +852,7 @@ mod tests {
 
         let chain_tip = group_channel.get_chain_tip().unwrap();
         assert_eq!(chain_tip.prev_hash(), prev_hash);
-        assert_eq!(chain_tip.min_ntime(), 1746839905);
+        assert_eq!(chain_tip.ntime_start(), 1746839905);
         assert_eq!(chain_tip.nbits(), 503543726);
         // no job could have been activated
         assert!(group_channel.get_active_job().is_none());

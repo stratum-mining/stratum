@@ -2711,7 +2711,7 @@ mod test {
         let mining_message = AnyMessage::Mining(Mining::NewMiningJob(NewMiningJob {
             channel_id: u32::from_le_bytes([1, 2, 3, 4]),
             job_id: u32::from_le_bytes([5, 6, 7, 8]),
-            min_ntime: Sv2Option::new(Some(u32::from_le_bytes([9, 10, 11, 12]))),
+            ntime_start: Sv2Option::new(Some(u32::from_le_bytes([9, 10, 11, 12]))),
             version: u32::from_le_bytes([13, 14, 15, 16]),
             merkle_root: U256::try_from(merkle_root.as_slice()).unwrap(),
         }));
@@ -2731,7 +2731,7 @@ mod test {
                 token: B0255::try_from(token.as_slice()).unwrap(),
                 version: 4,
                 prev_hash: U256::try_from(prev_hash.as_slice()).unwrap(),
-                min_ntime: 38,
+                ntime_start: 38,
                 nbits: 39,
                 coinbase_tx_version: 40,
                 coinbase_prefix: B0255::try_from(coinbase_prefix.as_slice()).unwrap(),

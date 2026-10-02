@@ -38,8 +38,9 @@ pub struct SetCustomMiningJob<'decoder> {
     pub version: u32,
     /// Previous block’s hash.
     pub prev_hash: U256<'decoder>,
-    /// Smallest `nTime` value available for hashing.
-    pub min_ntime: u32,
+    /// The `nTime` field in the block header at which hashing starts, usually the current time when
+    /// this message was produced. This is not the consensus minimum.
+    pub ntime_start: u32,
     /// Block header field.
     pub nbits: u32,
     /// The coinbase transaction `nVersion` field.
@@ -59,13 +60,13 @@ pub struct SetCustomMiningJob<'decoder> {
 
 impl fmt::Display for SetCustomMiningJob<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "SetCustomMiningJob(channel_id={}, request_id={}, token={}, version=0x{:08x}, prev_hash={}, min_ntime={}, nbits=0x{:08x}, coinbase_tx_version=0x{:08x}, coinbase_prefix={}, coinbase_tx_input_n_sequence=0x{:08x}, coinbase_tx_outputs={}, coinbase_tx_locktime={}, merkle_path={})",
+        write!(f, "SetCustomMiningJob(channel_id={}, request_id={}, token={}, version=0x{:08x}, prev_hash={}, ntime_start={}, nbits=0x{:08x}, coinbase_tx_version=0x{:08x}, coinbase_prefix={}, coinbase_tx_input_n_sequence=0x{:08x}, coinbase_tx_outputs={}, coinbase_tx_locktime={}, merkle_path={})",
             self.channel_id,
             self.request_id,
             self.token.as_hex(),
             self.version,
             self.prev_hash,
-            self.min_ntime,
+            self.ntime_start,
             self.nbits,
             self.coinbase_tx_version,
             self.coinbase_prefix.as_hex(),
@@ -79,13 +80,13 @@ impl fmt::Display for SetCustomMiningJob<'_> {
 
 impl fmt::Display for SetCustomMiningJobOwned {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "SetCustomMiningJob(channel_id={}, request_id={}, token={}, version=0x{:08x}, prev_hash={}, min_ntime={}, nbits=0x{:08x}, coinbase_tx_version=0x{:08x}, coinbase_prefix={}, coinbase_tx_input_n_sequence=0x{:08x}, coinbase_tx_outputs={}, coinbase_tx_locktime={}, merkle_path={})",
+        write!(f, "SetCustomMiningJob(channel_id={}, request_id={}, token={}, version=0x{:08x}, prev_hash={}, ntime_start={}, nbits=0x{:08x}, coinbase_tx_version=0x{:08x}, coinbase_prefix={}, coinbase_tx_input_n_sequence=0x{:08x}, coinbase_tx_outputs={}, coinbase_tx_locktime={}, merkle_path={})",
             self.channel_id,
             self.request_id,
             self.token.as_hex(),
             self.version,
             self.prev_hash,
-            self.min_ntime,
+            self.ntime_start,
             self.nbits,
             self.coinbase_tx_version,
             self.coinbase_prefix.as_hex(),
@@ -156,7 +157,7 @@ pub struct SetCustomMiningJobError<'decoder> {
     /// - invalid-mining-job-token
     /// - job-not-yet-validated
     /// - stale-chain-tip
-    /// - invalid-min-ntime
+    /// - invalid-ntime-start
     /// - invalid-nbits
     /// - invalid-version
     /// - invalid-coinbase-tx

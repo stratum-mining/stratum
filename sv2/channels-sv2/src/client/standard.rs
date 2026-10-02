@@ -37,7 +37,7 @@ use tracing::debug;
 #[derive(Debug, Clone, PartialEq)]
 pub struct StandardJob {
     /// The [`NewMiningJob`](mining_sv2::NewMiningJob) message the job was created from, with
-    /// `min_ntime` set once the job is activated.
+    /// `ntime_start` set once the job is activated.
     pub job_message: NewMiningJobOwned,
     /// The `extranonce_prefix` in use when the job was created.
     pub extranonce_prefix: Vec<u8>,
@@ -298,8 +298,8 @@ impl StandardChannel {
     /// Sets a new target for the channel.
     ///
     /// Per the Sv2 spec, the new target also applies to jobs that were already received with an
-    /// empty `min_ntime` (i.e. queued future jobs), so their associated target is refreshed here.
-    /// Jobs that were already received with a set `min_ntime` (active, past and stale jobs) keep
+    /// empty `ntime_start` (i.e. queued future jobs), so their associated target is refreshed here.
+    /// Jobs that were already received with a set `ntime_start` (active, past and stale jobs) keep
     /// their target.
     ///
     /// Returns [`StandardChannelError::InvalidTarget`] if `target` is zero, leaving the channel
@@ -408,8 +408,8 @@ impl StandardChannel {
     ///
     /// Returns [`StandardChannelError::InvalidCoinbase`] if the job's coinbase transaction
     /// (prefix + this channel's extranonce prefix + suffix) is malformed, and
-    /// [`StandardChannelError::JobMinNtimeBelowChainTip`] if the job is immediately active with a
-    /// `min_ntime` below the current chain tip's; in both cases the job is discarded and channel
+    /// [`StandardChannelError::JobNtimeStartBelowChainTip`] if the job is immediately active with a
+    /// `ntime_start` below the current chain tip's; in both cases the job is discarded and channel
     /// state is left untouched.
     pub fn on_new_group_channel_job(
         &mut self,
@@ -429,7 +429,7 @@ impl StandardChannel {
             job_id: new_extended_mining_job.job_id,
             merkle_root,
             version: new_extended_mining_job.version,
-            min_ntime: new_extended_mining_job.min_ntime,
+            ntime_start: new_extended_mining_job.ntime_start,
         };
 
         self.on_new_mining_job(new_mining_job)
@@ -437,30 +437,30 @@ impl StandardChannel {
 
     /// Handles a newly received [`NewMiningJob`](mining_sv2::NewMiningJob) message from upstream.
     ///
-    /// - If `min_ntime` is present, the job is activated and replaces the current active job.
-    /// - If `min_ntime` is empty, the job is added to future jobs. At most [`MAX_FUTURE_JOBS`]
+    /// - If `ntime_start` is present, the job is activated and replaces the current active job.
+    /// - If `ntime_start` is empty, the job is added to future jobs. At most [`MAX_FUTURE_JOBS`]
     ///   future jobs are kept: storing a new one beyond that limit evicts the oldest.
     /// - If an active job exists, it is moved to past jobs on activation. At most
     ///   [`MAX_PAST_JOBS`] past jobs are kept: retiring one beyond that limit evicts the oldest.
     ///
-    /// An immediately-active job is mined against the current chain tip, so a `min_ntime` below
-    /// the tip's is refused with [`StandardChannelError::JobMinNtimeBelowChainTip`], leaving the
+    /// An immediately-active job is mined against the current chain tip, so an `ntime_start` below
+    /// the tip's is refused with [`StandardChannelError::JobNtimeStartBelowChainTip`], leaving the
     /// channel unchanged.
     pub fn on_new_mining_job(
         &mut self,
         new_mining_job: NewMiningJobOwned,
     ) -> Result<(), StandardChannelError> {
-        match new_mining_job.min_ntime.clone().into_inner() {
-            Some(min_ntime) => {
-                // the job is mined against the chain tip, whose min_ntime is the smallest nTime
+        match new_mining_job.ntime_start.clone().into_inner() {
+            Some(ntime_start) => {
+                // the job is mined against the chain tip, whose ntime_start is the smallest nTime
                 // available for it; a job allowing earlier shares would have them carry a
                 // timestamp the tip declared unavailable
                 if self
                     .chain_tip
                     .as_ref()
-                    .is_some_and(|chain_tip| min_ntime < chain_tip.min_ntime())
+                    .is_some_and(|chain_tip| ntime_start < chain_tip.ntime_start())
                 {
-                    return Err(StandardChannelError::JobMinNtimeBelowChainTip);
+                    return Err(StandardChannelError::JobNtimeStartBelowChainTip);
                 }
 
                 // an ID names either a live job or a stale one, never both
@@ -562,8 +562,8 @@ impl StandardChannel {
         // that the JobIdNotFound path below does not corrupt channel state
         let previously_active_job = match self.future_jobs.remove(&set_new_prev_hash.job_id) {
             Some(mut activated_job) => {
-                activated_job.job_message.min_ntime =
-                    Sv2OptionOwned::new(Some(set_new_prev_hash.min_ntime));
+                activated_job.job_message.ntime_start =
+                    Sv2OptionOwned::new(Some(set_new_prev_hash.ntime_start));
                 self.active_job.replace(activated_job)
             }
             None => return Err(StandardChannelError::JobIdNotFound),
@@ -614,8 +614,8 @@ impl StandardChannel {
     ///
     /// - Checks if the share refers to an active or past job; rejects stale jobs.
     /// - Verifies the share meets the channel target, is not a duplicate, is not stale, and has
-    ///   `ntime` within `[min_ntime, min_ntime + MAX_FUTURE_BLOCK_TIME]`, where `min_ntime` is
-    ///   the referenced job's: the `SetNewPrevHash` timestamp for a job activated from the
+    ///   `ntime` within `[ntime_start, ntime_start + MAX_FUTURE_BLOCK_TIME]`, where `ntime_start`
+    ///   is the referenced job's: the `SetNewPrevHash` timestamp for a job activated from the
     ///   future queue, or the value its own message advertised for an immediately-active job
     ///   (see [`MAX_FUTURE_BLOCK_TIME`] for how this clockless upper bound relates to the
     ///   spec's elapsed-time window).
@@ -669,28 +669,28 @@ impl StandardChannel {
         let prev_hash = chain_tip.prev_hash();
         let nbits = CompactTarget::from_consensus(chain_tip.nbits());
 
-        // the share's ntime is bounded by the min_ntime of the job it references: a job
+        // the share's ntime is bounded by the ntime_start of the job it references: a job
         // activated from the future queue carries the SetNewPrevHash timestamp that activated
         // it (which is also the chain tip's), an immediately-active job the value its own
         // message advertised. Every active or past job carries one: a job without it is a
         // future job, which is never mined on.
-        let job_min_ntime = job
+        let job_ntime_start = job
             .job_message
-            .min_ntime
+            .ntime_start
             .as_ref()
             .copied()
-            .expect("active and past jobs carry a min_ntime");
+            .expect("active and past jobs carry an ntime_start");
 
-        if share.ntime < job_min_ntime {
+        if share.ntime < job_ntime_start {
             return Err(ShareValidationError::Invalid(
                 ERROR_CODE_SUBMIT_SHARES_INVALID_SHARE,
             ));
         }
 
         // consensus caps block timestamps at ~2h in the future; the allowance is anchored at the
-        // receipt of the message that supplied min_ntime, since this crate has no clock (see
+        // receipt of the message that supplied ntime_start, since this crate has no clock (see
         // MAX_FUTURE_BLOCK_TIME)
-        if share.ntime > job_min_ntime.saturating_add(MAX_FUTURE_BLOCK_TIME) {
+        if share.ntime > job_ntime_start.saturating_add(MAX_FUTURE_BLOCK_TIME) {
             return Err(ShareValidationError::Invalid(
                 ERROR_CODE_SUBMIT_SHARES_INVALID_SHARE,
             ));
@@ -898,7 +898,7 @@ mod tests {
             ]
             .into(),
             version: 536870912,
-            min_ntime: Sv2Option::new(None),
+            ntime_start: Sv2Option::new(None),
         };
 
         channel.on_new_mining_job(future_job.clone()).unwrap();
@@ -917,14 +917,14 @@ mod tests {
             ]
             .into(),
             nbits: 503543726,
-            min_ntime: ntime,
+            ntime_start: ntime,
         };
 
         channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
         assert_eq!(channel.get_future_jobs_count(), 0);
 
         let mut previously_future_job = future_job.clone();
-        previously_future_job.min_ntime = Sv2Option::new(Some(ntime));
+        previously_future_job.ntime_start = Sv2Option::new(Some(ntime));
 
         assert_eq!(
             channel.get_active_job(),
@@ -964,7 +964,7 @@ mod tests {
             ]
             .into(),
             version: 536870912,
-            min_ntime: Sv2Option::new(None),
+            ntime_start: Sv2Option::new(None),
         };
 
         let flood_size = 10_000u32;
@@ -1012,7 +1012,7 @@ mod tests {
             ]
             .into(),
             version: 536870912,
-            min_ntime: Sv2Option::new(None),
+            ntime_start: Sv2Option::new(None),
         };
 
         // fill the store with MAX_FUTURE_JOBS distinct job_ids
@@ -1044,7 +1044,7 @@ mod tests {
             ]
             .into(),
             nbits: 503543726,
-            min_ntime: 1746839905,
+            ntime_start: 1746839905,
         };
         channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
     }
@@ -1082,7 +1082,7 @@ mod tests {
             ]
             .into(),
             version: 536870912,
-            min_ntime: Sv2Option::new(Some(1746839905)),
+            ntime_start: Sv2Option::new(Some(1746839905)),
         };
 
         let job_count = 20u32;
@@ -1149,7 +1149,7 @@ mod tests {
             ]
             .into(),
             version: 536870912,
-            min_ntime: Sv2Option::new(Some(1746839905)),
+            ntime_start: Sv2Option::new(Some(1746839905)),
         };
 
         let flood_size = 10_000u32;
@@ -1202,7 +1202,7 @@ mod tests {
             ]
             .into(),
             version: 536870912,
-            min_ntime: Sv2Option::new(Some(ntime)),
+            ntime_start: Sv2Option::new(Some(ntime)),
         };
 
         channel.on_new_mining_job(active_job.clone()).unwrap();
@@ -1265,7 +1265,7 @@ mod tests {
             ]
             .into(),
             version: 536870912,
-            min_ntime: Sv2Option::new(None),
+            ntime_start: Sv2Option::new(None),
         };
 
         channel.on_new_mining_job(future_job.clone()).unwrap();
@@ -1282,7 +1282,7 @@ mod tests {
             job_id: future_job.job_id,
             prev_hash: prev_hash.into(),
             nbits,
-            min_ntime: ntime,
+            ntime_start: ntime,
         };
 
         channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
@@ -1314,9 +1314,9 @@ mod tests {
     }
 
     #[test]
-    fn test_share_validation_ntime_below_min_ntime() {
-        // Regression test: a share with ntime < min_ntime must be rejected.
-        // Reuses the block-found test vectors but sets min_ntime one second
+    fn test_share_validation_ntime_below_ntime_start() {
+        // Regression test: a share with ntime < ntime_start must be rejected.
+        // Reuses the block-found test vectors but sets ntime_start one second
         // above the share's ntime.
         let channel_id = 1;
         let user_identity = "user_identity".to_string();
@@ -1347,7 +1347,7 @@ mod tests {
             ]
             .into(),
             version: 536870912,
-            min_ntime: Sv2Option::new(None),
+            ntime_start: Sv2Option::new(None),
         };
 
         channel.on_new_mining_job(future_job.clone()).unwrap();
@@ -1357,18 +1357,18 @@ mod tests {
             200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144, 205,
             88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
         ];
-        // set min_ntime one second above the share's ntime (1745596932 + 1)
+        // set ntime_start one second above the share's ntime (1745596932 + 1)
         let set_new_prev_hash = SetNewPrevHashMp {
             channel_id,
             job_id: future_job.job_id,
             prev_hash: prev_hash.into(),
             nbits,
-            min_ntime: 1745596933,
+            ntime_start: 1745596933,
         };
 
         channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
 
-        let share_below_min_ntime = SubmitSharesStandardOwned {
+        let share_below_ntime_start = SubmitSharesStandardOwned {
             channel_id,
             sequence_number: 0,
             job_id: future_job.job_id,
@@ -1377,7 +1377,7 @@ mod tests {
             version: 536870912,
         };
 
-        let res = channel.validate_share(share_below_min_ntime);
+        let res = channel.validate_share(share_below_ntime_start);
 
         assert!(matches!(res.unwrap_err(), ShareValidationError::Invalid(_)));
         assert_eq!(channel.get_share_accounting().get_blocks_found(), 0);
@@ -1419,7 +1419,7 @@ mod tests {
             ]
             .into(),
             version: 536870912,
-            min_ntime: Sv2Option::new(None),
+            ntime_start: Sv2Option::new(None),
         };
 
         channel.on_new_mining_job(future_job.clone()).unwrap();
@@ -1436,7 +1436,7 @@ mod tests {
             job_id: future_job.job_id,
             prev_hash: prev_hash.into(),
             nbits,
-            min_ntime: ntime,
+            ntime_start: ntime,
         };
 
         channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
@@ -1497,7 +1497,7 @@ mod tests {
             ]
             .into(),
             version: 536870912,
-            min_ntime: Sv2Option::new(None),
+            ntime_start: Sv2Option::new(None),
         };
 
         channel.on_new_mining_job(future_job.clone()).unwrap();
@@ -1514,7 +1514,7 @@ mod tests {
             job_id: future_job.job_id,
             prev_hash: prev_hash.into(),
             nbits,
-            min_ntime: ntime,
+            ntime_start: ntime,
         };
 
         channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
@@ -1570,7 +1570,7 @@ mod tests {
             ]
             .into(),
             version: 536870912,
-            min_ntime: Sv2Option::new(None),
+            ntime_start: Sv2Option::new(None),
         };
 
         channel.on_new_mining_job(future_job.clone()).unwrap();
@@ -1587,7 +1587,7 @@ mod tests {
             job_id: future_job.job_id,
             prev_hash: prev_hash.into(),
             nbits,
-            min_ntime: ntime,
+            ntime_start: ntime,
         };
 
         channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
@@ -1653,7 +1653,7 @@ mod tests {
             ]
             .into(),
             version: 536870912,
-            min_ntime: Sv2Option::new(None),
+            ntime_start: Sv2Option::new(None),
         };
 
         channel.on_new_mining_job(future_job.clone()).unwrap();
@@ -1670,7 +1670,7 @@ mod tests {
             job_id: future_job.job_id,
             prev_hash: prev_hash.into(),
             nbits,
-            min_ntime: ntime,
+            ntime_start: ntime,
         };
 
         channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
@@ -1735,7 +1735,7 @@ mod tests {
             ]
             .into(),
             version: 536870912,
-            min_ntime: Sv2Option::new(None),
+            ntime_start: Sv2Option::new(None),
         };
 
         channel.on_new_mining_job(future_job.clone()).unwrap();
@@ -1761,7 +1761,7 @@ mod tests {
             job_id: future_job.job_id,
             prev_hash: prev_hash.into(),
             nbits,
-            min_ntime: ntime,
+            ntime_start: ntime,
         };
 
         channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
@@ -1819,7 +1819,7 @@ mod tests {
                 job_id: 1,
                 merkle_root: merkle_root.into(),
                 version: 536870912,
-                min_ntime: Sv2Option::new(Some(1746839900)),
+                ntime_start: Sv2Option::new(Some(1746839900)),
             })
             .unwrap();
 
@@ -1830,7 +1830,7 @@ mod tests {
                 job_id: 2,
                 merkle_root: merkle_root.into(),
                 version: 536870912,
-                min_ntime: Sv2Option::new(None),
+                ntime_start: Sv2Option::new(None),
             })
             .unwrap();
 
@@ -1846,7 +1846,7 @@ mod tests {
                 job_id: 42,
                 prev_hash: prev_hash.into(),
                 nbits: 503543726,
-                min_ntime: 1746839905,
+                ntime_start: 1746839905,
             }),
             Err(StandardChannelError::JobIdNotFound)
         ));
@@ -1859,7 +1859,7 @@ mod tests {
                 job_id: 2,
                 prev_hash: prev_hash.into(),
                 nbits: 503543726,
-                min_ntime: 1746839905,
+                ntime_start: 1746839905,
             })
             .unwrap();
 
@@ -1908,7 +1908,7 @@ mod tests {
                     job_id,
                     merkle_root: merkle_root.into(),
                     version: 536870912,
-                    min_ntime: Sv2Option::new(Some(1746839900)),
+                    ntime_start: Sv2Option::new(Some(1746839900)),
                 })
                 .unwrap();
         }
@@ -1921,7 +1921,7 @@ mod tests {
                 job_id: future_job_id,
                 merkle_root: merkle_root.into(),
                 version: 536870912,
-                min_ntime: Sv2Option::new(None),
+                ntime_start: Sv2Option::new(None),
             })
             .unwrap();
 
@@ -1935,7 +1935,7 @@ mod tests {
                 job_id: future_job_id,
                 prev_hash: prev_hash.into(),
                 nbits: 503543726,
-                min_ntime: 1746839905,
+                ntime_start: 1746839905,
             })
             .unwrap();
 
@@ -1952,10 +1952,10 @@ mod tests {
     }
 
     #[test]
-    fn test_share_validation_ntime_below_job_min_ntime() {
-        // Regression test: an immediately-active job carries its own min_ntime, which may be
+    fn test_share_validation_ntime_below_job_ntime_start() {
+        // Regression test: an immediately-active job carries its own ntime_start, which may be
         // later than the chain tip's minimum. A share in the gap
-        // (chain_tip.min_ntime <= ntime < job.min_ntime) must be rejected.
+        // (chain_tip.ntime_start <= ntime < job.ntime_start) must be rejected.
         let channel_id = 1;
         let extranonce_prefix = [
             83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
@@ -1986,7 +1986,7 @@ mod tests {
                 job_id: 1,
                 merkle_root: merkle_root.into(),
                 version: 536870912,
-                min_ntime: Sv2Option::new(None),
+                ntime_start: Sv2Option::new(None),
             })
             .unwrap();
         // network target: 000000000000d7c0... (hard, so no accidental BlockFound)
@@ -2000,42 +2000,42 @@ mod tests {
                 ]
                 .into(),
                 nbits: 453040064,
-                min_ntime: tip_ntime,
+                ntime_start: tip_ntime,
             })
             .unwrap();
 
-        // install an immediately-active job whose own min_ntime is later than the tip's
-        let job_min_ntime = tip_ntime + 3;
+        // install an immediately-active job whose own ntime_start is later than the tip's
+        let job_ntime_start = tip_ntime + 3;
         channel
             .on_new_mining_job(NewMiningJob {
                 channel_id,
                 job_id: 2,
                 merkle_root: merkle_root.into(),
                 version: 536870912,
-                min_ntime: Sv2Option::new(Some(job_min_ntime)),
+                ntime_start: Sv2Option::new(Some(job_ntime_start)),
             })
             .unwrap();
 
-        // a share in the gap (at or above the tip's min_ntime, below the job's) is rejected
+        // a share in the gap (at or above the tip's ntime_start, below the job's) is rejected
         let share_in_gap = SubmitSharesStandardOwned {
             channel_id,
             sequence_number: 0,
             job_id: 2,
             nonce: 3,
-            ntime: job_min_ntime - 1,
+            ntime: job_ntime_start - 1,
             version: 536870912,
         };
         let res = channel.validate_share(share_in_gap);
         assert!(matches!(res.unwrap_err(), ShareValidationError::Invalid(_)));
 
-        // the upper bound is anchored at the job's min_ntime as well: one second past it is
+        // the upper bound is anchored at the job's ntime_start as well: one second past it is
         // rejected, exactly on it is accepted
         let share_past_upper_bound = SubmitSharesStandardOwned {
             channel_id,
             sequence_number: 2,
             job_id: 2,
             nonce: 3,
-            ntime: job_min_ntime + crate::MAX_FUTURE_BLOCK_TIME + 1,
+            ntime: job_ntime_start + crate::MAX_FUTURE_BLOCK_TIME + 1,
             version: 536870912,
         };
         let res = channel.validate_share(share_past_upper_bound);
@@ -2045,22 +2045,22 @@ mod tests {
             sequence_number: 3,
             job_id: 2,
             nonce: 3,
-            ntime: job_min_ntime + crate::MAX_FUTURE_BLOCK_TIME,
+            ntime: job_ntime_start + crate::MAX_FUTURE_BLOCK_TIME,
             version: 536870912,
         };
         let res = channel.validate_share(share_on_upper_bound);
         assert!(matches!(res, Ok(ShareValidationResult::Valid(_))));
 
-        // at the job's min_ntime the share is accepted (channel target is permissive)
-        let share_at_job_min_ntime = SubmitSharesStandardOwned {
+        // at the job's ntime_start the share is accepted (channel target is permissive)
+        let share_at_job_ntime_start = SubmitSharesStandardOwned {
             channel_id,
             sequence_number: 1,
             job_id: 2,
             nonce: 3,
-            ntime: job_min_ntime,
+            ntime: job_ntime_start,
             version: 536870912,
         };
-        let res = channel.validate_share(share_at_job_min_ntime);
+        let res = channel.validate_share(share_at_job_ntime_start);
         assert!(matches!(res, Ok(ShareValidationResult::Valid(_))));
     }
     #[test]
@@ -2090,7 +2090,7 @@ mod tests {
         let malformed_job = NewExtendedMiningJob {
             channel_id,
             job_id: 1,
-            min_ntime: Sv2Option::new(None),
+            ntime_start: Sv2Option::new(None),
             version: 536870912,
             version_rolling_allowed: true,
             coinbase_tx_prefix: vec![].try_into().unwrap(),
@@ -2111,7 +2111,7 @@ mod tests {
 
     #[test]
     fn test_share_validation_ntime_above_max_future_block_time() {
-        // Regression test: a share ntime beyond the chain tip's min_ntime +
+        // Regression test: a share ntime beyond the chain tip's ntime_start +
         // MAX_FUTURE_BLOCK_TIME would put a consensus-invalid timestamp in the block header,
         // so it must be rejected; ntime exactly on the bound is still accepted.
         let channel_id = 1;
@@ -2141,7 +2141,7 @@ mod tests {
                 ]
                 .into(),
                 version: 536870912,
-                min_ntime: Sv2Option::new(None),
+                ntime_start: Sv2Option::new(None),
             })
             .unwrap();
 
@@ -2157,7 +2157,7 @@ mod tests {
                 ]
                 .into(),
                 nbits: 453040064,
-                min_ntime: tip_ntime,
+                ntime_start: tip_ntime,
             })
             .unwrap();
 
@@ -2206,7 +2206,7 @@ mod tests {
         )
         .unwrap();
 
-        let job = |min_ntime: Option<u32>| NewMiningJob {
+        let job = |ntime_start: Option<u32>| NewMiningJob {
             channel_id,
             job_id: 1,
             merkle_root: [
@@ -2215,7 +2215,7 @@ mod tests {
             ]
             .into(),
             version: 536870912,
-            min_ntime: Sv2Option::new(min_ntime),
+            ntime_start: Sv2Option::new(ntime_start),
         };
 
         // job 1 is active under the current tip, and upstream reuses its ID for the next tip's
@@ -2234,7 +2234,7 @@ mod tests {
                 ]
                 .into(),
                 nbits: 453040064,
-                min_ntime: 1745596980,
+                ntime_start: 1745596980,
             })
             .unwrap();
 
@@ -2272,7 +2272,7 @@ mod tests {
                 ]
                 .into(),
                 nbits: 453040064,
-                min_ntime: 1745596990,
+                ntime_start: 1745596990,
             })
             .unwrap();
         assert!(channel.get_stale_job(1).is_some());
@@ -2286,7 +2286,7 @@ mod tests {
         ));
     }
 
-    fn job_template(job_id: u32, min_ntime: Option<u32>) -> NewMiningJob {
+    fn job_template(job_id: u32, ntime_start: Option<u32>) -> NewMiningJob {
         NewMiningJob {
             channel_id: 1,
             job_id,
@@ -2296,7 +2296,7 @@ mod tests {
             ]
             .into(),
             version: 536870912,
-            min_ntime: Sv2Option::new(min_ntime),
+            ntime_start: Sv2Option::new(ntime_start),
         }
     }
 
@@ -2410,7 +2410,7 @@ mod tests {
                         channel_id: 1,
                         job_id,
                         prev_hash: [2; 32].into(),
-                        min_ntime: 1745596970,
+                        ntime_start: 1745596970,
                         nbits: 545259519,
                     })
                     .unwrap();
@@ -2479,7 +2479,7 @@ mod tests {
                 ]
                 .into(),
                 nbits: 545259519,
-                min_ntime: 1745596980,
+                ntime_start: 1745596980,
             })
             .unwrap();
         assert!(channel.get_stale_job(1).is_some());
@@ -2608,11 +2608,11 @@ mod tests {
     }
 
     #[test]
-    fn test_immediately_active_job_below_chain_tip_min_ntime_is_rejected() {
-        // An immediately-active job is mined against the current chain tip, whose min_ntime is
-        // the smallest nTime available for it, so a job with a lower min_ntime must be refused
+    fn test_immediately_active_job_below_chain_tip_ntime_start_is_rejected() {
+        // An immediately-active job is mined against the current chain tip, whose ntime_start is
+        // the smallest nTime available for it, so a job with a lower ntime_start must be refused
         // and leave the channel unchanged, whether it arrives as NewMiningJob or is derived from
-        // a group channel's NewExtendedMiningJob. A min_ntime equal to the tip's is the lowest
+        // a group channel's NewExtendedMiningJob. An ntime_start equal to the tip's is the lowest
         // allowed.
         let channel_id = 1;
         // a 32-byte prefix: the group job's coinbase below carries a 32-byte extranonce
@@ -2638,13 +2638,13 @@ mod tests {
                 ]
                 .into(),
                 nbits: 453040064,
-                min_ntime: tip_ntime,
+                ntime_start: tip_ntime,
             })
             .unwrap();
 
         assert!(matches!(
             channel.on_new_mining_job(job_template(2, Some(tip_ntime - 1))),
-            Err(StandardChannelError::JobMinNtimeBelowChainTip)
+            Err(StandardChannelError::JobNtimeStartBelowChainTip)
         ));
         assert_eq!(channel.get_active_job().unwrap().job_message.job_id, 1);
         assert_eq!(channel.get_past_jobs_count(), 0);
@@ -2652,7 +2652,7 @@ mod tests {
         let group_job = NewExtendedMiningJob {
             channel_id,
             job_id: 2,
-            min_ntime: Sv2Option::new(Some(tip_ntime - 1)),
+            ntime_start: Sv2Option::new(Some(tip_ntime - 1)),
             version: 536870912,
             version_rolling_allowed: true,
             coinbase_tx_prefix: vec![
@@ -2674,7 +2674,7 @@ mod tests {
         };
         assert!(matches!(
             channel.on_new_group_channel_job(group_job),
-            Err(StandardChannelError::JobMinNtimeBelowChainTip)
+            Err(StandardChannelError::JobNtimeStartBelowChainTip)
         ));
         assert_eq!(channel.get_active_job().unwrap().job_message.job_id, 1);
 

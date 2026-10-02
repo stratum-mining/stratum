@@ -26,16 +26,16 @@ pub const VERSION_ROLLING_MASK: u32 = 0x1fffffe0;
 /// Mirrors Bitcoin Core's `MAX_FUTURE_BLOCK_TIME` (`src/chain.h`): a block timestamp more than
 /// 2 hours in the future is consensus-invalid.
 ///
-/// Share validation enforces `share.ntime <= min_ntime + MAX_FUTURE_BLOCK_TIME`, where
-/// `min_ntime` is the referenced job's (the chain tip's for jobs built or activated under it),
+/// Share validation enforces `share.ntime <= ntime_start + MAX_FUTURE_BLOCK_TIME`, where
+/// `ntime_start` is the referenced job's (the chain tip's for jobs built or activated under it),
 /// anchoring the consensus allowance at the receipt of the message that supplied it
-/// (`min_ntime` ≈ wall time when that message arrived, since this crate is `no_std`-compatible
+/// (`ntime_start` ≈ wall time when that message arrived, since this crate is `no_std`-compatible
 /// and has no clock). This is deliberately looser than the Sv2 spec's elapsed-time window
-/// (`ntime <= min_ntime + seconds elapsed since receipt of the message that supplied it`, which
+/// (`ntime <= ntime_start + seconds elapsed since receipt of the message that supplied it`, which
 /// is stricter than consensus): embedding applications that have a time source can additionally
 /// enforce the spec-exact window. The bound equals the consensus limit at receipt and becomes
 /// conservative as the job ages; a false rejection would require a >2h-old job *and* a miner
-/// stamping wall time instead of rolling from the job's `min_ntime` — a known, negligible edge.
+/// stamping wall time instead of rolling from the job's `ntime_start` — a known, negligible edge.
 pub const MAX_FUTURE_BLOCK_TIME: u32 = 2 * 60 * 60;
 
 /// Worst-case chain-tip lifetime, in minutes, assumed when bounding the accepted-share dedup

@@ -148,7 +148,7 @@ pub const ERROR_CODE_SET_CUSTOM_MINING_JOB_INVALID_MINING_JOB_TOKEN: &str =
     "invalid-mining-job-token";
 pub const ERROR_CODE_SET_CUSTOM_MINING_JOB_JOB_NOT_YET_VALIDATED: &str = "job-not-yet-validated";
 pub const ERROR_CODE_SET_CUSTOM_MINING_JOB_STALE_CHAIN_TIP: &str = "stale-chain-tip";
-pub const ERROR_CODE_SET_CUSTOM_MINING_JOB_INVALID_MIN_NTIME: &str = "invalid-min-ntime";
+pub const ERROR_CODE_SET_CUSTOM_MINING_JOB_INVALID_NTIME_START: &str = "invalid-ntime-start";
 pub const ERROR_CODE_SET_CUSTOM_MINING_JOB_INVALID_NBITS: &str = "invalid-nbits";
 pub const ERROR_CODE_SET_CUSTOM_MINING_JOB_INVALID_VERSION: &str = "invalid-version";
 pub const ERROR_CODE_SET_CUSTOM_MINING_JOB_INVALID_COINBASE_TX: &str = "invalid-coinbase-tx";

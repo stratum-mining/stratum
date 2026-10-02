@@ -42,8 +42,8 @@ impl Job for ExtendedJob {
         &self.extranonce_prefix
     }
 
-    fn activate(&mut self, min_ntime: u32) {
-        self.activate(min_ntime);
+    fn activate(&mut self, ntime_start: u32) {
+        self.activate(ntime_start);
     }
 }
 
@@ -130,7 +130,7 @@ impl ExtendedJob {
             job_id: self.get_job_id(),
             merkle_root,
             version: self.get_version(),
-            min_ntime: self.job_message.min_ntime.clone(),
+            ntime_start: self.job_message.ntime_start.clone(),
         };
 
         let standard_job = StandardJob::from_template(
@@ -187,9 +187,9 @@ impl ExtendedJob {
     pub fn get_merkle_path(&self) -> &Seq0255Owned<U256Owned> {
         &self.job_message.merkle_path
     }
-    /// Returns the minimum ntime for this job (if set).
-    pub fn get_min_ntime(&self) -> Option<u32> {
-        self.job_message.min_ntime.as_ref().copied()
+    /// Returns the `ntime_start` for this job (if set).
+    pub fn get_ntime_start(&self) -> Option<u32> {
+        self.job_message.ntime_start.as_ref().copied()
     }
     /// Returns the block version for this job.
     pub fn get_version(&self) -> u32 {
@@ -212,10 +212,10 @@ impl ExtendedJob {
         self.job_message.is_future()
     }
 
-    /// Activates the job, setting the `min_ntime` field of the `NewExtendedMiningJob` message.
+    /// Activates the job, setting the `ntime_start` field of the `NewExtendedMiningJob` message.
     ///
     /// To be used while activating future jobs upon updating channel `ChainTip` state.
-    pub fn activate(&mut self, min_ntime: u32) {
-        self.job_message.min_ntime = Sv2OptionOwned::new(Some(min_ntime));
+    pub fn activate(&mut self, ntime_start: u32) {
+        self.job_message.ntime_start = Sv2OptionOwned::new(Some(ntime_start));
     }
 }

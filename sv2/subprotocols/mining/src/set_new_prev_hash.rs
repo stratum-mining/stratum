@@ -22,8 +22,9 @@ pub struct SetNewPrevHash<'decoder> {
     pub job_id: u32,
     /// Latest block hash observed by the Template Provider.
     pub prev_hash: U256<'decoder>,
-    /// Smallest `nTime` value available for hashing.
-    pub min_ntime: u32,
+    /// The `nTime` field in the block header at which hashing starts, usually the current time when
+    /// this message was produced. This is not the consensus minimum.
+    pub ntime_start: u32,
     /// Block header field.
     pub nbits: u32,
 }
@@ -32,8 +33,8 @@ impl fmt::Display for SetNewPrevHash<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "SetNewPrevHash(channel_id={}, job_id={}, prev_hash={}, min_ntime={}, nbits=0x{:08x})",
-            self.channel_id, self.job_id, self.prev_hash, self.min_ntime, self.nbits
+            "SetNewPrevHash(channel_id={}, job_id={}, prev_hash={}, ntime_start={}, nbits=0x{:08x})",
+            self.channel_id, self.job_id, self.prev_hash, self.ntime_start, self.nbits
         )
     }
 }
@@ -42,8 +43,8 @@ impl fmt::Display for SetNewPrevHashOwned {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "SetNewPrevHash(channel_id={}, job_id={}, prev_hash={}, min_ntime={}, nbits=0x{:08x})",
-            self.channel_id, self.job_id, self.prev_hash, self.min_ntime, self.nbits
+            "SetNewPrevHash(channel_id={}, job_id={}, prev_hash={}, ntime_start={}, nbits=0x{:08x})",
+            self.channel_id, self.job_id, self.prev_hash, self.ntime_start, self.nbits
         )
     }
 }

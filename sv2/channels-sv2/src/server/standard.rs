@@ -624,9 +624,9 @@ impl StandardChannel {
     /// We use this method to update the channel state, so it can validate share from the job that
     /// was broadcasted to the group channel.
     ///
-    /// A non-future job is mined against this channel's chain tip, so a `min_ntime` below the
+    /// A non-future job is mined against this channel's chain tip, so an `ntime_start` below the
     /// tip's (the group channel built it under an older tip than this channel's) is refused with
-    /// [`StandardChannelError::JobMinNtimeBelowChainTip`], leaving the channel unchanged.
+    /// [`StandardChannelError::JobNtimeStartBelowChainTip`], leaving the channel unchanged.
     pub fn on_group_channel_job(
         &mut self,
         extended_job: ExtendedJob,
@@ -641,16 +641,16 @@ impl StandardChannel {
                     .add_future_job(standard_job.get_template().template_id, standard_job);
             }
             false => {
-                // the job is mined against this channel's chain tip, whose min_ntime is the
+                // the job is mined against this channel's chain tip, whose ntime_start is the
                 // smallest nTime available for it; a job allowing earlier shares would have them
                 // carry a timestamp the tip declared unavailable
-                if let Some(min_ntime) = standard_job.get_min_ntime() {
+                if let Some(ntime_start) = standard_job.get_ntime_start() {
                     if self
                         .chain_tip
                         .as_ref()
-                        .is_some_and(|chain_tip| min_ntime < chain_tip.min_ntime())
+                        .is_some_and(|chain_tip| ntime_start < chain_tip.ntime_start())
                     {
-                        return Err(StandardChannelError::JobMinNtimeBelowChainTip);
+                        return Err(StandardChannelError::JobNtimeStartBelowChainTip);
                     }
                 }
 
@@ -751,7 +751,7 @@ impl StandardChannel {
     ///
     /// Returns the result of share validation, including block found, valid share, duplicate, or
     /// error if the share is stale, does not meet target, or has ntime outside
-    /// `[min_ntime, min_ntime + MAX_FUTURE_BLOCK_TIME]`, where `min_ntime` is the referenced
+    /// `[ntime_start, ntime_start + MAX_FUTURE_BLOCK_TIME]`, where `ntime_start` is the referenced
     /// job's: the chain tip's for jobs built or activated under it, and the group job's own for
     /// jobs installed via [`on_group_channel_job`](Self::on_group_channel_job) (see
     /// [`MAX_FUTURE_BLOCK_TIME`] for how this clockless upper bound relates to the spec's
@@ -834,17 +834,17 @@ impl StandardChannel {
         let prev_hash = chain_tip.prev_hash();
         let nbits = CompactTarget::from_consensus(chain_tip.nbits());
 
-        // the share's ntime is bounded by the min_ntime of the job it references: a job built
+        // the share's ntime is bounded by the ntime_start of the job it references: a job built
         // by this channel takes it from the chain tip at creation, a future job receives it from
         // the SetNewPrevHash that activates it, and a job installed via on_group_channel_job
         // carries the group job's own, which differs from this channel's tip if the application
         // fans the group job out before updating the tip. Every active or past job carries one:
         // a job without it is a future job, which is never mined on.
-        let job_min_ntime = job
-            .get_min_ntime()
-            .expect("active and past jobs carry a min_ntime");
+        let job_ntime_start = job
+            .get_ntime_start()
+            .expect("active and past jobs carry an ntime_start");
 
-        if share.ntime < job_min_ntime {
+        if share.ntime < job_ntime_start {
             self.share_accounting
                 .increment_rejected_shares(ERROR_CODE_SUBMIT_SHARES_INVALID_SHARE);
             return Err(ShareValidationError::Invalid(
@@ -853,9 +853,9 @@ impl StandardChannel {
         }
 
         // consensus caps block timestamps at ~2h in the future; the allowance is anchored at the
-        // receipt of the message that supplied min_ntime, since this crate has no clock (see
+        // receipt of the message that supplied ntime_start, since this crate has no clock (see
         // MAX_FUTURE_BLOCK_TIME)
-        if share.ntime > job_min_ntime.saturating_add(MAX_FUTURE_BLOCK_TIME) {
+        if share.ntime > job_ntime_start.saturating_add(MAX_FUTURE_BLOCK_TIME) {
             self.share_accounting
                 .increment_rejected_shares(ERROR_CODE_SUBMIT_SHARES_INVALID_SHARE);
             return Err(ShareValidationError::Invalid(
@@ -1114,7 +1114,7 @@ mod tests {
             ]
             .into(),
             version: 536870912,
-            min_ntime: Sv2Option::new(None),
+            ntime_start: Sv2Option::new(None),
         };
 
         let future_standard_job_from_channel = standard_channel.get_future_job(1).unwrap().clone();
@@ -1246,7 +1246,7 @@ mod tests {
             ]
             .into(),
             version: 536870912,
-            min_ntime: Sv2Option::new(Some(ntime)),
+            ntime_start: Sv2Option::new(Some(ntime)),
         };
 
         let active_standard_job_from_channel = standard_channel.get_active_job().unwrap().clone();
@@ -1379,9 +1379,9 @@ mod tests {
     }
 
     #[test]
-    fn test_share_validation_ntime_below_min_ntime() {
-        // Regression test: a share with ntime < min_ntime must be rejected.
-        // Reuses the block-found test vectors but sets min_ntime one second
+    fn test_share_validation_ntime_below_ntime_start() {
+        // Regression test: a share with ntime < ntime_start must be rejected.
+        // Reuses the block-found test vectors but sets ntime_start one second
         // above the share's ntime.
         let standard_channel_id = 1;
         let user_identity = "user_identity".to_string();
@@ -1448,7 +1448,7 @@ mod tests {
         ]
         .into();
         let n_bits = 545259519;
-        // set min_ntime one second above the share's ntime (1745596932 + 1)
+        // set ntime_start one second above the share's ntime (1745596932 + 1)
         let chain_tip = ChainTip::new(prev_hash, n_bits, 1745596933);
 
         standard_channel.set_chain_tip(chain_tip);
@@ -1458,7 +1458,7 @@ mod tests {
 
         let active_standard_job = standard_channel.get_active_job().unwrap();
 
-        let share_below_min_ntime = SubmitSharesStandardOwned {
+        let share_below_ntime_start = SubmitSharesStandardOwned {
             channel_id: standard_channel_id,
             sequence_number: 0,
             job_id: active_standard_job.get_job_id(),
@@ -1467,7 +1467,7 @@ mod tests {
             version: 536870912,
         };
 
-        let res = standard_channel.validate_share(share_below_min_ntime);
+        let res = standard_channel.validate_share(share_below_ntime_start);
 
         assert!(matches!(res.unwrap_err(), ShareValidationError::Invalid(_)));
         assert_eq!(
@@ -1799,7 +1799,7 @@ mod tests {
         // network target: 000000000000d7c0000000000000000000000000000000000000000000000000
         // anchor the tip within the pre-mined share's consensus window: the share was
         // mined with ntime 1745611105, and validation rejects ntime beyond the tip's
-        // min_ntime + MAX_FUTURE_BLOCK_TIME (the header hash does not depend on the tip's
+        // ntime_start + MAX_FUTURE_BLOCK_TIME (the header hash does not depend on the tip's
         // timestamp, so the pre-mined vectors stay valid)
         let ntime = 1745611105 - 60;
         let prev_hash = [
@@ -1903,7 +1903,7 @@ mod tests {
 
         // anchor the tip within the pre-mined share's consensus window: the share was
         // mined with ntime 1745611105, and validation rejects ntime beyond the tip's
-        // min_ntime + MAX_FUTURE_BLOCK_TIME (the header hash does not depend on the tip's
+        // ntime_start + MAX_FUTURE_BLOCK_TIME (the header hash does not depend on the tip's
         // timestamp, so the pre-mined vectors stay valid)
         let ntime = 1745611105 - 60;
         let prev_hash = [
@@ -2016,7 +2016,7 @@ mod tests {
 
         // anchor the tip within the pre-mined share's consensus window: the share was
         // mined with ntime 1745611105, and validation rejects ntime beyond the tip's
-        // min_ntime + MAX_FUTURE_BLOCK_TIME (the header hash does not depend on the tip's
+        // ntime_start + MAX_FUTURE_BLOCK_TIME (the header hash does not depend on the tip's
         // timestamp, so the pre-mined vectors stay valid)
         let ntime = 1745611105 - 60;
         let prev_hash = [
@@ -2482,7 +2482,7 @@ mod tests {
 
         let chain_tip = standard_channel.get_chain_tip().unwrap();
         assert_eq!(chain_tip.prev_hash(), new_prev_hash);
-        assert_eq!(chain_tip.min_ntime(), ntime + 600);
+        assert_eq!(chain_tip.ntime_start(), ntime + 600);
         assert_eq!(chain_tip.nbits(), n_bits);
 
         // The previously active job committed to the old chain tip, so it must now be stale
@@ -2852,7 +2852,7 @@ mod tests {
 
     #[test]
     fn test_share_validation_ntime_above_max_future_block_time() {
-        // Regression test: a share ntime beyond the chain tip's min_ntime +
+        // Regression test: a share ntime beyond the chain tip's ntime_start +
         // MAX_FUTURE_BLOCK_TIME would put a consensus-invalid timestamp in the block header,
         // so it must be rejected; ntime exactly on the bound is still accepted.
         let standard_channel_id = 1;
@@ -3048,11 +3048,11 @@ mod tests {
     }
 
     #[test]
-    fn test_share_validation_ntime_below_group_job_min_ntime() {
-        // A job installed via on_group_channel_job carries the group job's own min_ntime, which
+    fn test_share_validation_ntime_below_group_job_ntime_start() {
+        // A job installed via on_group_channel_job carries the group job's own ntime_start, which
         // is later than this channel's tip if the application fans the group job out before
         // updating the channel's chain tip. A share in the gap
-        // (chain_tip.min_ntime <= ntime < job.min_ntime) must be rejected.
+        // (chain_tip.ntime_start <= ntime < job.ntime_start) must be rejected.
         let standard_channel_id = 1;
         let extranonce_prefix = [
             83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
@@ -3119,19 +3119,19 @@ mod tests {
         standard_channel.set_chain_tip(ChainTip::new(prev_hash.clone(), n_bits, tip_ntime));
 
         // the group channel had already advanced to a later tip when it built this job
-        let job_min_ntime = tip_ntime + 3;
+        let job_ntime_start = tip_ntime + 3;
         let mut group_job_factory = crate::server::jobs::factory::JobFactory::new(true, None, None);
         let group_job = group_job_factory
             .new_extended_job(
                 99,
-                Some(ChainTip::new(prev_hash, n_bits, job_min_ntime)),
+                Some(ChainTip::new(prev_hash, n_bits, job_ntime_start)),
                 vec![],
                 template,
                 coinbase_reward_outputs,
                 extranonce_prefix.len(),
             )
             .unwrap();
-        assert_eq!(group_job.get_min_ntime(), Some(job_min_ntime));
+        assert_eq!(group_job.get_ntime_start(), Some(job_ntime_start));
         standard_channel.on_group_channel_job(group_job).unwrap();
         let job_id = standard_channel.get_active_job().unwrap().get_job_id();
 
@@ -3144,8 +3144,8 @@ mod tests {
             version: 536870912,
         };
 
-        // a share in the gap (at or above the tip's min_ntime, below the job's) is rejected
-        let res = standard_channel.validate_share(share(0, job_min_ntime - 1));
+        // a share in the gap (at or above the tip's ntime_start, below the job's) is rejected
+        let res = standard_channel.validate_share(share(0, job_ntime_start - 1));
         assert!(matches!(res.unwrap_err(), ShareValidationError::Invalid(_)));
         assert_eq!(
             standard_channel
@@ -3154,17 +3154,17 @@ mod tests {
             0
         );
 
-        // the upper bound is anchored at the job's min_ntime as well: one second past it is
+        // the upper bound is anchored at the job's ntime_start as well: one second past it is
         // rejected, exactly on it is accepted
         let res = standard_channel
-            .validate_share(share(2, job_min_ntime + crate::MAX_FUTURE_BLOCK_TIME + 1));
+            .validate_share(share(2, job_ntime_start + crate::MAX_FUTURE_BLOCK_TIME + 1));
         assert!(matches!(res.unwrap_err(), ShareValidationError::Invalid(_)));
-        let res =
-            standard_channel.validate_share(share(3, job_min_ntime + crate::MAX_FUTURE_BLOCK_TIME));
+        let res = standard_channel
+            .validate_share(share(3, job_ntime_start + crate::MAX_FUTURE_BLOCK_TIME));
         assert!(matches!(res, Ok(ShareValidationResult::Valid(_))));
 
-        // at the job's min_ntime the share is accepted (channel target is permissive)
-        let res = standard_channel.validate_share(share(1, job_min_ntime));
+        // at the job's ntime_start the share is accepted (channel target is permissive)
+        let res = standard_channel.validate_share(share(1, job_ntime_start));
         assert!(matches!(res, Ok(ShareValidationResult::Valid(_))));
     }
 
@@ -3354,11 +3354,11 @@ mod tests {
     }
 
     #[test]
-    fn test_on_group_channel_job_rejects_min_ntime_below_chain_tip() {
+    fn test_on_group_channel_job_rejects_ntime_start_below_chain_tip() {
         // A non-future job installed via on_group_channel_job is mined against this channel's
-        // chain tip, whose min_ntime is the smallest nTime available for it, so a group job built
-        // under an older tip (a lower min_ntime) must be refused and leave the channel unchanged.
-        // A min_ntime equal to the tip's is the lowest allowed.
+        // chain tip, whose ntime_start is the smallest nTime available for it, so a group job built
+        // under an older tip (a lower ntime_start) must be refused and leave the channel unchanged.
+        // An ntime_start equal to the tip's is the lowest allowed.
         let standard_channel_id = 1;
         let extranonce_prefix = [
             83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
@@ -3420,11 +3420,11 @@ mod tests {
         standard_channel.set_chain_tip(ChainTip::new(prev_hash.clone(), n_bits, tip_ntime));
 
         let mut group_job_factory = crate::server::jobs::factory::JobFactory::new(true, None, None);
-        let mut group_job = |min_ntime: u32| {
+        let mut group_job = |ntime_start: u32| {
             group_job_factory
                 .new_extended_job(
                     99,
-                    Some(ChainTip::new(prev_hash.clone(), n_bits, min_ntime)),
+                    Some(ChainTip::new(prev_hash.clone(), n_bits, ntime_start)),
                     vec![],
                     template.clone(),
                     coinbase_reward_outputs.clone(),
@@ -3435,7 +3435,7 @@ mod tests {
 
         assert!(matches!(
             standard_channel.on_group_channel_job(group_job(tip_ntime - 1)),
-            Err(StandardChannelError::JobMinNtimeBelowChainTip)
+            Err(StandardChannelError::JobNtimeStartBelowChainTip)
         ));
         assert!(standard_channel.get_active_job().is_none());
 

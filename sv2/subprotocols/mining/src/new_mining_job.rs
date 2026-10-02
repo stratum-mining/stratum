@@ -19,18 +19,19 @@ pub struct NewMiningJob<'decoder> {
     ///
     /// This identifier must be provided to the upstream when shares are submitted.
     pub job_id: u32,
-    /// Smallest `nTime` value available for hashing for the new mining job.
+    /// The `nTime` field in the block header at which hashing starts, usually the current time when
+    /// this message was produced. This is not the consensus minimum.
     ///
     /// An empty value indicates this is a future job and will be ready to mine on once a
     /// [`SetNewPrevHash`] message is received with a matching `job_id`.
-    /// [`SetNewPrevHash`] message will also provide `prev_hash` and `min_ntime`.
+    /// [`SetNewPrevHash`] message will also provide `prev_hash` and `ntime_start`.
     ///
-    /// Otherwise, if [`NewMiningJob::min_ntime`] value is set, the downstream must start mining on
-    /// it immediately. In this case, the new mining job uses the `prev_hash` from the last
+    /// Otherwise, if [`NewMiningJob::ntime_start`] value is set, the downstream must start mining
+    /// on it immediately. In this case, the new mining job uses the `prev_hash` from the last
     /// received [`SetNewPrevHash`] message.
     ///
     /// [`SetNewPrevHash`]: crate::SetNewPrevHash
-    pub min_ntime: Sv2Option<'decoder, u32>,
+    pub ntime_start: Sv2Option<'decoder, u32>,
     /// Version field that reflects the current network consensus.
     ///
     /// As specified in [BIP323](https://github.com/bitcoin/bips/blob/master/bip-0323.mediawiki),
@@ -50,10 +51,10 @@ impl fmt::Display for NewMiningJob<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "NewMiningJob(channel_id: {}, job_id: {}, min_ntime: {}, version: 0x{:08x}, merkle_root: {})",
+            "NewMiningJob(channel_id: {}, job_id: {}, ntime_start: {}, version: 0x{:08x}, merkle_root: {})",
             self.channel_id,
             self.job_id,
-            self.min_ntime,
+            self.ntime_start,
             self.version,
             self.merkle_root
         )
@@ -64,35 +65,35 @@ impl fmt::Display for NewMiningJobOwned {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "NewMiningJob(channel_id: {}, job_id: {}, min_ntime: {}, version: 0x{:08x}, merkle_root: {})",
-            self.channel_id, self.job_id, self.min_ntime, self.version, self.merkle_root
+            "NewMiningJob(channel_id: {}, job_id: {}, ntime_start: {}, version: 0x{:08x}, merkle_root: {})",
+            self.channel_id, self.job_id, self.ntime_start, self.version, self.merkle_root
         )
     }
 }
 
 impl NewMiningJob<'_> {
     pub fn is_future(&self) -> bool {
-        self.min_ntime.clone().into_inner().is_none()
+        self.ntime_start.clone().into_inner().is_none()
     }
     pub fn set_future(&mut self) {
-        self.min_ntime = Sv2Option::new(None);
+        self.ntime_start = Sv2Option::new(None);
     }
-    pub fn set_no_future(&mut self, min_ntime: u32) {
-        self.min_ntime = Sv2Option::new(Some(min_ntime));
+    pub fn set_no_future(&mut self, ntime_start: u32) {
+        self.ntime_start = Sv2Option::new(Some(ntime_start));
     }
 }
 
 impl NewMiningJobOwned {
     pub fn is_future(&self) -> bool {
-        self.min_ntime.clone().into_inner().is_none()
+        self.ntime_start.clone().into_inner().is_none()
     }
 
     pub fn set_future(&mut self) {
-        self.min_ntime = Sv2OptionOwned::new(None);
+        self.ntime_start = Sv2OptionOwned::new(None);
     }
 
-    pub fn set_no_future(&mut self, min_ntime: u32) {
-        self.min_ntime = Sv2OptionOwned::new(Some(min_ntime));
+    pub fn set_no_future(&mut self, ntime_start: u32) {
+        self.ntime_start = Sv2OptionOwned::new(Some(ntime_start));
     }
 }
 
@@ -114,18 +115,19 @@ pub struct NewExtendedMiningJob<'decoder> {
     /// This identifier must be provided to the upstream when shares are submitted later in the
     /// mining process.
     pub job_id: u32,
-    /// Smallest `nTime` value available for hashing for the new mining job.
+    /// The `nTime` field in the block header at which hashing starts, usually the current time when
+    /// this message was produced. This is not the consensus minimum.
     ///
     /// An empty value indicates this is a future job and will be ready to mine on once a
     /// [`SetNewPrevHash`] message is received with a matching `job_id`.
-    /// [`SetNewPrevHash`] message will also provide `prev_hash` and `min_ntime`.
+    /// [`SetNewPrevHash`] message will also provide `prev_hash` and `ntime_start`.
     ///
-    /// Otherwise, if [`NewMiningJob::min_ntime`] value is set, the downstream must start mining on
-    /// it immediately. In this case, the new mining job uses the `prev_hash` from the last
+    /// Otherwise, if [`NewMiningJob::ntime_start`] value is set, the downstream must start mining
+    /// on it immediately. In this case, the new mining job uses the `prev_hash` from the last
     /// received [`SetNewPrevHash`] message.
     ///
     /// [`SetNewPrevHash`]: crate::SetNewPrevHash
-    pub min_ntime: Sv2Option<'decoder, u32>,
+    pub ntime_start: Sv2Option<'decoder, u32>,
     /// Version field that reflects the current network consensus.
     ///
     /// As specified in [BIP323](https://github.com/bitcoin/bips/blob/master/bip-0323.mediawiki),
@@ -153,10 +155,10 @@ impl fmt::Display for NewExtendedMiningJob<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "NewExtendedMiningJob(channel_id: {}, job_id: {}, min_ntime: {}, version: 0x{:08x}, version_rolling_allowed: {}, merkle_path: {}, coinbase_tx_prefix: {}, coinbase_tx_suffix: {}",
+            "NewExtendedMiningJob(channel_id: {}, job_id: {}, ntime_start: {}, version: 0x{:08x}, version_rolling_allowed: {}, merkle_path: {}, coinbase_tx_prefix: {}, coinbase_tx_suffix: {}",
             self.channel_id,
             self.job_id,
-            self.min_ntime,
+            self.ntime_start,
             self.version,
             self.version_rolling_allowed,
             self.merkle_path,
@@ -170,10 +172,10 @@ impl fmt::Display for NewExtendedMiningJobOwned {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "NewExtendedMiningJob(channel_id: {}, job_id: {}, min_ntime: {}, version: 0x{:08x}, version_rolling_allowed: {}, merkle_path: {}, coinbase_tx_prefix: {}, coinbase_tx_suffix: {})",
+            "NewExtendedMiningJob(channel_id: {}, job_id: {}, ntime_start: {}, version: 0x{:08x}, version_rolling_allowed: {}, merkle_path: {}, coinbase_tx_prefix: {}, coinbase_tx_suffix: {})",
             self.channel_id,
             self.job_id,
-            self.min_ntime,
+            self.ntime_start,
             self.version,
             self.version_rolling_allowed,
             self.merkle_path,
@@ -185,27 +187,27 @@ impl fmt::Display for NewExtendedMiningJobOwned {
 
 impl NewExtendedMiningJob<'_> {
     pub fn is_future(&self) -> bool {
-        self.min_ntime.clone().into_inner().is_none()
+        self.ntime_start.clone().into_inner().is_none()
     }
     pub fn set_future(&mut self) {
-        self.min_ntime = Sv2Option::new(None);
+        self.ntime_start = Sv2Option::new(None);
     }
-    pub fn set_no_future(&mut self, min_ntime: u32) {
-        self.min_ntime = Sv2Option::new(Some(min_ntime));
+    pub fn set_no_future(&mut self, ntime_start: u32) {
+        self.ntime_start = Sv2Option::new(Some(ntime_start));
     }
 }
 
 impl NewExtendedMiningJobOwned {
     pub fn is_future(&self) -> bool {
-        self.min_ntime.clone().into_inner().is_none()
+        self.ntime_start.clone().into_inner().is_none()
     }
 
     pub fn set_future(&mut self) {
-        self.min_ntime = Sv2OptionOwned::new(None);
+        self.ntime_start = Sv2OptionOwned::new(None);
     }
 
-    pub fn set_no_future(&mut self, min_ntime: u32) {
-        self.min_ntime = Sv2OptionOwned::new(Some(min_ntime));
+    pub fn set_no_future(&mut self, ntime_start: u32) {
+        self.ntime_start = Sv2OptionOwned::new(Some(ntime_start));
     }
 }
 
@@ -228,7 +230,7 @@ mod tests {
     fn test_new_extended_mining_job(
         channel_id: u32,
         job_id: u32,
-        min_ntime: Option<u32>,
+        ntime_start: Option<u32>,
         version: u32,
         version_rolling_allowed: bool,
         merkle_path: Vec<u8>,
@@ -242,7 +244,7 @@ mod tests {
         let nemj = NewExtendedMiningJob {
             channel_id,
             job_id,
-            min_ntime: Sv2Option::new(min_ntime),
+            ntime_start: Sv2Option::new(ntime_start),
             version,
             version_rolling_allowed,
             merkle_path: merkle_path.clone(),
@@ -252,7 +254,7 @@ mod tests {
         let owned_nmj = nemj.as_owned();
         owned_nmj.channel_id == nemj.channel_id
             && owned_nmj.job_id == nemj.job_id
-            && owned_nmj.min_ntime == nemj.min_ntime.clone().into_owned()
+            && owned_nmj.ntime_start == nemj.ntime_start.clone().into_owned()
             && owned_nmj.version == nemj.version
             && owned_nmj.version_rolling_allowed == nemj.version_rolling_allowed
             && owned_nmj.merkle_path == merkle_path.into_owned()
@@ -264,7 +266,7 @@ mod tests {
     fn test_new_mining_job(
         channel_id: u32,
         job_id: u32,
-        min_ntime: Option<u32>,
+        ntime_start: Option<u32>,
         version: u32,
         merkle_root: Vec<u8>,
     ) -> bool {
@@ -272,14 +274,14 @@ mod tests {
         let nmj = NewMiningJob {
             channel_id,
             job_id,
-            min_ntime: Sv2Option::new(min_ntime),
+            ntime_start: Sv2Option::new(ntime_start),
             version,
             merkle_root: U256::try_from(&merkle_root[..]).expect("U256 is exactly 32 bytes"),
         };
         let owned_nmj = nmj.clone().as_owned();
         owned_nmj.channel_id == nmj.channel_id
             && owned_nmj.job_id == nmj.job_id
-            && owned_nmj.min_ntime == nmj.min_ntime.clone().into_owned()
+            && owned_nmj.ntime_start == nmj.ntime_start.clone().into_owned()
             && owned_nmj.version == nmj.version
             && owned_nmj.merkle_root == nmj.merkle_root.into_owned()
     }

@@ -10,7 +10,7 @@ pub enum ExtendedJobError {
     FailedToConvertToStandardJob,
     FailedToCalculateMerkleRoot,
     FutureJobNotAllowed,
-    InvalidMinNTime,
+    InvalidNtimeStart,
 }
 
 pub enum StandardJobError {

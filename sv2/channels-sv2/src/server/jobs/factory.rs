@@ -254,20 +254,20 @@ impl JobFactory {
             true => NewMiningJobOwned {
                 channel_id,
                 job_id,
-                min_ntime: Sv2OptionOwned::new(None),
+                ntime_start: Sv2OptionOwned::new(None),
                 version,
                 merkle_root,
             },
             false => {
-                let min_ntime = match chain_tip {
-                    Some(chain_tip) => Some(chain_tip.min_ntime()),
+                let ntime_start = match chain_tip {
+                    Some(chain_tip) => Some(chain_tip.ntime_start()),
                     None => return Err(JobFactoryError::ChainTipRequired),
                 };
 
                 NewMiningJobOwned {
                     channel_id,
                     job_id,
-                    min_ntime: Sv2OptionOwned::new(min_ntime),
+                    ntime_start: Sv2OptionOwned::new(ntime_start),
                     version,
                     merkle_root,
                 }
@@ -340,7 +340,7 @@ impl JobFactory {
             true => NewExtendedMiningJobOwned {
                 channel_id,
                 job_id,
-                min_ntime: Sv2OptionOwned::new(None),
+                ntime_start: Sv2OptionOwned::new(None),
                 version,
                 version_rolling_allowed: self.version_rolling_allowed,
                 merkle_path,
@@ -352,14 +352,14 @@ impl JobFactory {
                     .map_err(|_| JobFactoryError::CoinbaseTxSuffixError)?,
             },
             false => {
-                let min_ntime = match chain_tip {
-                    Some(chain_tip) => Some(chain_tip.min_ntime()),
+                let ntime_start = match chain_tip {
+                    Some(chain_tip) => Some(chain_tip.ntime_start()),
                     None => return Err(JobFactoryError::ChainTipRequired),
                 };
                 NewExtendedMiningJobOwned {
                     channel_id,
                     job_id,
-                    min_ntime: Sv2OptionOwned::new(min_ntime),
+                    ntime_start: Sv2OptionOwned::new(ntime_start),
                     version,
                     version_rolling_allowed: self.version_rolling_allowed,
                     merkle_path,
@@ -476,7 +476,7 @@ impl JobFactory {
             token,
             version: template.version,
             prev_hash: chain_tip.prev_hash(),
-            min_ntime: chain_tip.min_ntime(),
+            ntime_start: chain_tip.ntime_start(),
             nbits: chain_tip.nbits(),
             coinbase_tx_version: template.coinbase_tx_version,
             coinbase_prefix: coinbase_prefix
@@ -535,7 +535,7 @@ impl JobFactory {
         let job_message = NewExtendedMiningJobOwned {
             channel_id: set_custom_mining_job.channel_id,
             job_id,
-            min_ntime: Sv2OptionOwned::new(Some(set_custom_mining_job.min_ntime)),
+            ntime_start: Sv2OptionOwned::new(Some(set_custom_mining_job.ntime_start)),
             version,
             version_rolling_allowed: self.version_rolling_allowed,
             coinbase_tx_prefix: coinbase_tx_prefix_stripped_bip141
@@ -869,7 +869,7 @@ mod tests {
         let expected_job = NewExtendedMiningJob {
             channel_id: 1,
             job_id: 1,
-            min_ntime: Sv2OptionOwned::new(None),
+            ntime_start: Sv2OptionOwned::new(None),
             version: 536870912,
             version_rolling_allowed: true,
             // contains scriptSig with Sv2/Stratum V2 SRI Pool//
@@ -1054,7 +1054,7 @@ mod tests {
         let expected_job = NewExtendedMiningJob {
             channel_id: 1,
             job_id: 1,
-            min_ntime: Sv2OptionOwned::new(Some(1746839905)),
+            ntime_start: Sv2OptionOwned::new(Some(1746839905)),
             version: 536870912,
             version_rolling_allowed: true,
             // contains scriptSig with Sv2/Stratum V2 SRI Pool/Stratum V2 SRI Miner/
@@ -1091,7 +1091,7 @@ mod tests {
             token: vec![0].try_into().unwrap(),
             version: 536870912,
             prev_hash: [0u8; 32].into(),
-            min_ntime: 1746839905,
+            ntime_start: 1746839905,
             nbits: 503543726,
             coinbase_tx_version: 2,
             coinbase_prefix: coinbase_prefix.try_into().unwrap(),

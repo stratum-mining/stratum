@@ -10,7 +10,7 @@ use core::{convert::TryInto, fmt};
 /// Prior to that, the upstream **must** have sent at least one, but potentially multiple,
 /// [`crate::NewTemplate`] messages with the [`crate::NewTemplate::future_template`] flag set. A
 /// downstream should keep track of all of them, and convert them into `NewMiningJob` or
-/// `NewExtendedMiningJob` messages with an empty `min_ntime`, in case it is also acting as a
+/// `NewExtendedMiningJob` messages with an empty `ntime_start`, in case it is also acting as a
 /// server under the Mining Protocol.
 ///
 /// [`SetNewPrevHash::template_id`] identifies which of those future templates is now valid to
