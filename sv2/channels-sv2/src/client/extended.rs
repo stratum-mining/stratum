@@ -802,8 +802,8 @@ impl ExtendedChannel {
     ///   (shares whose `ntime` is outside `[ntime_start, ntime_start + MAX_FUTURE_BLOCK_TIME]`,
     ///   where `ntime_start` is the referenced job's: the `SetNewPrevHash` timestamp for a job
     ///   activated from the future queue, or the value its own message advertised for an
-    ///   immediately-active job; see [`MAX_FUTURE_BLOCK_TIME`] for how this clockless upper
-    ///   bound relates to the spec's elapsed-time window).
+    ///   immediately-active job; see [`MAX_FUTURE_BLOCK_TIME`] for why this upper bound is
+    ///   clockless).
     /// - Indicates whether a block was found from the share.
     /// - Maintains local share accounting for later reconciliation with upstream acknowledgements.
     ///   Duplicate detection is bounded at [`MAX_SEEN_SHARES`](crate::client::MAX_SEEN_SHARES)

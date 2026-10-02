@@ -754,8 +754,7 @@ impl StandardChannel {
     /// `[ntime_start, ntime_start + MAX_FUTURE_BLOCK_TIME]`, where `ntime_start` is the referenced
     /// job's: the chain tip's for jobs built or activated under it, and the group job's own for
     /// jobs installed via [`on_group_channel_job`](Self::on_group_channel_job) (see
-    /// [`MAX_FUTURE_BLOCK_TIME`] for how this clockless upper bound relates to the spec's
-    /// elapsed-time window).
+    /// [`MAX_FUTURE_BLOCK_TIME`] for why this upper bound is clockless).
     ///
     /// A block is reported when the share hash meets the network target the tip's `nbits`
     /// encodes; a stricter Template Distribution `SetNewPrevHash.target` is not consulted, as

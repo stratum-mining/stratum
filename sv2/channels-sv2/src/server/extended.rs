@@ -880,7 +880,7 @@ impl ExtendedChannel {
     /// job's: the chain tip's for jobs built or activated under it, and the group job's own for
     /// jobs installed via
     /// [`on_group_channel_job`](Self::on_group_channel_job) (see [`MAX_FUTURE_BLOCK_TIME`] for
-    /// how this clockless upper bound relates to the spec's elapsed-time window).
+    /// why this upper bound is clockless).
     ///
     /// Version rolling is enforced per the job's own `version_rolling_allowed`, which
     /// [`on_group_channel_job`](Self::on_group_channel_job) keeps no looser than the channel's

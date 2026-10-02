@@ -617,8 +617,7 @@ impl StandardChannel {
     ///   `ntime` within `[ntime_start, ntime_start + MAX_FUTURE_BLOCK_TIME]`, where `ntime_start`
     ///   is the referenced job's: the `SetNewPrevHash` timestamp for a job activated from the
     ///   future queue, or the value its own message advertised for an immediately-active job
-    ///   (see [`MAX_FUTURE_BLOCK_TIME`] for how this clockless upper bound relates to the
-    ///   spec's elapsed-time window).
+    ///   (see [`MAX_FUTURE_BLOCK_TIME`] for why this upper bound is clockless).
     /// - Updates share accounting state based on validation result. Duplicate detection is
     ///   bounded at [`MAX_SEEN_SHARES`](crate::client::MAX_SEEN_SHARES) validated shares per
     ///   `prev_hash` (oldest evicted first), so an evicted share can be validated again; see

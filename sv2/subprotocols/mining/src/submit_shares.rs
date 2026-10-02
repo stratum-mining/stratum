@@ -17,8 +17,11 @@ pub struct SubmitSharesStandard {
     /// Nonce leading to the hash being submitted.
     pub nonce: u32,
     /// The `nTime` field in the block header. This must be greater than or equal to the
-    /// `header_timestamp` field in the latest [`SetNewPrevHash`] message and lower than or equal
-    /// to that value plus the number of seconds since the receipt of that message.
+    /// `ntime_start` of the referenced job: the one supplied by the [`SetNewPrevHash`] that
+    /// activated it for a future job, or the job's own for an immediately active job.
+    ///
+    /// No protocol-level upper bound is imposed: network rules already reject a block header
+    /// nTime too far in the future, and servers may enforce a tighter tolerance as local policy.
     ///
     /// [`SetNewPrevHash`]: crate::SetNewPrevHash
     pub ntime: u32,
@@ -83,8 +86,11 @@ pub struct SubmitSharesExtended<'decoder> {
     /// Nonce leading to the hash being submitted.
     pub nonce: u32,
     /// The nTime field in the block header. This must be greater than or equal to the
-    /// `header_timestamp` field in the latest [`SetNewPrevHash`] message and lower than or equal
-    /// to that value plus the number of seconds since the receipt of that message.
+    /// `ntime_start` of the referenced job: the one supplied by the [`SetNewPrevHash`] that
+    /// activated it for a future job, or the job's own for an immediately active job.
+    ///
+    /// No protocol-level upper bound is imposed: network rules already reject a block header
+    /// nTime too far in the future, and servers may enforce a tighter tolerance as local policy.
     ///
     /// [`SetNewPrevHash`]: crate::SetNewPrevHash
     pub ntime: u32,

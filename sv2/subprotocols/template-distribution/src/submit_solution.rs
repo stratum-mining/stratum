@@ -26,8 +26,8 @@ pub struct SubmitSolution<'decoder> {
     /// nTime field in the block header.
     ///
     /// This **must** be greater than or equal to previously received
-    /// [`crate::SetNewPrevHash::ntime_start`] and lower than or equal to that value plus the
-    /// number of seconds since receiving [`crate::SetNewPrevHash`] that message.
+    /// [`crate::SetNewPrevHash::ntime_start`]. No protocol-level upper bound is imposed: network
+    /// rules already reject a block header nTime too far in the future.
     pub ntime: u32,
     /// Nonce field in the header.
     pub nonce: u32,
