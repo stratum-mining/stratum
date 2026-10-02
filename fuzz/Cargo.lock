@@ -403,7 +403,7 @@ checksum = "6b947ae49db0d222b1dbc6b113ce7248a3fc3a6ca21b696717bfc000ba4484d8"
 
 [[package]]
 name = "mining_sv2"
-version = "12.0.0"
+version = "13.0.0"
 dependencies = [
  "binary_sv2",
 ]
@@ -641,7 +641,7 @@ dependencies = [
 
 [[package]]
 name = "template_distribution_sv2"
-version = "7.0.0"
+version = "8.0.0"
 dependencies = [
  "binary_sv2",
 ]
