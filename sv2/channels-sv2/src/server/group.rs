@@ -397,7 +397,6 @@ mod tests {
             error::GroupChannelError,
             group::GroupChannel,
             jobs::{
-                error::JobFactoryError,
                 factory::{MAX_COINBASE_PREFIX_SIZE, MAX_SCRIPT_SIG_SIZE},
                 job_store::MAX_FUTURE_JOBS,
             },
@@ -931,7 +930,7 @@ mod tests {
     }
 
     #[test]
-    fn test_on_new_template_rejects_oversized_script_sig() {
+    fn test_on_new_template_accepts_max_size_coinbase_prefix() {
         let group_channel_id = 1;
         let full_extranonce_size = 32;
         let mut group_channel = GroupChannel::new(
@@ -958,43 +957,49 @@ mod tests {
             script_pubkey: script,
         }];
 
-        let template = |coinbase_prefix: Vec<u8>| NewTemplate {
-            template_id: 1,
-            future_template: true,
-            version: 536870912,
-            coinbase_tx_version: 2,
-            coinbase_prefix: coinbase_prefix.try_into().unwrap(),
-            coinbase_tx_input_sequence: 4294967295,
-            coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
-            coinbase_tx_outputs_count: 1,
-            coinbase_tx_outputs: vec![
-                0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
-                222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
-                139, 235, 216, 54, 151, 78, 140, 249,
-            ]
-            .try_into()
-            .unwrap(),
-            coinbase_tx_locktime: 0,
-            merkle_path: vec![].try_into().unwrap(),
+        // builds a template with the provided `coinbase_prefix`, reusing the same vectors as
+        // `test_new_pool_job` for everything else. a `coinbase_prefix` payload above the 8 byte
+        // cap is rejected by the `NewTemplate::coinbase_prefix` type and surfaces here as the
+        // codec error, instead of reaching the group channel
+        let template = |coinbase_prefix: Vec<u8>| -> Result<NewTemplate, binary_sv2::Error> {
+            let coinbase_prefix = coinbase_prefix.try_into()?;
+            Ok(NewTemplate {
+                template_id: 1,
+                future_template: true,
+                version: 536870912,
+                coinbase_tx_version: 2,
+                coinbase_prefix,
+                coinbase_tx_input_sequence: 4294967295,
+                coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
+                coinbase_tx_outputs_count: 1,
+                coinbase_tx_outputs: vec![
+                    0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113,
+                    209, 222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153,
+                    98, 180, 139, 235, 216, 54, 151, 78, 140, 249,
+                ]
+                .try_into()
+                .unwrap(),
+                coinbase_tx_locktime: 0,
+                merkle_path: vec![].try_into().unwrap(),
+            })
         };
 
         // a spec-compliant 8 byte coinbase_prefix fits exactly
         group_channel
             .on_new_template(
-                template(vec![0xab; MAX_COINBASE_PREFIX_SIZE]),
-                coinbase_reward_outputs.clone(),
+                template(vec![0xab; MAX_COINBASE_PREFIX_SIZE]).unwrap(),
+                coinbase_reward_outputs,
             )
             .unwrap();
 
-        // an out-of-spec Template Provider sending 9 bytes overflows the budget. without this
-        // check the group channel would distribute unmineable work to every channel in the group
-        let res = group_channel.on_new_template(
-            template(vec![0xab; MAX_COINBASE_PREFIX_SIZE + 1]),
-            coinbase_reward_outputs,
-        );
+        // an out-of-spec Template Provider sending 9 bytes overflows the budget; such a
+        // coinbase_prefix cannot be embedded in a template at all, so the codec error must
+        // surface instead of the group channel distributing unmineable work to every channel
+        // in the group
+        let oversized_template = template(vec![0xab; MAX_COINBASE_PREFIX_SIZE + 1]);
         assert!(matches!(
-            res.unwrap_err(),
-            GroupChannelError::JobFactoryError(JobFactoryError::ScriptSigSizeTooLarge)
+            oversized_template.unwrap_err(),
+            binary_sv2::Error::ValueExceedsMaxSize(false, 1, 1, 8, _, 9)
         ));
     }
 
