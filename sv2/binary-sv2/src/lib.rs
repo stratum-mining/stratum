@@ -22,6 +22,8 @@
 //! Str0255  <-> STRO_255
 //! Mac      <-> MAC
 //! Signature<-> SIGNATURE
+//! B08      <-> B0_255 with the payload capped at 8 bytes, the cap Spec 7.3 of the Template
+//! Distribution Protocol places on the coinbase_prefix of NewTemplate
 //! B032     <-> B0_32   
 //! B0255    <-> B0_255
 //! B064K    <-> B0_64K
@@ -66,10 +68,10 @@ pub use encodable::Encodable as Serialize;
 mod codec;
 mod datatypes;
 pub use datatypes::{
-    B016MOwned, B0255Owned, B032Owned, B064KOwned, EllSwiftPubKey, EllSwiftPubKeyOwned, Mac,
-    MacOwned, PubKey, PubKeyOwned, Seq0255, Seq0255Owned, Seq064K, Seq064KOwned, Signature,
+    B016MOwned, B0255Owned, B032Owned, B064KOwned, B08Owned, EllSwiftPubKey, EllSwiftPubKeyOwned,
+    Mac, MacOwned, PubKey, PubKeyOwned, Seq0255, Seq0255Owned, Seq064K, Seq064KOwned, Signature,
     SignatureOwned, Str0255, Str0255Owned, Sv2DataType, Sv2Option, Sv2OptionOwned, U256Owned,
-    B016M, B0255, B032, B064K, ERROR_SAMPLE_LEN, U24, U256,
+    B016M, B0255, B032, B064K, B08, ERROR_SAMPLE_LEN, U24, U256,
 };
 
 pub use crate::codec::{

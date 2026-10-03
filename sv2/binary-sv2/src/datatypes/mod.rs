@@ -37,10 +37,10 @@ use crate::codec::decodable::FieldMarker;
 pub use copy_data_types::U24;
 pub(crate) use non_copy_data_types::Inner;
 pub use non_copy_data_types::{
-    B016MOwned, B0255Owned, B032Owned, B064KOwned, EllSwiftPubKey, EllSwiftPubKeyOwned, Mac,
-    MacOwned, PubKey, PubKeyOwned, Seq0255, Seq0255Owned, Seq064K, Seq064KOwned, Signature,
+    B016MOwned, B0255Owned, B032Owned, B064KOwned, B08Owned, EllSwiftPubKey, EllSwiftPubKeyOwned,
+    Mac, MacOwned, PubKey, PubKeyOwned, Seq0255, Seq0255Owned, Seq064K, Seq064KOwned, Signature,
     SignatureOwned, Str0255, Str0255Owned, Sv2Option, Sv2OptionOwned, U256Owned, B016M, B0255,
-    B032, B064K, ERROR_SAMPLE_LEN, U256,
+    B032, B064K, B08, ERROR_SAMPLE_LEN, U256,
 };
 
 use alloc::vec::Vec;

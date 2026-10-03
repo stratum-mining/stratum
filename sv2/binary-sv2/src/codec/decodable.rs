@@ -1,8 +1,8 @@
 use crate::{
     codec::{GetSize, SizeHint},
     datatypes::{
-        B016MOwned, B0255Owned, B032Owned, B064KOwned, Mac, MacOwned, Signature, SignatureOwned,
-        Sv2DataType, U256Owned, B016M, B0255, B032, B064K, U24, U256,
+        B016MOwned, B0255Owned, B032Owned, B064KOwned, B08Owned, Mac, MacOwned, Signature,
+        SignatureOwned, Sv2DataType, U256Owned, B016M, B0255, B032, B064K, B08, U24, U256,
     },
     Error,
 };
@@ -68,6 +68,8 @@ pub enum PrimitiveMarker {
     U32,
     F32,
     U64,
+    B08,
+    B08Owned,
     B032,
     B032Owned,
     B0255,
@@ -122,6 +124,8 @@ pub enum DecodablePrimitive<'a> {
     U32(u32),
     F32(f32),
     U64(u64),
+    B08(B08<'a>),
+    B08Owned(B08Owned),
     B032(B032<'a>),
     B032Owned(B032Owned),
     B0255(B0255<'a>),
@@ -172,6 +176,8 @@ impl SizeHint for PrimitiveMarker {
             Self::U32 => u32::size_hint(data, offset),
             Self::F32 => f32::size_hint(data, offset),
             Self::U64 => u64::size_hint(data, offset),
+            Self::B08 => B08::size_hint(data, offset),
+            Self::B08Owned => B08Owned::size_hint(data, offset),
             Self::B032 => B032::size_hint(data, offset),
             Self::B032Owned => B032Owned::size_hint(data, offset),
             Self::B0255 => B0255::size_hint(data, offset),
@@ -308,6 +314,12 @@ impl PrimitiveMarker {
             Self::U64 => Ok(DecodablePrimitive::U64(u64::from_bytes_(
                 &mut data[offset..],
             )?)),
+            Self::B08 => Ok(DecodablePrimitive::B08(B08::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::B08Owned => Ok(DecodablePrimitive::B08Owned(B08Owned::from_bytes_(
+                &mut data[offset..],
+            )?)),
             Self::B032 => Ok(DecodablePrimitive::B032(B032::from_bytes_(
                 &mut data[offset..],
             )?)),
@@ -352,6 +364,8 @@ impl GetSize for DecodablePrimitive<'_> {
             DecodablePrimitive::U32(v) => v.get_size(),
             DecodablePrimitive::F32(v) => v.get_size(),
             DecodablePrimitive::U64(v) => v.get_size(),
+            DecodablePrimitive::B08(v) => v.get_size(),
+            DecodablePrimitive::B08Owned(v) => v.get_size(),
             DecodablePrimitive::B032(v) => v.get_size(),
             DecodablePrimitive::B032Owned(v) => v.get_size(),
             DecodablePrimitive::B0255(v) => v.get_size(),

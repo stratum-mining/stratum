@@ -71,6 +71,14 @@ pub type B064KOwned = InnerOwned<false, 1, 2, { u16::MAX as usize }>;
 /// represented using the `Inner` type with a 3-byte header.
 pub type B016M<'a> = Inner<'a, false, 1, 3, { 2_usize.pow(24) - 1 }>;
 pub type B016MOwned = InnerOwned<false, 1, 3, { 2_usize.pow(24) - 1 }>;
+/// Type alias for a variable-sized byte array with a maximum size of 8 bytes,
+/// represented using the `Inner` type with a 1-byte header.
+///
+/// Not a distinct wire type: it shares the `B0_255` encoding, and additionally enforces the
+/// Sv2 spec constraint that a `coinbase_prefix` payload is up to 8 bytes (not including the
+/// length byte), as described for `NewTemplate` (Template Distribution Protocol 7.3).
+pub type B08<'a> = Inner<'a, false, 1, 1, 8>;
+pub type B08Owned = InnerOwned<false, 1, 1, 8>;
 
 fn bytes_to_hex<'a>(bytes: impl IntoIterator<Item = &'a u8>) -> String {
     let mut hex = String::new();
@@ -129,6 +137,18 @@ impl Str0255Owned {
             Ok(s) => alloc::string::String::from(s),
             Err(_) => format!("0x{}", bytes_to_hex(self.as_bytes())),
         }
+    }
+}
+
+impl B08<'_> {
+    pub fn as_hex(&self) -> String {
+        format!("B08({})", HexPrefix(self.as_bytes()))
+    }
+}
+
+impl B08Owned {
+    pub fn as_hex(&self) -> String {
+        format!("B08({})", HexPrefix(self.as_bytes()))
     }
 }
 

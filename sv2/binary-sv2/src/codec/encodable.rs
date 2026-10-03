@@ -1,8 +1,8 @@
 use crate::{
     codec::GetSize,
     datatypes::{
-        B016MOwned, B0255Owned, B032Owned, B064KOwned, Mac, MacOwned, Signature, SignatureOwned,
-        Sv2DataType, U256Owned, B016M, B0255, B032, B064K, U24, U256,
+        B016MOwned, B0255Owned, B032Owned, B064KOwned, B08Owned, Mac, MacOwned, Signature,
+        SignatureOwned, Sv2DataType, U256Owned, B016M, B0255, B032, B064K, B08, U24, U256,
     },
     Error,
 };
@@ -69,6 +69,9 @@ pub enum EncodablePrimitive<'a> {
     F32(f32),
     /// U64 Primitive, representing a u64 type
     U64(u64),
+    /// B08 Primitive, same B0_255 encoding as B0255 with the payload capped at 8 bytes
+    B08(B08<'a>),
+    B08Owned(B08Owned),
     /// B032 Primitive, representing a B032 type
     B032(B032<'a>),
     B032Owned(B032Owned),
@@ -104,6 +107,8 @@ impl EncodablePrimitive<'_> {
             Self::U32(v) => v.to_slice(dst),
             Self::F32(v) => v.to_slice(dst),
             Self::U64(v) => v.to_slice(dst),
+            Self::B08(v) => v.to_slice(dst),
+            Self::B08Owned(v) => v.to_slice(dst),
             Self::B032(v) => v.to_slice(dst),
             Self::B032Owned(v) => v.to_slice(dst),
             Self::B0255(v) => v.to_slice(dst),
@@ -133,6 +138,8 @@ impl GetSize for EncodablePrimitive<'_> {
             Self::U32(v) => v.get_size(),
             Self::F32(v) => v.get_size(),
             Self::U64(v) => v.get_size(),
+            Self::B08(v) => v.get_size(),
+            Self::B08Owned(v) => v.get_size(),
             Self::B032(v) => v.get_size(),
             Self::B032Owned(v) => v.get_size(),
             Self::B0255(v) => v.get_size(),
