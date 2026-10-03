@@ -69,7 +69,7 @@ checksum = "32637268377fc7b10a8c6d51de3e7fba1ce5dd371a96e342b34e6078db558e7f"
 
 [[package]]
 name = "binary_sv2"
-version = "7.0.0"
+version = "7.0.1"
 dependencies = [
  "buffer_sv2",
  "derive_codec_sv2",
