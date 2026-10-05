@@ -145,15 +145,15 @@ impl GroupChannel {
 
     /// Handles a newly received [`NewExtendedMiningJob`](mining_sv2::NewExtendedMiningJob) message from upstream.
     ///
-    /// - If `min_ntime` is present, sets this job as active.
-    /// - If `min_ntime` is empty, stores it as a future job. At most [`MAX_FUTURE_JOBS`] future
+    /// - If `ntime_start` is present, sets this job as active.
+    /// - If `ntime_start` is empty, stores it as a future job. At most [`MAX_FUTURE_JOBS`] future
     ///   jobs are kept: storing a new one beyond that limit evicts the oldest.
     pub fn on_new_extended_mining_job(
         &mut self,
         new_extended_mining_job: NewExtendedMiningJobOwned,
     ) {
-        match new_extended_mining_job.min_ntime.clone().into_inner() {
-            Some(_min_ntime) => {
+        match new_extended_mining_job.ntime_start.clone().into_inner() {
+            Some(_ntime_start) => {
                 self.active_job = Some(new_extended_mining_job);
             }
             None => {
@@ -176,7 +176,8 @@ impl GroupChannel {
     /// Handles an upstream [`SetNewPrevHash`](SetNewPrevHashMp) message.
     ///
     /// Activates the future job matching `job_id` from the message, making it the active job.
-    /// The activated job carries the `min_ntime` from the message, so it is no longer a future job.
+    /// The activated job carries the `ntime_start` from the message, so it is no longer a future
+    /// job.
     /// Clears all other future jobs.
     ///
     /// Returns `Err(GroupChannelError::JobIdNotFound)` if no matching job found.
@@ -186,9 +187,9 @@ impl GroupChannel {
     ) -> Result<(), GroupChannelError> {
         match self.future_jobs.remove(&set_new_prev_hash.job_id) {
             Some(mut job) => {
-                // the activated job is no longer a future job, so it must carry a min_ntime,
+                // the activated job is no longer a future job, so it must carry an ntime_start,
                 // otherwise consumers dispatching on it would misclassify the active job
-                job.set_no_future(set_new_prev_hash.min_ntime);
+                job.set_no_future(set_new_prev_hash.ntime_start);
                 self.active_job = Some(job);
             }
             None => return Err(GroupChannelError::JobIdNotFound),
@@ -213,7 +214,7 @@ mod tests {
         let future_job = NewExtendedMiningJobOwned {
             channel_id: 1,
             job_id: 0,
-            min_ntime: Sv2Option::new(None),
+            ntime_start: Sv2Option::new(None),
             version: 536870912,
             version_rolling_allowed: true,
             coinbase_tx_prefix: vec![
@@ -258,7 +259,7 @@ mod tests {
         let future_job = NewExtendedMiningJobOwned {
             channel_id: 1,
             job_id: 0,
-            min_ntime: Sv2Option::new(None),
+            ntime_start: Sv2Option::new(None),
             version: 536870912,
             version_rolling_allowed: true,
             coinbase_tx_prefix: vec![
@@ -308,7 +309,7 @@ mod tests {
             ]
             .into(),
             nbits: 503543726,
-            min_ntime: 1746839905,
+            ntime_start: 1746839905,
         };
         group_channel
             .on_set_new_prev_hash(set_new_prev_hash)
@@ -334,18 +335,18 @@ mod tests {
     }
 
     #[test]
-    fn test_future_job_activation_propagates_min_ntime() {
-        // Regression test: the future job used to be promoted as-is, keeping min_ntime as
+    fn test_future_job_activation_propagates_ntime_start() {
+        // Regression test: the future job used to be promoted as-is, keeping ntime_start as
         // None, so is_future() still returned true on the active job.
         let channel_id = 1;
-        let min_ntime = 1745596970;
+        let ntime_start = 1745596970;
         let mut group_channel = GroupChannel::new(channel_id);
         group_channel.add_channel_id(1, 32).unwrap();
 
         let future_job = NewExtendedMiningJobOwned {
             channel_id,
             job_id: 1,
-            min_ntime: Sv2Option::new(None),
+            ntime_start: Sv2Option::new(None),
             version: 536870912,
             version_rolling_allowed: true,
             coinbase_tx_prefix: vec![
@@ -375,7 +376,7 @@ mod tests {
                 205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
             ]
             .into(),
-            min_ntime,
+            ntime_start,
             nbits: 545259519,
         };
 
@@ -385,6 +386,9 @@ mod tests {
 
         let active_job = group_channel.get_active_job().unwrap();
         assert!(!active_job.is_future());
-        assert_eq!(active_job.min_ntime.clone().into_inner(), Some(min_ntime));
+        assert_eq!(
+            active_job.ntime_start.clone().into_inner(),
+            Some(ntime_start)
+        );
     }
 }

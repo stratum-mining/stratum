@@ -26,11 +26,11 @@ pub struct SubmitSolution<'decoder> {
     /// nTime field in the block header.
     ///
     /// This **must** be greater than or equal to previously received
-    /// [`crate::SetNewPrevHash::header_timestamp`] and lower than or equal to that value plus the
-    /// number of seconds since receiving [`crate::SetNewPrevHash`] that message.
-    pub header_timestamp: u32,
+    /// [`crate::SetNewPrevHash::ntime_start`]. No protocol-level upper bound is imposed: network
+    /// rules already reject a block header nTime too far in the future.
+    pub ntime: u32,
     /// Nonce field in the header.
-    pub header_nonce: u32,
+    pub nonce: u32,
     /// Full serialized coinbase transaction, meeting all the requirements of the `NewMiningJob` or
     /// `NewExtendedMiningJob` message.
     pub coinbase_tx: B064K<'decoder>,
@@ -40,11 +40,11 @@ impl fmt::Display for SubmitSolution<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "SubmitSolution {{ template_id: {}, version: 0x{:08x}, header_timestamp: {}, header_nonce: 0x{:08x}, coinbase_tx: {} }}",
+            "SubmitSolution {{ template_id: {}, version: 0x{:08x}, ntime: {}, nonce: 0x{:08x}, coinbase_tx: {} }}",
             self.template_id,
             self.version,
-            self.header_timestamp,
-            self.header_nonce,
+            self.ntime,
+            self.nonce,
             self.coinbase_tx
         )
     }
@@ -54,11 +54,11 @@ impl fmt::Display for SubmitSolutionOwned {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "SubmitSolution {{ template_id: {}, version: 0x{:08x}, header_timestamp: {}, header_nonce: 0x{:08x}, coinbase_tx: {} }}",
+            "SubmitSolution {{ template_id: {}, version: 0x{:08x}, ntime: {}, nonce: 0x{:08x}, coinbase_tx: {} }}",
             self.template_id,
             self.version,
-            self.header_timestamp,
-            self.header_nonce,
+            self.ntime,
+            self.nonce,
             self.coinbase_tx
         )
     }

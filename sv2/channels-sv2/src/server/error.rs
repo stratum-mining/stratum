@@ -34,9 +34,9 @@ pub enum ExtendedChannelError {
     ExtranoncePrefixTooLarge,
     ScriptSigSizeTooLarge,
     InvalidJobOrigin,
-    /// An immediately-active job carried a `min_ntime` below the `min_ntime` of the chain tip it
-    /// is mined against; the job is discarded and the channel left unchanged.
-    JobMinNtimeBelowChainTip,
+    /// An immediately-active job carried an `ntime_start` below the `ntime_start` of the chain tip
+    /// it is mined against; the job is discarded and the channel left unchanged.
+    JobNtimeStartBelowChainTip,
     /// A group job advertises version rolling while the channel's policy forbids it; the job is
     /// discarded and the channel left unchanged, see
     /// [`ExtendedChannel::on_group_channel_job`](super::extended::ExtendedChannel::on_group_channel_job).
@@ -82,7 +82,7 @@ pub enum StandardChannelError {
     ChainTipNotSet,
     FailedToConvertToStandardJob,
     ScriptSigSizeTooLarge,
-    /// An immediately-active job carried a `min_ntime` below the `min_ntime` of the chain tip it
-    /// is mined against; the job is discarded and the channel left unchanged.
-    JobMinNtimeBelowChainTip,
+    /// An immediately-active job carried an `ntime_start` below the `ntime_start` of the chain tip
+    /// it is mined against; the job is discarded and the channel left unchanged.
+    JobNtimeStartBelowChainTip,
 }

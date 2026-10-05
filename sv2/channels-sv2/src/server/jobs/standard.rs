@@ -52,9 +52,9 @@ impl Job for StandardJob {
         &self.extranonce_prefix
     }
 
-    /// Activates the job by setting the minimum ntime field.
-    fn activate(&mut self, min_ntime: u32) {
-        self.activate(min_ntime);
+    /// Activates the job by setting the `ntime_start` field.
+    fn activate(&mut self, ntime_start: u32) {
+        self.activate(ntime_start);
     }
 }
 
@@ -114,18 +114,18 @@ impl StandardJob {
     pub fn get_version(&self) -> u32 {
         self.job_message.version
     }
-    /// Returns the minimum ntime for this job (if set).
-    pub fn get_min_ntime(&self) -> Option<u32> {
-        self.job_message.min_ntime.as_ref().copied()
+    /// Returns the `ntime_start` for this job (if set).
+    pub fn get_ntime_start(&self) -> Option<u32> {
+        self.job_message.ntime_start.as_ref().copied()
     }
     /// Returns true if the job is a future job (not yet activated).
     pub fn is_future(&self) -> bool {
-        self.get_min_ntime().is_none()
+        self.get_ntime_start().is_none()
     }
-    /// Activates the job by setting the minimum ntime field.
+    /// Activates the job by setting the `ntime_start` field.
     ///
     /// Should be called when activating future jobs.
-    pub fn activate(&mut self, min_ntime: u32) {
-        self.job_message.min_ntime = Sv2OptionOwned::new(Some(min_ntime));
+    pub fn activate(&mut self, ntime_start: u32) {
+        self.job_message.ntime_start = Sv2OptionOwned::new(Some(ntime_start));
     }
 }

@@ -13,7 +13,7 @@ use template_distribution_sv2::{
 /// - creating non-future jobs
 /// - validating shares.
 ///
-/// Only `prev_hash`, `nbits` and the minimum `nTime` are carried. The Template Distribution
+/// Only `prev_hash`, `nbits` and `ntime_start` are carried. The Template Distribution
 /// `SetNewPrevHash.target`, which a Template Provider may set below the target `nbits` encodes
 /// (weak-block propagation), is deliberately not: `channels_sv2` currently does not support
 /// weak-block propagation, so the block-validity threshold is the one `nbits` encodes, and share
@@ -22,16 +22,16 @@ use template_distribution_sv2::{
 pub struct ChainTip {
     prev_hash: U256Owned,
     nbits: u32,
-    min_ntime: u32,
+    ntime_start: u32,
 }
 
 impl ChainTip {
     /// Constructs a new `ChainTip` instance.
-    pub fn new(prev_hash: U256Owned, nbits: u32, min_ntime: u32) -> Self {
+    pub fn new(prev_hash: U256Owned, nbits: u32, ntime_start: u32) -> Self {
         Self {
             prev_hash,
             nbits,
-            min_ntime,
+            ntime_start,
         }
     }
 
@@ -45,9 +45,9 @@ impl ChainTip {
         self.nbits
     }
 
-    /// Retrieves the smallest nTime value available for hashing
-    pub fn min_ntime(&self) -> u32 {
-        self.min_ntime
+    /// Retrieves the nTime value at which hashing starts
+    pub fn ntime_start(&self) -> u32 {
+        self.ntime_start
     }
 }
 
@@ -57,7 +57,7 @@ impl From<SetNewPrevHashTdpOwned> for ChainTip {
         Self::new(
             set_new_prev_hash.prev_hash,
             set_new_prev_hash.n_bits,
-            set_new_prev_hash.header_timestamp,
+            set_new_prev_hash.ntime_start,
         )
     }
 }
@@ -67,7 +67,7 @@ impl From<SetNewPrevHashMpOwned> for ChainTip {
         Self::new(
             set_new_prev_hash.prev_hash,
             set_new_prev_hash.nbits,
-            set_new_prev_hash.min_ntime,
+            set_new_prev_hash.ntime_start,
         )
     }
 }
@@ -78,8 +78,8 @@ impl From<SetNewPrevHashTdp<'_>> for ChainTip {
         let set_new_prev_hash_static = set_new_prev_hash.into_owned();
         let prev_hash = set_new_prev_hash_static.prev_hash;
         let nbits = set_new_prev_hash_static.n_bits;
-        let min_ntime = set_new_prev_hash_static.header_timestamp;
-        Self::new(prev_hash, nbits, min_ntime)
+        let ntime_start = set_new_prev_hash_static.ntime_start;
+        Self::new(prev_hash, nbits, ntime_start)
     }
 }
 
@@ -88,7 +88,7 @@ impl From<SetNewPrevHashMp<'_>> for ChainTip {
         let set_new_prev_hash_static = set_new_prev_hash.into_owned();
         let prev_hash = set_new_prev_hash_static.prev_hash;
         let nbits = set_new_prev_hash_static.nbits;
-        let min_ntime = set_new_prev_hash_static.min_ntime;
-        Self::new(prev_hash, nbits, min_ntime)
+        let ntime_start = set_new_prev_hash_static.ntime_start;
+        Self::new(prev_hash, nbits, ntime_start)
     }
 }

@@ -32,9 +32,9 @@ pub enum ExtendedChannelError {
     RequestIdMismatch,
     NoChainTip,
     ChainTipMismatch,
-    /// An immediately-active job carried a `min_ntime` below the `min_ntime` of the chain tip it
-    /// is mined against; the job is discarded and the channel left unchanged.
-    JobMinNtimeBelowChainTip,
+    /// An immediately-active job carried an `ntime_start` below the `ntime_start` of the chain tip
+    /// it is mined against; the job is discarded and the channel left unchanged.
+    JobNtimeStartBelowChainTip,
 }
 
 /// Errors that can occur within a **standard channel** context.
@@ -58,9 +58,9 @@ pub enum StandardChannelError {
     /// The coinbase transaction of a group channel job is malformed, so no merkle root
     /// could be derived from it.
     InvalidCoinbase,
-    /// An immediately-active job carried a `min_ntime` below the `min_ntime` of the chain tip it
-    /// is mined against; the job is discarded and the channel left unchanged.
-    JobMinNtimeBelowChainTip,
+    /// An immediately-active job carried an `ntime_start` below the `ntime_start` of the chain tip
+    /// it is mined against; the job is discarded and the channel left unchanged.
+    JobNtimeStartBelowChainTip,
 }
 
 /// Errors that can occur within a **group channel** context.

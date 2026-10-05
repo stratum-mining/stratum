@@ -375,7 +375,7 @@ impl GroupChannel {
                 // dropped instead of being retired into past/stale history
                 if !self.job_store.activate_future_job_replacing_active(
                     set_new_prev_hash.template_id,
-                    set_new_prev_hash.header_timestamp,
+                    set_new_prev_hash.ntime_start,
                 ) {
                     return Err(GroupChannelError::TemplateIdNotFound);
                 }
@@ -475,7 +475,7 @@ mod tests {
         let expected_job = NewExtendedMiningJob {
             channel_id: 1,
             job_id: 1,
-            min_ntime: Sv2Option::new(None),
+            ntime_start: Sv2Option::new(None),
             version: 536870912,
             version_rolling_allowed: true,
             coinbase_tx_prefix: vec![
@@ -508,7 +508,7 @@ mod tests {
                 205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
             ]
             .into(),
-            header_timestamp: ntime,
+            ntime_start: ntime,
             n_bits: 503543726,
             target: [
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -602,7 +602,7 @@ mod tests {
         let expected_job = NewExtendedMiningJob {
             channel_id: 1,
             job_id: 1,
-            min_ntime: Sv2Option::new(Some(ntime)),
+            ntime_start: Sv2Option::new(Some(ntime)),
             version: 536870912,
             version_rolling_allowed: true,
             coinbase_tx_prefix: vec![
@@ -799,7 +799,7 @@ mod tests {
                 205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
             ]
             .into(),
-            header_timestamp: 1746839905,
+            ntime_start: 1746839905,
             n_bits: 503543726,
             target: [
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -837,7 +837,7 @@ mod tests {
         let set_new_prev_hash = SetNewPrevHash {
             template_id: 0,
             prev_hash: prev_hash.clone(),
-            header_timestamp: 1746839905,
+            ntime_start: 1746839905,
             n_bits: 503543726,
             target: [
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -852,7 +852,7 @@ mod tests {
 
         let chain_tip = group_channel.get_chain_tip().unwrap();
         assert_eq!(chain_tip.prev_hash(), prev_hash);
-        assert_eq!(chain_tip.min_ntime(), 1746839905);
+        assert_eq!(chain_tip.ntime_start(), 1746839905);
         assert_eq!(chain_tip.nbits(), 503543726);
         // no job could have been activated
         assert!(group_channel.get_active_job().is_none());
@@ -1092,7 +1092,7 @@ mod tests {
                 205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
             ]
             .into(),
-            header_timestamp: 1746839905,
+            ntime_start: 1746839905,
             n_bits: 503543726,
             target: [
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,

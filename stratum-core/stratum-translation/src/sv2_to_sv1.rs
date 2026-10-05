@@ -68,10 +68,10 @@ pub fn build_sv1_notify_from_sv2(
     let bits = HexU32Be(new_prev_hash.nbits);
     let time = HexU32Be(
         new_job
-            .min_ntime
+            .ntime_start
             .clone()
             .into_inner()
-            .unwrap_or(new_prev_hash.min_ntime),
+            .unwrap_or(new_prev_hash.ntime_start),
     );
 
     let notify_response = server_to_client::Notify {
@@ -92,7 +92,7 @@ pub fn build_sv1_notify_from_sv2(
 /// Builds an SV1 `mining.set_difficulty` JSON-RPC message from an SV2 `SetTarget`.
 ///
 /// # Arguments
-/// * `set_target` - The SV2 `SetTarget` message containing the new maximum target.
+/// * `set_target` - The SV2 `SetTarget` message containing the new target.
 ///
 /// # Returns
 /// * `Ok(json_rpc::Message)` - The constructed SV1 mining.set_difficulty message.
@@ -100,12 +100,7 @@ pub fn build_sv1_set_difficulty_from_sv2_set_target(
     set_target: SetTargetOwned,
 ) -> Result<json_rpc::Message> {
     build_sv1_set_difficulty_from_sv2_target(Target::from_le_bytes(
-        set_target
-            .maximum_target
-            .clone()
-            .as_ref()
-            .try_into()
-            .unwrap(),
+        set_target.target.clone().as_ref().try_into().unwrap(),
     ))
 }
 
@@ -308,7 +303,7 @@ mod tests {
     fn test_build_sv1_set_difficulty_from_sv2_set_target() {
         let set_target = Sv2SetTarget {
             channel_id: 1,
-            maximum_target: dummy_target().to_le_bytes().into(),
+            target: dummy_target().to_le_bytes().into(),
         };
         let msg = build_sv1_set_difficulty_from_sv2_set_target(set_target)
             .expect("Should convert SetTarget to difficulty");
@@ -482,18 +477,18 @@ mod tests {
                 205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
             ]
             .into(),
-            min_ntime: 1746839904,
+            ntime_start: 1746839904,
             nbits: 503543726,
         };
 
-        // A future job (min_ntime is None)
+        // A future job (ntime_start is None)
         let job = NewExtendedMiningJob {
             channel_id: 1,
             job_id: 456,
             version: 536870912,
             version_rolling_allowed: true,
             merkle_path: Seq0255::new(vec![U256::from([0x03u8; 32])]).unwrap(),
-            min_ntime: Sv2Option::new(None), // Future job
+            ntime_start: Sv2Option::new(None), // Future job
             coinbase_tx_prefix: vec![
                 2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 34, 82, 0,
@@ -515,7 +510,7 @@ mod tests {
         let res = build_sv1_notify_from_sv2(new_prev, job, true);
         assert!(res.is_ok());
 
-        // Verify it uses prev_hash.min_ntime since job is future
+        // Verify it uses prev_hash.ntime_start since job is future
         let notify = res.unwrap();
         assert_eq!(notify.time.0, 1746839904);
     }
@@ -531,7 +526,7 @@ mod tests {
                 205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
             ]
             .into(),
-            min_ntime: 1746839904,
+            ntime_start: 1746839904,
             nbits: 503543726,
         };
 
@@ -542,7 +537,7 @@ mod tests {
             version: 536870912,
             version_rolling_allowed: true,
             merkle_path: Seq0255::new(vec![U256::from([0x03u8; 32])]).unwrap(),
-            min_ntime: Sv2Option::new(Some(1746839905)), // Non-future job with specific timestamp
+            ntime_start: Sv2Option::new(Some(1746839905)), // Non-future job with specific timestamp
             coinbase_tx_prefix: vec![
                 2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 34, 82, 0,
@@ -571,7 +566,7 @@ mod tests {
         assert_eq!(notify.merkle_branch.len(), 1); // One merkle node
         assert_eq!(notify.version.0, 536870912);
         assert_eq!(notify.bits.0, 503543726);
-        assert_eq!(notify.time.0, 1746839905); // Should use job's min_ntime since not future
+        assert_eq!(notify.time.0, 1746839905); // Should use job's ntime_start since not future
 
         // Verify coinbase prefix and suffix are properly set
         assert!(!notify.coin_base1.is_empty());
