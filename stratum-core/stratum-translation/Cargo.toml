@@ -10,10 +10,10 @@ name = "stratum_translation"
 path = "src/lib.rs"
 
 [dependencies]
-binary_sv2 = { path = "../../sv2/binary-sv2", version = "^7.0.0" }
+binary_sv2 = { path = "../../sv2/binary-sv2", version = "^8.0.0" }
 mining_sv2 = { path = "../../sv2/subprotocols/mining", version = "^13.0.0" }
 channels_sv2 = { path = "../../sv2/channels-sv2", version = "^9.0.0" }
-v1 = { path = "../../sv1", package = "sv1_api", version = "^6.0.0" }
+v1 = { path = "../../sv1", package = "sv1_api", version = "^7.0.0" }
 tracing = { workspace = true }
 bitcoin = { workspace = true }
 serde_json = { workspace = true }
