@@ -664,7 +664,7 @@ impl<T: Buffer> BufferPool<T> {
                     self.inner_memory.reset_raw();
                     self.system_memory.reserve(len)
                 }
-                Err(_) => panic!(),
+                Err(PoolMode::Back) => unreachable!("clearing the back never asks for the back"),
             }
         }
     }
@@ -748,16 +748,12 @@ impl<T: Buffer> BufferPool<T> {
                 self.mode = mode;
             }
             (PoolMode::Front(_), PoolMode::Alloc) => {
-                panic!();
+                unreachable!("front mode only ever gives way to the back")
             }
-            (PoolMode::Back, PoolMode::Back) => {
-                panic!();
-            }
-            (PoolMode::Front(_), PoolMode::Front(_)) => {
-                panic!();
-            }
-            (PoolMode::Alloc, PoolMode::Alloc) => {
-                panic!();
+            (PoolMode::Back, PoolMode::Back)
+            | (PoolMode::Front(_), PoolMode::Front(_))
+            | (PoolMode::Alloc, PoolMode::Alloc) => {
+                unreachable!("a mode change always leaves the current mode")
             }
         }
     }
