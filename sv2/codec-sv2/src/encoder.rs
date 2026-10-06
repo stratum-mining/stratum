@@ -377,9 +377,6 @@ mod prop_tests {
         };
 
         let mut encoder = Encoder::new();
-        // Use .is_ok() to immediately drop each encoded slice before the encoder goes out of
-        // scope. With the buffer pool feature, the pool's Drop spins until all live slices are
-        // released, so slices must not outlive the encoder.
         let ok1 = encoder.encode(frame1).is_ok();
         let ok2 = encoder.encode(frame2).is_ok();
         TestResult::from_bool(ok1 && ok2)
