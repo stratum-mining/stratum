@@ -776,3 +776,27 @@ fn switching_front_to_back_does_not_overwrite_a_live_slice() {
     assert_eq!(live_front.as_ref(), &[0x55; 10]);
     assert_eq!(new_back.as_ref(), &[0x66; 20]);
 }
+
+#[test]
+fn freeing_every_front_slot_keeps_the_back_slices_live() {
+    let mut pool = Pool::new(80);
+    let mut back = Vec::new();
+    for value in 0_u8..8 {
+        pool.get_writable(10).fill(value);
+        back.push(pool.get_data_owned());
+    }
+    back.remove(0);
+
+    pool.get_writable(1).fill(0x11);
+    let front = pool.get_data_owned();
+    assert!(pool.is_front_mode());
+    drop(front);
+
+    pool.get_writable(1).fill(0x22);
+    let next = pool.get_data_owned();
+
+    assert_eq!(next.as_ref(), &[0x22]);
+    for (value, slice) in (1_u8..8).zip(&back) {
+        assert_eq!(slice.as_ref(), &[value; 10]);
+    }
+}

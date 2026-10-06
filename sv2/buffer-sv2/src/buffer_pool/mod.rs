@@ -107,6 +107,7 @@ impl PoolFront {
             8 => {
                 self.len = 0;
 
+                memory.len = self.len;
                 let raw_offset = memory.raw_offset();
                 memory.move_raw_at_offset_unchecked(raw_offset);
 
