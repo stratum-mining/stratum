@@ -1,12 +1,11 @@
 use super::Job;
 use crate::{
-    merkle_root::merkle_root_from_path,
     outputs::deserialize_template_outputs,
-    server::jobs::{error::ExtendedJobError, standard::StandardJob, JobOrigin},
+    server::jobs::{error::ExtendedJobError, JobOrigin},
 };
 use binary_sv2::{Seq0255Owned, Sv2OptionOwned, U256Owned};
 use bitcoin::transaction::TxOut;
-use mining_sv2::{NewExtendedMiningJobOwned, NewMiningJobOwned, SetCustomMiningJobOwned};
+use mining_sv2::{NewExtendedMiningJobOwned, SetCustomMiningJobOwned};
 use template_distribution_sv2::NewTemplateOwned;
 
 /// Abstraction of an extended mining job with:
@@ -97,51 +96,6 @@ impl ExtendedJob {
             coinbase_tx_suffix_with_bip141: coinbase_tx_suffix,
             job_message,
         }
-    }
-
-    /// Converts the `ExtendedJob` into a `StandardJob`.
-    ///
-    /// Only possible if the job was created from a `NewTemplate`.
-    /// Jobs created from `SetCustomMiningJob` cannot be converted
-    pub fn into_standard_job(
-        self,
-        channel_id: u32,
-        extranonce_prefix: Vec<u8>,
-    ) -> Result<StandardJob, ExtendedJobError> {
-        // here we can only convert extended jobs that were created from a template
-        let template = match self.get_origin() {
-            JobOrigin::NewTemplate(template) => template,
-            JobOrigin::SetCustomMiningJob(_) => {
-                return Err(ExtendedJobError::FailedToConvertToStandardJob);
-            }
-        };
-
-        let merkle_root = merkle_root_from_path(
-            &self.get_coinbase_tx_prefix_without_bip141(),
-            &self.get_coinbase_tx_suffix_without_bip141(),
-            &extranonce_prefix,
-            self.get_merkle_path().as_slice(),
-        )
-        .ok_or(ExtendedJobError::FailedToCalculateMerkleRoot)?
-        .into();
-
-        let standard_job_message = NewMiningJobOwned {
-            channel_id,
-            job_id: self.get_job_id(),
-            merkle_root,
-            version: self.get_version(),
-            ntime_start: self.job_message.ntime_start.clone(),
-        };
-
-        let standard_job = StandardJob::from_template(
-            template.clone(),
-            extranonce_prefix,
-            self.get_coinbase_outputs().to_vec(),
-            standard_job_message,
-        )
-        .map_err(|_| ExtendedJobError::FailedToConvertToStandardJob)?;
-
-        Ok(standard_job)
     }
 
     /// Returns the job ID for this job.

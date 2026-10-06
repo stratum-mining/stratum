@@ -7,14 +7,14 @@ pub enum ExtendedJobError {
     CoinbaseInputCountMismatch,
     FailedToSerializeCoinbaseOutputs,
     FailedToSerializeCoinbasePrefix,
-    FailedToConvertToStandardJob,
-    FailedToCalculateMerkleRoot,
     FutureJobNotAllowed,
     InvalidNtimeStart,
 }
 
 pub enum StandardJobError {
     FailedToDeserializeCoinbaseOutputs,
+    InvalidJobOrigin,
+    FailedToCalculateMerkleRoot,
 }
 
 #[derive(Debug)]

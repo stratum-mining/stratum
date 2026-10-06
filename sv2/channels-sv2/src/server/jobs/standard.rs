@@ -20,8 +20,9 @@
 //! mining servers.
 
 use crate::{
+    merkle_root::merkle_root_from_path,
     outputs::deserialize_template_outputs,
-    server::jobs::{error::StandardJobError, Job},
+    server::jobs::{error::StandardJobError, extended::ExtendedJob, Job, JobOrigin},
 };
 use binary_sv2::{Sv2OptionOwned, U256Owned};
 use bitcoin::transaction::TxOut;
@@ -83,6 +84,51 @@ impl StandardJob {
             template,
             extranonce_prefix,
             coinbase_outputs,
+            job_message,
+        })
+    }
+    /// Creates a standard job out of the extended job broadcast to a group channel.
+    ///
+    /// The standard job shares the extended job's coinbase: its merkle root is derived from the
+    /// extended job's coinbase prefix and suffix around `extranonce_prefix`, and it carries the
+    /// extended job's coinbase outputs as they are.
+    ///
+    /// Group channel jobs always originate from a `NewTemplate`, which is also what a
+    /// [`StandardJob`] is anchored to (its block-found coinbase and `template_id` are read from
+    /// it). An extended job originating from `SetCustomMiningJob` belongs to a single extended
+    /// channel, never to a group channel, so passing one here is refused with
+    /// [`StandardJobError::InvalidJobOrigin`].
+    pub(crate) fn from_group_extended_job(
+        extended_job: &ExtendedJob,
+        channel_id: u32,
+        extranonce_prefix: Vec<u8>,
+    ) -> Result<Self, StandardJobError> {
+        let template = match extended_job.get_origin() {
+            JobOrigin::NewTemplate(template) => template,
+            JobOrigin::SetCustomMiningJob(_) => return Err(StandardJobError::InvalidJobOrigin),
+        };
+
+        let merkle_root = merkle_root_from_path(
+            &extended_job.get_coinbase_tx_prefix_without_bip141(),
+            &extended_job.get_coinbase_tx_suffix_without_bip141(),
+            &extranonce_prefix,
+            extended_job.get_merkle_path().as_slice(),
+        )
+        .ok_or(StandardJobError::FailedToCalculateMerkleRoot)?
+        .into();
+
+        let job_message = NewMiningJobOwned {
+            channel_id,
+            job_id: extended_job.get_job_id(),
+            merkle_root,
+            version: extended_job.get_version(),
+            ntime_start: Sv2OptionOwned::new(extended_job.get_ntime_start()),
+        };
+
+        Ok(Self {
+            template: template.clone(),
+            extranonce_prefix,
+            coinbase_outputs: extended_job.get_coinbase_outputs().to_vec(),
             job_message,
         })
     }
