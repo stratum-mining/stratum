@@ -243,7 +243,7 @@ impl PoolBack {
         match self.clear_unchecked(memory, shared_state, len) {
             Ok(_) => {
                 let pool_has_byte_capacity = memory.has_tail_capacity(len);
-                let pool_has_slice_capacity = self.len < POOL_CAPACITY;
+                let pool_has_slice_capacity = (self.len + self.back_start) < POOL_CAPACITY;
 
                 if pool_has_byte_capacity && pool_has_slice_capacity {
                     #[cfg(feature = "fuzz")]
