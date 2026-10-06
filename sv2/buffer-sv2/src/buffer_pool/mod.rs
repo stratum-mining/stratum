@@ -60,7 +60,7 @@ pub const POOL_CAPACITY: usize = 8;
 // Handles the allocation of memory slices at the front of the buffer pool. It tracks the number of
 // slices in use and attempts to free unused slices when necessary to maximize available memory.
 // The front of the buffer pool is used if the back of the buffer pool is filled up.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct PoolFront {
     // Starting index of the front section of the buffer pool.
     back_start: usize,
@@ -182,7 +182,7 @@ impl PoolFront {
 /// The pool operates in three modes based on memory availability: it first allocates from the
 /// back, then from the front if the back is full, and finally from system memory (with reduced
 /// performance) if both sections are exhausted.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum PoolMode {
     /// The buffer pool is operating in "back" mode, where memory is allocated from the back of the
     /// buffer pool.
@@ -327,22 +327,7 @@ impl InnerMemory {
     // the current memory length and slot usage.
     #[inline(always)]
     fn raw_offset(&self) -> usize {
-        match self.len {
-            0 => 0,
-            _ => {
-                let index = self.len - 1;
-                #[cfg(feature = "fuzz")]
-                assert!(
-                    index < POOL_CAPACITY
-                        && self.slots[index].1 != 0_usize
-                        && self.slots[index].0 + self.slots[index].1 <= self.capacity()
-                );
-
-                let (index, len) = self.slots[index];
-
-                index + len
-            }
-        }
+        self.raw_offset_from_len(self.len)
     }
 
     // Calculates the offset for a specific length of memory. Returns the offset based on the
@@ -367,20 +352,10 @@ impl InnerMemory {
         }
     }
 
-    // Moves the raw data to the front of the memory pool to avoid fragmentation, if necessary.
-    //
-    // Used to compact the raw data by moving all the active slices to the front of the memory
-    // pool, making the pool contiguous again. This process is only performed when needed to free
-    // up space for new allocations without increasing the total memory footprint.
+    // Moves the raw data to the front of the memory pool, once no live slice comes before it.
     #[inline(always)]
     fn move_raw_at_front(&mut self) {
-        match self.raw_len {
-            0 => self.raw_offset = 0,
-            _ => {
-                self.copy_within(self.raw_offset, self.raw_len, 0);
-                self.raw_offset = 0;
-            }
-        }
+        self.move_raw_at_offset(0);
     }
 
     // Returns the offset right after the highest front slot still live in `shared_state`, or `0`
@@ -570,7 +545,6 @@ impl BufferPool<BufferFromSystemMemory> {
 
 #[cfg(test)]
 impl BufferPool<TestBufferFromMemory> {
-    #[cfg(test)]
     pub fn new_fail_system_memory(capacity: usize) -> Self {
         Self {
             pool_back: PoolBack::new(),
@@ -590,11 +564,7 @@ impl<T: Buffer> BufferPool<T> {
     /// using the front section for memory allocation. Returns `true` if the pool is in front mode,
     /// otherwise `false`.
     pub fn is_front_mode(&self) -> bool {
-        match self.mode {
-            PoolMode::Back => false,
-            PoolMode::Front(_) => true,
-            PoolMode::Alloc => false,
-        }
+        matches!(self.mode, PoolMode::Front(_))
     }
 
     /// Checks if the buffer pool is operating in the back mode.
@@ -602,11 +572,7 @@ impl<T: Buffer> BufferPool<T> {
     /// The back mode is the default state, where the buffer pool first tries to allocate memory.
     /// Returns `true` if the pool is in back mode, otherwise `false`.
     pub fn is_back_mode(&self) -> bool {
-        match self.mode {
-            PoolMode::Back => true,
-            PoolMode::Front(_) => false,
-            PoolMode::Alloc => false,
-        }
+        matches!(self.mode, PoolMode::Back)
     }
 
     /// Checks if the buffer pool is operating in the system memory allocation mode.
@@ -615,11 +581,7 @@ impl<T: Buffer> BufferPool<T> {
     /// leading the system to allocate memory from the heap, which has performance trade-offs.
     /// Returns `true` if the pool is in alloc mode, otherwise `false`.
     pub fn is_alloc_mode(&self) -> bool {
-        match self.mode {
-            PoolMode::Back => false,
-            PoolMode::Front(_) => false,
-            PoolMode::Alloc => true,
-        }
+        matches!(self.mode, PoolMode::Alloc)
     }
 
     // Resets the buffer pool based on its current mode when the shared state indicates all slices
@@ -890,45 +852,44 @@ impl<T: Buffer> Buffer for BufferPool<T> {
             PoolMode::Alloc => 8,
         };
 
-        #[cfg(feature = "debug")]
         match &mut self.mode {
             PoolMode::Back => {
+                #[cfg(feature = "debug")]
                 println!(
                     "{} {} {}",
                     self.inner_memory.raw_offset, self.inner_memory.raw_len, self.inner_memory.len
                 );
-                let res = self.inner_memory.get_data_owned(mode);
-                self.pool_back
-                    .set_len_from_inner_memory(self.inner_memory.len);
-                println!(
-                    "{} {} {}",
-                    self.inner_memory.raw_offset, self.inner_memory.raw_len, self.inner_memory.len
-                );
-                println!("GET DATA BACK {:?}", self.inner_memory.slots);
-                res
-            }
-            PoolMode::Front(f) => {
-                let res = self.inner_memory.get_data_owned(mode);
-                f.len = self.inner_memory.len;
-                println!("GET DATA FRONT {:?}", self.inner_memory.slots);
-                res
-            }
-            PoolMode::Alloc => self.get_data_owned_from_system_memory(),
-        }
 
-        #[cfg(not(feature = "debug"))]
-        match &mut self.mode {
-            PoolMode::Back => {
-                // Retrieve data and update state in Back mode
-                let res = self.inner_memory.get_data_owned();
+                let res = self.inner_memory.get_data_owned(
+                    #[cfg(feature = "debug")]
+                    mode,
+                );
                 self.pool_back
                     .set_len_from_inner_memory(self.inner_memory.len);
+
+                #[cfg(feature = "debug")]
+                {
+                    println!(
+                        "{} {} {}",
+                        self.inner_memory.raw_offset,
+                        self.inner_memory.raw_len,
+                        self.inner_memory.len
+                    );
+                    println!("GET DATA BACK {:?}", self.inner_memory.slots);
+                }
+
                 res
             }
             PoolMode::Front(f) => {
-                // Retrieve data and update state in Front mode
-                let res = self.inner_memory.get_data_owned();
+                let res = self.inner_memory.get_data_owned(
+                    #[cfg(feature = "debug")]
+                    mode,
+                );
                 f.len = self.inner_memory.len;
+
+                #[cfg(feature = "debug")]
+                println!("GET DATA FRONT {:?}", self.inner_memory.slots);
+
                 res
             }
             PoolMode::Alloc => self.get_data_owned_from_system_memory(),
@@ -962,9 +923,8 @@ impl<T: Buffer> Buffer for BufferPool<T> {
     // - In alloc mode, it returns the length from the system memory buffer.
     fn len(&self) -> usize {
         match self.mode {
-            PoolMode::Back => self.inner_memory.raw_len,
-            PoolMode::Front(_) => self.inner_memory.raw_len,
             PoolMode::Alloc => self.system_memory.len(),
+            _ => self.inner_memory.raw_len,
         }
     }
 
