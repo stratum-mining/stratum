@@ -33,8 +33,9 @@
 //! free, it resorts to alloc mode, allocating memory from the system heap.
 //!
 //! For operations requiring dedicated buffers, the [`Slice`] type manages its own memory using
-//! [`Vec<u8>`](alloc::vec::Vec). In high-performance scenarios, [`Slice`] can reference externally managed memory
-//! from the [`BufferPool`], reducing dynamic memory allocations and increasing performance.
+//! [`Vec<u8>`](alloc::vec::Vec). In high-performance scenarios, [`Slice`] can reference externally
+//! managed memory from the [`BufferPool`], reducing dynamic memory allocations and increasing
+//! performance.
 //!
 //! ## Slices are scratch space
 //!
@@ -48,7 +49,6 @@
 //! Provides additional tracking for debugging memory management issues.
 
 #![cfg_attr(not(feature = "debug"), no_std)]
-//#![feature(backtrace)]
 
 mod buffer;
 mod buffer_pool;
@@ -64,12 +64,12 @@ pub use slice::Slice;
 
 /// Interface for working with memory buffers.
 ///
-/// An abstraction for buffer management, allowing implementors to handle either owned memory
-/// ([`Slice`] with [`Vec<u8>`](alloc::vec::Vec)). Utilities are provided to borrow writable memory, retrieve data
-/// from the buffer, and manage memory slices.
+/// Implemented by [`BufferPool`], which hands out slices of preallocated memory, and by
+/// [`BufferFromSystemMemory`], which hands out [`Vec<u8>`](alloc::vec::Vec)s. Utilities are
+/// provided to reserve writable memory, read back the frame being written, and hand it out.
 ///
-/// This trait is used during the serialization and deserialization
-/// of message types in the [`binary_sv2` crate](https://crates.io/crates/binary_sv2).
+/// The encoders and decoders of the [`codec_sv2` crate](https://crates.io/crates/codec_sv2) write
+/// frames through this trait.
 pub trait Buffer {
     /// The type of slice that the buffer uses.
     type Slice: AsMut<[u8]> + AsRef<[u8]> + Into<Slice>;
@@ -105,8 +105,8 @@ pub trait Buffer {
     /// buffer is returned.
     fn len(&self) -> usize;
 
-    /// Drops the committed bytes past `len`, like [`Vec::truncate`](alloc::vec::Vec::truncate): a `len` at or past the
-    /// committed length changes nothing, so the frame can only shrink.
+    /// Drops the committed bytes past `len`, like [`Vec::truncate`](alloc::vec::Vec::truncate): a
+    /// `len` at or past the committed length changes nothing, so the frame can only shrink.
     fn truncate(&mut self, len: usize);
 
     /// Returns `true` if the buffer is empty, `false` otherwise.

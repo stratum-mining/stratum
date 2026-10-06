@@ -11,7 +11,7 @@
 // Supports different allocation modes to optimize memory usage:
 //
 // - **Back Mode**: Allocates from the back of the buffer pool (default).
-// - **Front Mode**: Allocates from the front when the back is full the front has space.
+// - **Front Mode**: Allocates from the front when the back is full and the front has space.
 // - **Alloc Mode**: Falls back to heap allocation when the buffer pool cannot fulfill requests
 //   (with reduced performance).
 //
@@ -107,7 +107,7 @@ impl PoolFront {
 
                 memory.len = self.len;
                 let raw_offset = memory.raw_offset();
-                memory.move_raw_at_offset_unchecked(raw_offset);
+                memory.move_raw_at_offset(raw_offset);
 
                 true
             }
@@ -121,7 +121,7 @@ impl PoolFront {
 
                 memory.len = self.len;
                 let raw_offset = memory.raw_offset();
-                memory.move_raw_at_offset_unchecked(raw_offset);
+                memory.move_raw_at_offset(raw_offset);
 
                 true
             }
@@ -185,7 +185,7 @@ impl PoolFront {
 #[derive(Debug, Clone)]
 pub enum PoolMode {
     /// The buffer pool is operating in "back" mode, where memory is allocated from the back of the
-    // buffer pool.
+    /// buffer pool.
     Back,
 
     /// The buffer pool is operating in "front" mode, where memory is allocated from the front of
@@ -409,7 +409,7 @@ impl InnerMemory {
         let end = raw_offset + self.raw_len;
         if self.in_bounds(end, raw_len) {
             self.len = slot_len;
-            self.move_raw_at_offset_unchecked(raw_offset);
+            self.move_raw_at_offset(raw_offset);
             true
         } else {
             false
@@ -419,10 +419,9 @@ impl InnerMemory {
     // Moves the raw data to a specific offset within the memory pool to avoid fragmentation, if
     // necessary.
     //
-    // Misuse of this function can lead to undefined behavior, such as memory corruption or
-    // crashes, if it operates on out-of-bounds or misaligned memory.
+    // Panics if the data would not fit in the memory at `offset`.
     #[inline(always)]
-    fn move_raw_at_offset_unchecked(&mut self, offset: usize) {
+    fn move_raw_at_offset(&mut self, offset: usize) {
         match self.raw_len {
             0 => self.raw_offset = offset,
             _ => {
@@ -711,7 +710,7 @@ impl<T: Buffer> BufferPool<T> {
     // Returns ownership of the heap-allocated buffer data by converting it into a `Slice` for
     // further use or processing.
     #[inline(never)]
-    fn get_data_owned_from_sytem_memory(&mut self) -> Slice {
+    fn get_data_owned_from_system_memory(&mut self) -> Slice {
         self.system_memory.get_data_owned().into()
     }
 
@@ -727,7 +726,7 @@ impl<T: Buffer> BufferPool<T> {
             (PoolMode::Back, PoolMode::Alloc) => {
                 #[cfg(feature = "debug")]
                 println!(
-                    "BACK => ALLOc {} {:?}",
+                    "BACK => ALLOC {} {:?}",
                     self.pool_back.len(),
                     SystemTime::now()
                 );
@@ -748,7 +747,7 @@ impl<T: Buffer> BufferPool<T> {
             }
             (PoolMode::Front(_), PoolMode::Back) => {
                 #[cfg(feature = "debug")]
-                println!("FRONT +> BACL");
+                println!("FRONT => BACK");
 
                 if !self.pool_back.tail_is_clearable(shared_state) {
                     self.inner_memory.copy_into_buffer(&mut self.system_memory);
@@ -780,7 +779,7 @@ impl<T: Buffer> BufferPool<T> {
                 #[cfg(feature = "fuzz")]
                 assert!(shared_state.leading_zeros() > 0);
                 #[cfg(feature = "debug")]
-                println!("ALLOC +> FORNT {:?} {:b}", SystemTime::now(), shared_state);
+                println!("ALLOC => FRONT {:?} {:b}", SystemTime::now(), shared_state);
 
                 self.inner_memory.reset_raw();
                 self.inner_memory.len = 0;
@@ -914,7 +913,7 @@ impl<T: Buffer> Buffer for BufferPool<T> {
                 println!("GET DATA FRONT {:?}", self.inner_memory.slots);
                 res
             }
-            PoolMode::Alloc => self.get_data_owned_from_sytem_memory(),
+            PoolMode::Alloc => self.get_data_owned_from_system_memory(),
         }
 
         #[cfg(not(feature = "debug"))]
@@ -932,7 +931,7 @@ impl<T: Buffer> Buffer for BufferPool<T> {
                 f.len = self.inner_memory.len;
                 res
             }
-            PoolMode::Alloc => self.get_data_owned_from_sytem_memory(),
+            PoolMode::Alloc => self.get_data_owned_from_system_memory(),
         }
     }
 

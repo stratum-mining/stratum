@@ -29,7 +29,7 @@ use std::time::SystemTime;
 /// Allows [`Slice`] to be safely transferred between threads.
 ///
 /// [`Slice`] contains a raw pointer (`*mut u8`), so Rust cannot automatically implement [`Send`].
-/// The `unsafe` block asserts that memory access is thread-safe, relaying on `SharedState` and
+/// The `unsafe` block asserts that memory access is thread-safe, relying on `SharedState` and
 /// atomic operations to prevent data races.
 unsafe impl Send for Slice {}
 
@@ -49,7 +49,7 @@ pub struct Slice {
     // Mode flag to track the state of the slice during development.
     //
     // Useful for identifying whether the slice is being used correctly in different modes (e.g.,
-    // whether is is currently being written to or read from). Typically used for logging and
+    // whether it is currently being written to or read from). Typically used for logging and
     // debugging.
     #[cfg(feature = "debug")]
     mode: u8,
