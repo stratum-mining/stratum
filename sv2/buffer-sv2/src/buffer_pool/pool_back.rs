@@ -29,7 +29,7 @@ use crate::buffer_pool::{InnerMemory, PoolFront, PoolMode, POOL_CAPACITY};
 // Handles the allocation of memory slices at the back of the buffer pool. It tracks the number of
 // slices in use and attempts to free unused slices when necessary to maximize available memory.
 // The back of the buffer pool is used first, if it fills up, the front of the buffer pool is used.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct PoolBack {
     // Starting index of the back section of the buffer pool.
     back_start: usize,
