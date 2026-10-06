@@ -284,14 +284,6 @@ impl<B: IsBuffer> WithNoise<B> {
         Ok(())
     }
 
-    /// Determines whether the decoder's internal buffers can be safely dropped.
-    ///
-    /// For more information, refer to the [`buffer_sv2`
-    /// crate](https://docs.rs/buffer_sv2/latest/buffer_sv2/).
-    pub fn droppable(&self) -> bool {
-        self.noise_buffer.is_droppable() && self.sv2_buffer.is_droppable()
-    }
-
     // Decodes a Noise-encrypted Sv2 frame, handling both the message header and payload
     // decryption.
     //

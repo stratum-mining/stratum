@@ -153,11 +153,6 @@ impl<B: IsBuffer> WithNoise<B> {
         }
         Ok(())
     }
-
-    /// Determines whether the encoder's internal buffers can be safely dropped.
-    pub fn droppable(&self) -> bool {
-        self.noise_buffer.is_droppable() && self.sv2_buffer.is_droppable()
-    }
 }
 
 #[cfg(feature = "noise_sv2")]

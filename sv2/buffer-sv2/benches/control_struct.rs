@@ -205,10 +205,6 @@ impl Buffer for PPool {
     fn truncate(&mut self, _len: usize) {
         todo!()
     }
-
-    fn is_droppable(&self) -> bool {
-        todo!()
-    }
 }
 
 unsafe impl Send for SSlice {}
@@ -285,10 +281,6 @@ impl Buffer for MaxEfficiency {
     }
 
     fn truncate(&mut self, _len: usize) {
-        todo!()
-    }
-
-    fn is_droppable(&self) -> bool {
         todo!()
     }
 }

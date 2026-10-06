@@ -125,12 +125,6 @@ impl Buffer for BufferFromSystemMemory {
         self.cursor = self.cursor.min(len);
         self.reserved = 0;
     }
-
-    // Indicates that the buffer is always safe to drop, as `Vec<u8>` manages memory internally.
-    #[inline]
-    fn is_droppable(&self) -> bool {
-        true
-    }
 }
 
 // Used to test if `BufferPool` tries to allocate from system memory.
@@ -167,9 +161,5 @@ impl Buffer for TestBufferFromMemory {
 
     fn truncate(&mut self, _len: usize) {
         panic!()
-    }
-
-    fn is_droppable(&self) -> bool {
-        true
     }
 }

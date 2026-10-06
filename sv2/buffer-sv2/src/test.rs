@@ -537,7 +537,7 @@ fn slice_released_on_another_thread_is_safe_to_reuse() {
         slice.as_mut()[0] = 9;
         drop(slice);
     });
-    while !pool.droppable() {
+    while pool.live_slots() != 0 {
         std::thread::yield_now();
     }
     pool.reserve(8).copy_from_slice(&[2; 8]);
@@ -591,7 +591,7 @@ fn empty_frame_does_not_take_a_slot() {
     let empty = pool.get_data_owned();
 
     assert!(empty.is_empty());
-    assert!(pool.droppable());
+    assert_eq!(pool.live_slots(), 0);
 }
 
 #[test]
