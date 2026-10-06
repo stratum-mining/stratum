@@ -6,11 +6,6 @@ use crate::{buffer_pool::BufferPool as Pool, slice::Slice, Buffer};
 use rand::Rng;
 
 #[test]
-fn test() {
-    assert!(true)
-}
-
-#[test]
 fn pool_capicity_without_alloc() {
     let mut rng = rand::thread_rng();
 
