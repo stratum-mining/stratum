@@ -33,7 +33,7 @@
 //! free, it resorts to alloc mode, allocating memory from the system heap.
 //!
 //! For operations requiring dedicated buffers, the [`Slice`] type manages its own memory using
-//! [`Vec<u8>`]. In high-performance scenarios, [`Slice`] can reference externally managed memory
+//! [`Vec<u8>`](alloc::vec::Vec). In high-performance scenarios, [`Slice`] can reference externally managed memory
 //! from the [`BufferPool`], reducing dynamic memory allocations and increasing performance.
 //!
 //! ### Debug Mode
@@ -49,81 +49,15 @@ mod slice;
 mod test;
 
 extern crate alloc;
-use alloc::vec::Vec;
 
 pub use crate::buffer::BufferFromSystemMemory;
 pub use buffer_pool::BufferPool;
 pub use slice::Slice;
 
-/// Represents errors that can occur while writing data into a buffer.
-pub enum WriteError {
-    /// No data could be written.
-    WriteZero,
-}
-
-/// Interface for writing data into a buffer.
-///
-/// An abstraction over different buffer types ([`Vec<u8>`] or [`BufferPool`]), it provides methods
-/// for writing data from a byte slice into the buffer, with the option to either write a portion
-/// of the data or attempt to write the entire byte slice at once.
-pub trait Write {
-    /// Writes data from a byte slice (`buf`) into the buffer, returning the number of bytes that
-    /// were successfully written.
-    fn write(&mut self, buf: &[u8]) -> Result<usize, WriteError>;
-
-    /// Attempts to write the entire byte slice (`buf`) into the buffer. If the buffer cannot
-    /// accept the full length of the data, an error is returned.
-    fn write_all(&mut self, buf: &[u8]) -> Result<(), WriteError>;
-}
-
-impl Write for Vec<u8> {
-    /// Writes data from a byte slice into a [`Vec<u8>`] buffer by extending the vector with the
-    /// contents of the provided slice.
-    #[inline]
-    fn write(&mut self, buf: &[u8]) -> Result<usize, WriteError> {
-        self.extend_from_slice(buf);
-        Ok(buf.len())
-    }
-
-    /// Attempts to write all the data from a byte slice into a [`Vec<u8>`] buffer by extending the
-    /// vector. Since [`Vec<u8>`] can dynamically resize, this method will always succeed as long
-    /// as there is available memory.
-    #[inline]
-    fn write_all(&mut self, buf: &[u8]) -> Result<(), WriteError> {
-        self.extend_from_slice(buf);
-        Ok(())
-    }
-}
-
-impl Write for &mut [u8] {
-    /// Writes data from a byte slice into a mutable byte array (`&mut [u8]`), up to the length of
-    /// the provided buffer.
-    #[inline]
-    fn write(&mut self, data: &[u8]) -> Result<usize, WriteError> {
-        let amt = core::cmp::min(data.len(), self.len());
-        let res = core::mem::take(self);
-        let (a, b) = res.split_at_mut(amt);
-        a.copy_from_slice(&data[..amt]);
-        *self = b;
-        Ok(amt)
-    }
-
-    /// Attempts to write all the data from a byte slice into a mutable byte array (`&mut [u8]`).
-    /// If the buffer is not large enough to contain all the data, an error is returned.
-    #[inline]
-    fn write_all(&mut self, data: &[u8]) -> Result<(), WriteError> {
-        if self.write(data)? == data.len() {
-            Ok(())
-        } else {
-            Err(WriteError::WriteZero)
-        }
-    }
-}
-
 /// Interface for working with memory buffers.
 ///
 /// An abstraction for buffer management, allowing implementors to handle either owned memory
-/// ([`Slice`] with [`Vec<u8>`]). Utilities are provided to borrow writable memory, retrieve data
+/// ([`Slice`] with [`Vec<u8>`](alloc::vec::Vec)). Utilities are provided to borrow writable memory, retrieve data
 /// from the buffer, and manage memory slices.
 ///
 /// This trait is used during the serialization and deserialization
