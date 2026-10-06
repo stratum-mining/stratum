@@ -800,3 +800,61 @@ fn freeing_every_front_slot_keeps_the_back_slices_live() {
         assert_eq!(slice.as_ref(), &[value; 10]);
     }
 }
+
+#[test]
+fn random_slice_lifetimes_match_a_model_of_the_pool() {
+    use rand::{rngs::StdRng, SeedableRng};
+
+    let (seeds, steps) = if cfg!(miri) { (1, 100) } else { (50, 2_000) };
+    for capacity in [0_usize, 1, 7, 40, 80, 1000] {
+        for seed in 0..seeds {
+            let mut rng = StdRng::seed_from_u64(seed);
+            let mut pool = Pool::new(capacity);
+            let mut live: Vec<(Slice, Vec<u8>)> = Vec::new();
+
+            for step in 0..steps {
+                if live.is_empty() || (live.len() < 10 && rng.gen_bool(0.5)) {
+                    let mut expected = Vec::new();
+                    for _ in 0..rng.gen_range(1..=2) {
+                        let len = match rng.gen_range(0..3) {
+                            0 => 1,
+                            1 => rng.gen_range(1..=capacity / 8 + 1),
+                            _ => rng.gen_range(1..=capacity / 3 + 1),
+                        };
+                        let byte: u8 = rng.gen();
+                        pool.get_writable(len).fill(byte);
+                        expected.resize(expected.len() + len, byte);
+                    }
+                    live.push((pool.get_data_owned(), expected));
+                } else {
+                    let index = match rng.gen_range(0..3) {
+                        0 => 0,
+                        1 => live.len() - 1,
+                        _ => rng.gen_range(0..live.len()),
+                    };
+                    live.remove(index);
+                }
+
+                for (slice, expected) in &live {
+                    assert_eq!(
+                        slice.as_ref(),
+                        &expected[..],
+                        "capacity {capacity}, seed {seed}, step {step}"
+                    );
+                }
+                let mut ranges: Vec<(usize, usize)> = live
+                    .iter()
+                    .map(|(slice, _)| slice.as_ref())
+                    .map(|bytes| (bytes.as_ptr() as usize, bytes.len()))
+                    .collect();
+                ranges.sort_unstable();
+                for pair in ranges.windows(2) {
+                    assert!(
+                        pair[0].0 + pair[0].1 <= pair[1].0,
+                        "capacity {capacity}, seed {seed}, step {step}"
+                    );
+                }
+            }
+        }
+    }
+}
