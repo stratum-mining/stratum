@@ -986,3 +986,34 @@ fn truncate_never_grows_the_frame() {
         assert_eq!(pool.frame(), &[1, 2]);
     }
 }
+
+#[test]
+fn the_pool_leaves_alloc_mode_after_a_frame_larger_than_it() {
+    use std::panic::{catch_unwind, AssertUnwindSafe};
+
+    let mut pool = Pool::new(64);
+    pool.reserve(100).fill(1);
+    pool.commit(100);
+    let larger = pool.get_data_owned();
+    assert!(pool.is_alloc_mode());
+
+    pool.reserve(6).fill(2);
+    pool.commit(6);
+    let pooled = pool.get_data_owned();
+    assert!(pool.is_back_mode());
+    assert_ne!(pool.live_slots(), 0);
+    assert_eq!(larger.as_ref(), &[1; 100]);
+    assert_eq!(pooled.as_ref(), &[2; 6]);
+
+    let mut pool = Pool::new(64);
+    assert!(catch_unwind(AssertUnwindSafe(|| {
+        pool.reserve(usize::MAX);
+    }))
+    .is_err());
+
+    pool.reserve(6).fill(3);
+    pool.commit(6);
+    let pooled = pool.get_data_owned();
+    assert!(pool.is_back_mode());
+    assert_eq!(pooled.as_ref(), &[3; 6]);
+}

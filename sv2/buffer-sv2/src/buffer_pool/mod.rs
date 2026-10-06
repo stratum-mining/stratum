@@ -849,8 +849,11 @@ impl<T: Buffer> Buffer for BufferPool<T> {
     fn reserve(&mut self, len: usize) -> &mut [u8] {
         let shared_state = self.inner_memory.memory.load();
 
-        // If all the slices have been dropped, reset the pool to free up memory
-        if shared_state == 0 && self.pool_back.len() != 0 {
+        // If all the slices have been dropped, reset the pool to free up memory. A pool in alloc
+        // mode with nothing in the back has nothing to clear, so it resets as soon as the frame
+        // it was writing to system memory is handed out.
+        let alloc_mode_is_done = self.is_alloc_mode() && self.system_memory.len() == 0;
+        if shared_state == 0 && (self.pool_back.len() != 0 || alloc_mode_is_done) {
             self.reset();
         }
 
