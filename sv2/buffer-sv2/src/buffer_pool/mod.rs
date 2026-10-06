@@ -42,7 +42,6 @@ use crate::{
 #[cfg(feature = "debug")]
 use std::time::SystemTime;
 
-
 mod pool_back;
 pub use pool_back::PoolBack;
 #[cfg(test)]
@@ -975,23 +974,12 @@ impl<T: Buffer> Buffer for BufferPool<T> {
             _ => self.inner_memory.raw_len = self.inner_memory.raw_len.min(len),
         }
     }
-
-    // Returns `true` if all memory slices have been released (`shared_state` is zero), indicating
-    // that no other threads or components are using the pool's memory.
-    #[inline(always)]
-    fn is_droppable(&self) -> bool {
-        self.inner_memory.memory.load() == 0
-    }
 }
 
-// Allows `BufferPool` to be treated as a buffer.
+#[cfg(test)]
 impl<T: Buffer> BufferPool<T> {
-    /// Determines if every slice handed out by the [`BufferPool`] has been released.
-    ///
-    /// Returns `true` if all memory slices managed by the buffer pool have been released (i.e.,
-    /// the `shared_state` is zero). The pool can be dropped either way: its memory stays alive
-    /// until the last slice pointing into it is dropped.
-    pub fn droppable(&self) -> bool {
-        self.inner_memory.memory.load() == 0
+    // Returns the bits of the slots whose slices are still alive.
+    pub(crate) fn live_slots(&self) -> u8 {
+        self.inner_memory.memory.load()
     }
 }

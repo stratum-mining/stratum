@@ -163,7 +163,6 @@ pub trait Buffer {
     /// buffer is returned.
     fn len(&self) -> usize;
 
-
     /// Drops the committed bytes past `len`, like [`Vec::truncate`](alloc::vec::Vec::truncate): a `len` at or past the
     /// committed length changes nothing, so the frame can only shrink.
     fn truncate(&mut self, len: usize);
@@ -172,10 +171,4 @@ pub trait Buffer {
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
-
-    /// Determines if the buffer is safe to drop. This typically checks if the buffer contains
-    /// essential data that still needs to be processed.
-    ///
-    /// Returns `true` if the buffer can be safely dropped, `false` otherwise.
-    fn is_droppable(&self) -> bool;
 }
