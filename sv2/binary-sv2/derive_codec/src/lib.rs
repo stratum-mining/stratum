@@ -374,8 +374,8 @@ fn split_top_level_commas(input: &str) -> Vec<&str> {
 
 fn owned_primitive_type(type_: &str) -> Option<String> {
     match type_ {
-        "U256" | "Mac" | "PubKey" | "Signature" | "B032" | "B0255" | "Str0255" | "B064K"
-        | "B016M" => Some(format!("::binary_sv2::{type_}Owned")),
+        "U256" | "Mac" | "PubKey" | "Signature" | "B08" | "B032" | "B0255" | "Str0255"
+        | "B064K" | "B016M" => Some(format!("::binary_sv2::{type_}Owned")),
         _ => None,
     }
 }

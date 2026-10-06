@@ -897,14 +897,19 @@ mod tests {
     }
 
     // builds a template with the provided `coinbase_prefix`, reusing the same vectors as
-    // `test_new_pool_job` for everything else
-    fn template_with_coinbase_prefix(coinbase_prefix: Vec<u8>) -> NewTemplate {
-        NewTemplate {
+    // `test_new_pool_job` for everything else. a `coinbase_prefix` payload above the 8 byte cap
+    // is rejected by the `NewTemplate::coinbase_prefix` type and surfaces here as the codec
+    // error, instead of reaching job creation
+    fn template_with_coinbase_prefix(
+        coinbase_prefix: Vec<u8>,
+    ) -> Result<NewTemplate, binary_sv2::Error> {
+        let coinbase_prefix = coinbase_prefix.try_into()?;
+        Ok(NewTemplate {
             template_id: 1,
             future_template: true,
             version: 536870912,
             coinbase_tx_version: 2,
-            coinbase_prefix: coinbase_prefix.try_into().unwrap(),
+            coinbase_prefix,
             coinbase_tx_input_sequence: 4294967295,
             coinbase_tx_value_remaining: 5000000000,
             coinbase_tx_outputs_count: 1,
@@ -917,7 +922,7 @@ mod tests {
             .unwrap(),
             coinbase_tx_locktime: 0,
             merkle_path: vec![].try_into().unwrap(),
-        }
+        })
     }
 
     fn coinbase_reward_outputs() -> Vec<TxOut> {
@@ -935,7 +940,7 @@ mod tests {
     }
 
     #[test]
-    fn test_coinbase_rejects_oversized_script_sig() {
+    fn test_new_extended_job_accepts_max_size_coinbase_prefix() {
         // a 52 char pool tag places the worst-case scriptSig exactly on the budget:
         // 8 (MAX_COINBASE_PREFIX_SIZE) + 1 + 3 ("Sv2") + 3 + 52 (tag) + 1 + 32 (extranonce) = 100
         let pool_tag_string = "x".repeat(52);
@@ -951,25 +956,47 @@ mod tests {
             1,
             None,
             vec![0; 32],
-            template_with_coinbase_prefix(vec![0xab; MAX_COINBASE_PREFIX_SIZE]),
+            template_with_coinbase_prefix(vec![0xab; MAX_COINBASE_PREFIX_SIZE]).unwrap(),
             coinbase_reward_outputs(),
             32,
         );
         assert!(job.is_ok());
+    }
 
-        // an out-of-spec Template Provider sending 9 bytes overflows the budget, and must be
-        // rejected instead of yielding a consensus-invalid coinbase
+    #[test]
+    fn test_new_extended_job_rejects_oversized_script_sig() {
+        // a 52 char pool tag places the worst-case scriptSig exactly on the budget at an 8 byte
+        // coinbase_prefix and a 32 byte extranonce. `NewTemplate::coinbase_prefix` is a `B08`, so
+        // the prefix cannot carry the overflow; the extranonce size is what pushes the assembled
+        // scriptSig over, and that must be caught here instead of yielding a consensus-invalid
+        // coinbase
+        let pool_tag_string = "x".repeat(52);
+        let mut job_factory = JobFactory::new(true, Some(pool_tag_string), None);
+
         let job = job_factory.new_extended_job(
             1,
             None,
             vec![0; 32],
-            template_with_coinbase_prefix(vec![0xab; MAX_COINBASE_PREFIX_SIZE + 1]),
+            template_with_coinbase_prefix(vec![0xab; MAX_COINBASE_PREFIX_SIZE]).unwrap(),
             coinbase_reward_outputs(),
-            32,
+            33, // 8 + 59 (tag + opcode) + 1 + 33 = 101 > MAX_SCRIPT_SIG_SIZE
         );
         assert!(matches!(
             job.unwrap_err(),
             JobFactoryError::ScriptSigSizeTooLarge
+        ));
+    }
+
+    #[test]
+    fn test_new_template_rejects_coinbase_prefix_above_the_cap() {
+        // `NewTemplate::coinbase_prefix` is a `B08`, so a payload above the 8 byte cap cannot be
+        // embedded in a template at all: the conversion fails here and the caller sees the codec
+        // error rather than reaching job creation
+        let oversized_template =
+            template_with_coinbase_prefix(vec![0xab; MAX_COINBASE_PREFIX_SIZE + 1]);
+        assert!(matches!(
+            oversized_template.unwrap_err(),
+            binary_sv2::Error::ValueExceedsMaxSize(false, 1, 1, 8, _, 9)
         ));
     }
 
@@ -1103,9 +1130,9 @@ mod tests {
     }
 
     #[test]
-    fn test_new_custom_job_rejects_oversized_script_sig() {
-        // same boundary as `test_coinbase_rejects_oversized_script_sig`: a 52 char pool tag places
-        // the worst-case scriptSig exactly on the budget
+    fn test_new_custom_job_accepts_max_size_coinbase_prefix() {
+        // same boundary as `test_new_extended_job_accepts_max_size_coinbase_prefix`: a 52 char pool
+        // tag places the worst-case scriptSig exactly on the budget
         let job_factory = JobFactory::new(true, Some("x".repeat(52)), None);
         let chain_tip = ChainTip::new([0u8; 32].into(), 503543726, 1746839905);
 
@@ -1115,7 +1142,7 @@ mod tests {
                 1,
                 vec![0].try_into().unwrap(),
                 chain_tip.clone(),
-                template_with_coinbase_prefix(vec![0xab; coinbase_prefix_len]),
+                template_with_coinbase_prefix(vec![0xab; coinbase_prefix_len]).unwrap(),
                 coinbase_reward_outputs(),
                 32,
             )
@@ -1123,11 +1150,27 @@ mod tests {
 
         // a spec-compliant 8 byte coinbase_prefix fits exactly
         assert!(new_custom_job(MAX_COINBASE_PREFIX_SIZE).is_ok());
+    }
 
-        // one byte over must be rejected here, so the Job Declarator Client fails locally rather
-        // than having the pool reject the `SetCustomMiningJob` it just sent
+    #[test]
+    fn test_new_custom_job_rejects_oversized_script_sig() {
+        // same boundary as `test_new_extended_job_rejects_oversized_script_sig`, and caught here
+        // rather than by a channel constructor: `new_custom_job` is how a Job Declarator Client
+        // builds a job locally, with no constructor gating the extranonce size beforehand
+        let job_factory = JobFactory::new(true, Some("x".repeat(52)), None);
+        let chain_tip = ChainTip::new([0u8; 32].into(), 503543726, 1746839905);
+
+        let job = job_factory.new_custom_job(
+            1,
+            1,
+            vec![0].try_into().unwrap(),
+            chain_tip,
+            template_with_coinbase_prefix(vec![0xab; MAX_COINBASE_PREFIX_SIZE]).unwrap(),
+            coinbase_reward_outputs(),
+            33, // 8 + 59 (tag + opcode) + 1 + 33 = 101 > MAX_SCRIPT_SIG_SIZE
+        );
         assert!(matches!(
-            new_custom_job(MAX_COINBASE_PREFIX_SIZE + 1).unwrap_err(),
+            job.unwrap_err(),
             JobFactoryError::ScriptSigSizeTooLarge
         ));
     }
@@ -1142,7 +1185,7 @@ mod tests {
                     1,
                     None,
                     vec![0; 32],
-                    template_with_coinbase_prefix(vec![82, 0]),
+                    template_with_coinbase_prefix(vec![82, 0]).unwrap(),
                     coinbase_reward_outputs(),
                     32,
                 )
@@ -1161,7 +1204,7 @@ mod tests {
     }
 
     #[test]
-    fn test_custom_job_rejects_oversized_script_sig() {
+    fn test_new_extended_job_from_custom_job_rejects_oversized_script_sig() {
         // a custom job's coinbase_prefix already embeds the pool/miner tag, so the assembled
         // scriptSig is just the prefix plus the full extranonce: 68 + 32 = 100
         let mut job_factory = JobFactory::new(true, None, None);

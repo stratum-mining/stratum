@@ -1,5 +1,5 @@
 use alloc::{fmt, vec::Vec};
-use binary_sv2::{Deserialize, Seq0255, Serialize, B0255, B064K, U256};
+use binary_sv2::{Deserialize, Seq0255, Serialize, B064K, B08, U256};
 use core::convert::TryInto;
 
 /// Message used by an upstream(Template Provider) to provide a new template for downstream to mine
@@ -30,7 +30,7 @@ pub struct NewTemplate<'decoder> {
     pub coinbase_tx_version: u32,
     /// Up to 8 bytes (not including the length byte) which are to be placed at the beginning of
     /// the coinbase field in the coinbase transaction.
-    pub coinbase_prefix: B0255<'decoder>,
+    pub coinbase_prefix: B08<'decoder>,
     /// The coinbase transaction input’s `nSequence` field.
     pub coinbase_tx_input_sequence: u32,
     /// The value, in satoshis, available for spending in coinbase outputs added by the downstream.
@@ -92,5 +92,71 @@ impl fmt::Display for NewTemplateOwned {
             self.coinbase_tx_locktime,
             self.merkle_path
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::vec;
+    use binary_sv2::GetSize;
+
+    /// Spec 7.3: `coinbase_prefix` is `B0_255` with the payload capped at 8 bytes (not including
+    /// the length byte), so a message carrying the maximum allowed payload must roundtrip
+    /// through the codec unchanged.
+    #[test]
+    fn max_valid_coinbase_prefix_roundtrips() {
+        let prefix = vec![0xCD_u8; 8];
+        let msg = NewTemplate {
+            template_id: 0,
+            future_template: false,
+            version: 0,
+            coinbase_tx_version: 2,
+            coinbase_prefix: B08::new(&prefix).unwrap(),
+            coinbase_tx_input_sequence: 0,
+            coinbase_tx_value_remaining: 0,
+            coinbase_tx_outputs_count: 0,
+            coinbase_tx_outputs: B064K::new(&[]).unwrap(),
+            coinbase_tx_locktime: 0,
+            merkle_path: Seq0255::new(Vec::<U256>::new()).unwrap(),
+        };
+
+        let mut encoded = vec![0_u8; msg.get_size()];
+        msg.clone().to_bytes(&mut encoded).unwrap();
+
+        let decoded: NewTemplate = binary_sv2::from_bytes(&mut encoded).unwrap();
+
+        assert_eq!(decoded.coinbase_prefix.as_bytes(), prefix.as_slice());
+    }
+
+    /// Spec 7.3: a `coinbase_prefix` payload above the 8-byte cap is invalid, so it must be
+    /// rejected at construction and the corresponding wire encoding must fail to decode.
+    #[test]
+    fn oversized_coinbase_prefix_is_rejected() {
+        let oversized = vec![0xAB_u8; 9];
+        assert!(
+            B08::new(&oversized).is_err(),
+            "construction must reject a 9-byte coinbase_prefix"
+        );
+
+        // a `NewTemplate` wire encoding carrying a 9-byte coinbase_prefix
+        let mut wire = Vec::new();
+        wire.extend_from_slice(&0_u64.to_le_bytes()); // template_id
+        wire.push(0); // future_template = false
+        wire.extend_from_slice(&0_u32.to_le_bytes()); // version
+        wire.extend_from_slice(&2_u32.to_le_bytes()); // coinbase_tx_version
+        wire.push(9); // coinbase_prefix length byte: one over the spec cap
+        wire.extend_from_slice(&[0xAB_u8; 9]); // coinbase_prefix payload
+        wire.extend_from_slice(&0_u32.to_le_bytes()); // coinbase_tx_input_sequence
+        wire.extend_from_slice(&0_u64.to_le_bytes()); // coinbase_tx_value_remaining
+        wire.extend_from_slice(&0_u32.to_le_bytes()); // coinbase_tx_outputs_count
+        wire.extend_from_slice(&0_u16.to_le_bytes()); // coinbase_tx_outputs length
+        wire.extend_from_slice(&0_u32.to_le_bytes()); // coinbase_tx_locktime
+        wire.push(0); // merkle_path length
+
+        assert!(
+            binary_sv2::from_bytes::<NewTemplate>(&mut wire).is_err(),
+            "decoding must reject a NewTemplate with an oversized coinbase_prefix"
+        );
     }
 }
