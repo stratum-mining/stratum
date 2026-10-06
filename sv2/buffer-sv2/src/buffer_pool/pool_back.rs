@@ -11,8 +11,8 @@
 // - Managing slice allocation and ensuring enough capacity for new operations.
 // - Switching between different pool modes, such as front or back, depending on memory state.
 //
-// By default, memory is always first allocated from the back of the `BufferPool`. If the all of
-// the initially allocated buffer memory is completely filled and a new memory request comes in,
+// By default, memory is always first allocated from the back of the `BufferPool`. If all of the
+// initially allocated buffer memory is completely filled and a new memory request comes in,
 // `BufferPool` checks whether any memory has been freed at the back or the front using
 // `SharedState`. If, for example, a slice has been freed that corresponds to the head of
 // `SharedState`, `BufferPool` will switch to front mode and start allocating incoming memory
