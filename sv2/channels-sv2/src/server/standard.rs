@@ -636,7 +636,7 @@ impl StandardChannel {
             self.channel_id,
             self.extranonce_prefix.as_bytes().to_vec(),
         )
-        .map_err(|_| StandardChannelError::FailedToConvertToStandardJob)?;
+        .map_err(StandardChannelError::StandardJobError)?;
 
         match standard_job.is_future() {
             true => {

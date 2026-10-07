@@ -11,6 +11,7 @@ pub enum ExtendedJobError {
     InvalidNtimeStart,
 }
 
+#[derive(Debug)]
 pub enum StandardJobError {
     FailedToDeserializeCoinbaseOutputs,
     InvalidJobOrigin,
