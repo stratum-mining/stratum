@@ -39,6 +39,7 @@ Whenever helping me review PRs, don't restrict the output to an analysis of the 
 
 While listing findings, for each finding, give me a draft comment and the file/line where it would be appropriate to drop it. Also mention the finding severity, and whether you believe it's a blocker or not. This is deliberately designed to keep human reviewers on the loop, as opposed to blindly copypasting a huge "clanker review" body of text without ever looking into what each finding means.
 
+Judge a PR against the problem and the expected outcome of the issues it closes. Everything else an issue lists, including suggested approaches and the `fix` / `regression tests` sections of older issues, is context: a PR that reaches the outcome another way is not a finding, as long as its description explains why. Flag a divergence only when part of the expected outcome is left unsolved, and say which part.
 
 ## Drafting issues
 
