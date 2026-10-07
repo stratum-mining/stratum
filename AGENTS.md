@@ -47,6 +47,23 @@ SRI repositories try to leverage github subissue clustering. When helping humans
 
 You always draft github issues under human supervision. Your role here is to help human SRI contributors reason about the issues being reported, not create github noise.
 
+Describe the problem and the outcome a fix must guarantee, observable from outside the code. Implementation and test ideas are suggestions for whoever picks the issue up, so mark them as non-binding: written as requirements, they make reviewers flag every PR that solves the problem another way.
+
+## Triaging audit findings
+
+SRI maintainers triage findings from the private Loupe audit repositories into public stratum issues, so the work is tracked where it happens. Draft them from `.github/ISSUE_TEMPLATE/audit-finding.md`, and:
+
+- Before publishing, check with the maintainer whether the finding is safe to disclose. A severe finding that can be exploited remotely stays in Loupe until its fix has landed.
+- Open one issue per defect, listing every Loupe finding that reports it. Loupe files the same defect once per implementation, e.g. the server/client x standard/extended twins in `channels_sv2`.
+- Check the sibling implementations for the same defect, and record the ones that are not affected along with the reason.
+- File the issue where the defect lives. A defect in a stratum crate that an [`sv2-apps`](https://github.com/stratum-mining/sv2-apps) finding reports is still a stratum issue, and the other way around; link the other repository's finding under "Related issues and PRs" so the companion PR can close it.
+- Make the issue a sub-issue of the crate's tracker, and apply the crate's label: #2136 (`binary-sv2`), #2271 (`buffer_sv2`, no label yet), #2278 (`codec-sv2`), #2276 (`framing_sv2`, no label yet), #2246 (`noise-sv2`), #2253 (`channels-sv2`) or #2321 (`handlers-sv2`). A crate missing from this list gets a tracker when its triage starts.
+- Once a stratum issue exists, label the Loupe findings it lists `sri:tracked`.
+- Leave PR grouping to whoever picks the issue up. If two issues should land together, say why under "Related issues and PRs".
+- Record progress in dated comments rather than by editing the issue body.
+
+An issue and every Loupe finding it lists close together, with the PR that completes the fix. A PR that fixes only part of it references them with `ref` instead of `Closes`. A finding that contradicts a recorded design decision is closed as not planned, with a rustdoc note at the site explaining the decision so the scanner stops re-filing it.
+
 ## Ponytail
 
 If the plugin is not already installed into the coding agent harness, make sure to follow [Ponytail](https://ponytail.dev/) rules. But avoid installing it as a plugin, unless explicitly instructed to do so. This is only a repository-wide convention. Also avoid writing comments that reference "ponytail" in a compressed and implicit way, prefer explaining the actual rationale instead.
