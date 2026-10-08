@@ -173,7 +173,9 @@ pub enum InputError {
 /// - `s`: Shares per minute.
 ///
 /// ## Errors
-/// - [`InputError::DivisionByZero`] if `share_per_min` is zero.
+/// - [`InputError::DivisionByZero`] if `share_per_min` is zero, or if `target` is small enough
+///   that `(target + 1) * share_per_min` truncates to zero (the hashrate would be unrepresentable
+///   anyway).
 /// - [`InputError::NegativeInput`] if `share_per_min` is negative.
 /// - [`InputError::ArithmeticOverflow`] if `target` is zero (the numerator `2^256` is not
 ///   representable), or if the denominator overflows.
@@ -217,6 +219,13 @@ pub fn hash_rate_from_target(target: U256Owned, share_per_min: f64) -> Result<f6
         .checked_mul(shares_occurrency_frequence)
         .and_then(|e| e.checked_div(U256Primitive::from(100)))
         .ok_or(InputError::ArithmeticOverflow)?;
+    // `checked_mul`/`checked_div` only guard overflow and the zero-divisor of the `/100` step.
+    // The `/100` truncation can still collapse a small nonzero target's denominator to zero
+    // (e.g. `target` small enough that `(target + 1) * share_per_min < 100`), which would panic
+    // on the unchecked `div` below.
+    if denominator.is_zero() {
+        return Err(InputError::DivisionByZero);
+    }
     let result = numerator.div(denominator).low_u128();
     // we multiply back by 100 so that it cancels with the same factor at the denominator
     Ok(result as f64)
@@ -234,6 +243,19 @@ mod tests {
         assert!(matches!(
             hash_rate_from_target(zero, 10.0),
             Err(InputError::ArithmeticOverflow)
+        ));
+    }
+
+    #[test]
+    fn small_target_with_high_share_rate_is_rejected_not_panic() {
+        // target = 1 (little-endian), share_per_min = 200.0: (target + 1) * (6000 / 200) = 60,
+        // which truncates to 0 once divided by 100, collapsing the denominator to zero.
+        let mut target_bytes = [0u8; 32];
+        target_bytes[0] = 1;
+        let target: U256Owned = target_bytes.into();
+        assert!(matches!(
+            hash_rate_from_target(target, 200.0),
+            Err(InputError::DivisionByZero)
         ));
     }
 
