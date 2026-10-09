@@ -645,6 +645,7 @@ impl fmt::Display for ConfigureExtension {
 }
 #[allow(clippy::unnecessary_unwrap)]
 impl ConfigureExtension {
+    /// Parses extensions named in a `mining.configure` request.
     pub fn from_value(val: &Value) -> Result<Vec<ConfigureExtension>, ParsingMethodError> {
         let mut res = vec![];
         let root = val
@@ -653,20 +654,32 @@ impl ConfigureExtension {
         if root.is_empty() {
             return Err(ParsingMethodError::Todo);
         };
+        let names = root[0]
+            .as_array()
+            .ok_or_else(|| ParsingMethodError::not_array_from_value(root[0].clone()))?;
+        let requested = |name| names.iter().any(|value| value.as_str() == Some(name));
 
-        let version_rolling_mask = val.pointer("/1/version-rolling.mask");
-        let version_rolling_min_bit = val.pointer("/1/version-rolling.min-bit-count");
+        let default_mask = JString("ffffffff".to_string());
+        let version_rolling_mask = if requested("version-rolling") {
+            Some(
+                val.pointer("/1/version-rolling.mask")
+                    .unwrap_or(&default_mask),
+            )
+        } else {
+            None
+        };
+        let version_rolling_min_bit = if requested("version-rolling") {
+            val.pointer("/1/version-rolling.min-bit-count")
+        } else {
+            None
+        };
         let info_connection_url = val.pointer("/1/info.connection-url");
         let info_hw_version = val.pointer("/1/info.hw-version");
         let info_sw_version = val.pointer("/1/info.sw-version");
         let info_hw_id = val.pointer("/1/info.hw-id");
         let minimum_difficulty_value = val.pointer("/1/minimum-difficulty.value");
 
-        if root[0]
-            .as_array()
-            .ok_or_else(|| ParsingMethodError::not_array_from_value(root[0].clone()))?
-            .contains(&JString("subscribe-extranonce".to_string()))
-        {
+        if requested("subscribe-extranonce") {
             res.push(ConfigureExtension::SubcribeExtraNonce)
         }
         let (mask, min_bit_count) = match (version_rolling_mask, version_rolling_min_bit) {
@@ -705,7 +718,9 @@ impl ConfigureExtension {
             res.push(ConfigureExtension::VersionRolling(params));
         }
 
-        if let Some(minimum_difficulty_value) = minimum_difficulty_value {
+        if requested("minimum-difficulty") {
+            let minimum_difficulty_value = minimum_difficulty_value
+                .ok_or_else(|| ParsingMethodError::wrong_args_from_value(val.clone()))?;
             let min_diff = match minimum_difficulty_value {
                 JNumber(a) => a.as_u64().ok_or_else(|| {
                     ParsingMethodError::ImpossibleToParseAsU64(Box::new(a.clone()))
@@ -720,11 +735,7 @@ impl ConfigureExtension {
             res.push(ConfigureExtension::MinimumDifficulty(min_diff));
         };
 
-        if info_connection_url.is_some()
-            || info_hw_id.is_some()
-            || info_hw_version.is_some()
-            || info_sw_version.is_some()
-        {
+        if requested("info") {
             let connection_url = if info_connection_url.is_some()
                 // infallible
                 && info_connection_url.unwrap().as_str().is_some()
@@ -942,6 +953,42 @@ fn test_version_extension_with_no_bit_count() {
         }
         _ => panic!(),
     };
+}
+
+#[test]
+fn test_configure_uses_requested_extensions_and_default_mask() {
+    let unrequested = serde_json::json!([
+        ["subscribe-extranonce"],
+        {"version-rolling.mask": 7, "minimum-difficulty.value": 1024, "info.hw-id": 7}
+    ]);
+    assert!(matches!(
+        ConfigureExtension::from_value(&unrequested)
+            .unwrap()
+            .as_slice(),
+        [ConfigureExtension::SubcribeExtraNonce]
+    ));
+
+    let requested = serde_json::json!([
+        ["version-rolling"],
+        {"version-rolling.min-bit-count": 2}
+    ]);
+    let extensions = ConfigureExtension::from_value(&requested).unwrap();
+    match extensions.as_slice() {
+        [ConfigureExtension::VersionRolling(rolling)] => {
+            assert_eq!(rolling.get_mask(), &Some(HexU32Be(u32::MAX)));
+            assert_eq!(rolling.get_min_bit_count(), &Some(HexU32Be(2)));
+        }
+        _ => panic!("expected version-rolling extension"),
+    }
+}
+
+#[test]
+fn test_configure_rejects_missing_requested_difficulty() {
+    let params = serde_json::json!([["minimum-difficulty"], {}]);
+    assert!(matches!(
+        ConfigureExtension::from_value(&params),
+        Err(ParsingMethodError::WrongArgs(_))
+    ));
 }
 
 #[test]
