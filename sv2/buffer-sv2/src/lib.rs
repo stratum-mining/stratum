@@ -33,14 +33,22 @@
 //! free, it resorts to alloc mode, allocating memory from the system heap.
 //!
 //! For operations requiring dedicated buffers, the [`Slice`] type manages its own memory using
-//! [`Vec<u8>`]. In high-performance scenarios, [`Slice`] can reference externally managed memory
-//! from the [`BufferPool`], reducing dynamic memory allocations and increasing performance.
+//! [`Vec<u8>`](alloc::vec::Vec). In high-performance scenarios, [`Slice`] can reference externally
+//! managed memory from the [`BufferPool`], reducing dynamic memory allocations and increasing
+//! performance.
+//!
+//! ## Slices are scratch space
+//!
+//! A [`Slice`] handed out by a [`BufferPool`] holds one of its slots until it is dropped. The pool
+//! is meant for frames that are decoded and then dropped: a slice kept alive longer keeps its
+//! slot, and once every slot is held, each new frame falls back to system memory. Bytes that have
+//! to outlive decoding are copied out: cloning a [`Slice`] copies it into memory the clone owns,
+//! and the slot is freed as soon as the original is dropped.
 //!
 //! ### Debug Mode
 //! Provides additional tracking for debugging memory management issues.
 
 #![cfg_attr(not(feature = "debug"), no_std)]
-//#![feature(backtrace)]
 
 mod buffer;
 mod buffer_pool;
@@ -49,127 +57,60 @@ mod slice;
 mod test;
 
 extern crate alloc;
-use alloc::vec::Vec;
 
 pub use crate::buffer::BufferFromSystemMemory;
-pub use aes_gcm::aead::Buffer as AeadBuffer;
 pub use buffer_pool::BufferPool;
 pub use slice::Slice;
 
-/// Represents errors that can occur while writing data into a buffer.
-pub enum WriteError {
-    /// No data could be written.
-    WriteZero,
-}
-
-/// Interface for writing data into a buffer.
-///
-/// An abstraction over different buffer types ([`Vec<u8>`] or [`BufferPool`]), it provides methods
-/// for writing data from a byte slice into the buffer, with the option to either write a portion
-/// of the data or attempt to write the entire byte slice at once.
-pub trait Write {
-    /// Writes data from a byte slice (`buf`) into the buffer, returning the number of bytes that
-    /// were successfully written.
-    fn write(&mut self, buf: &[u8]) -> Result<usize, WriteError>;
-
-    /// Attempts to write the entire byte slice (`buf`) into the buffer. If the buffer cannot
-    /// accept the full length of the data, an error is returned.
-    fn write_all(&mut self, buf: &[u8]) -> Result<(), WriteError>;
-}
-
-impl Write for Vec<u8> {
-    /// Writes data from a byte slice into a [`Vec<u8>`] buffer by extending the vector with the
-    /// contents of the provided slice.
-    #[inline]
-    fn write(&mut self, buf: &[u8]) -> Result<usize, WriteError> {
-        self.extend_from_slice(buf);
-        Ok(buf.len())
-    }
-
-    /// Attempts to write all the data from a byte slice into a [`Vec<u8>`] buffer by extending the
-    /// vector. Since [`Vec<u8>`] can dynamically resize, this method will always succeed as long
-    /// as there is available memory.
-    #[inline]
-    fn write_all(&mut self, buf: &[u8]) -> Result<(), WriteError> {
-        self.extend_from_slice(buf);
-        Ok(())
-    }
-}
-
-impl Write for &mut [u8] {
-    /// Writes data from a byte slice into a mutable byte array (`&mut [u8]`), up to the length of
-    /// the provided buffer.
-    #[inline]
-    fn write(&mut self, data: &[u8]) -> Result<usize, WriteError> {
-        let amt = core::cmp::min(data.len(), self.len());
-        let res = core::mem::take(self);
-        let (a, b) = res.split_at_mut(amt);
-        a.copy_from_slice(&data[..amt]);
-        *self = b;
-        Ok(amt)
-    }
-
-    /// Attempts to write all the data from a byte slice into a mutable byte array (`&mut [u8]`).
-    /// If the buffer is not large enough to contain all the data, an error is returned.
-    #[inline]
-    fn write_all(&mut self, data: &[u8]) -> Result<(), WriteError> {
-        if self.write(data)? == data.len() {
-            Ok(())
-        } else {
-            Err(WriteError::WriteZero)
-        }
-    }
-}
-
 /// Interface for working with memory buffers.
 ///
-/// An abstraction for buffer management, allowing implementors to handle either owned memory
-/// ([`Slice`] with [`Vec<u8>`]). Utilities are provided to borrow writable memory, retrieve data
-/// from the buffer, and manage memory slices.
+/// Implemented by [`BufferPool`], which hands out slices of preallocated memory, and by
+/// [`BufferFromSystemMemory`], which hands out [`Vec<u8>`](alloc::vec::Vec)s. Utilities are
+/// provided to reserve writable memory, read back the frame being written, and hand it out.
 ///
-/// This trait is used during the serialization and deserialization
-/// of message types in the [`binary_sv2` crate](https://crates.io/crates/binary_sv2).
+/// The encoders and decoders of the [`codec_sv2` crate](https://crates.io/crates/codec_sv2) write
+/// frames through this trait.
 pub trait Buffer {
     /// The type of slice that the buffer uses.
     type Slice: AsMut<[u8]> + AsRef<[u8]> + Into<Slice>;
 
-    /// Borrows a mutable slice of the buffer, allowing the caller to write data into it. The
-    /// caller specifies the length of the data they need to write.
-    fn get_writable(&mut self, len: usize) -> &mut [u8];
+    /// Makes room for `len` more bytes after the data written so far and returns that space,
+    /// without counting any of it as written.
+    ///
+    /// Only [`Buffer::commit`] counts bytes as written. Reserving again before committing
+    /// replaces the reservation, and bytes written into it are not kept.
+    fn reserve(&mut self, len: usize) -> &mut [u8];
+
+    /// Counts the first `len` bytes of the last reservation as written, and ends that
+    /// reservation.
+    ///
+    /// Panics if `len` is larger than the last reservation.
+    fn commit(&mut self, len: usize);
 
     /// Provides ownership of a slice in the buffer pool to the caller and updates the buffer
     /// pool's state by modifying the position in `shared_state` that the slice occupies. The pool
     /// now points to the next set of uninitialized space.
     fn get_data_owned(&mut self) -> Self::Slice;
 
-    /// Provides a mutable reference to the written portion of the buffer, up to the specified
-    /// length, without transferring ownership of the buffer. This allows the caller to modify the
-    /// buffer’s contents directly without taking ownership.
-    fn get_data_by_ref(&mut self, len: usize) -> &mut [u8];
+    /// Returns the committed bytes of the frame being written, without transferring ownership of
+    /// the buffer.
+    fn frame(&self) -> &[u8];
 
-    /// Provides an immutable reference to the written portion of the buffer, up to the specified
-    /// length, without transferring ownership of the buffer. This allows the caller to inspect the
-    /// buffer’s contents without modifying or taking ownership.
-    fn get_data_by_ref_(&self, len: usize) -> &[u8];
+    /// Returns the committed bytes of the frame being written, mutably, without transferring
+    /// ownership of the buffer.
+    fn frame_mut(&mut self) -> &mut [u8];
 
     /// Returns the size of the written portion of the buffer. This is useful for tracking how much
     /// of the buffer has been filled with data. The number of bytes currently written in the
     /// buffer is returned.
     fn len(&self) -> usize;
 
-    /// Modifies the starting point of the buffer, effectively discarding data up to the given
-    /// `index`. This can be useful for performance optimizations in situations where older data
-    /// is no longer needed, but its use can be unsafe unless you understand its implications.
-    fn danger_set_start(&mut self, index: usize);
+    /// Drops the committed bytes past `len`, like [`Vec::truncate`](alloc::vec::Vec::truncate): a
+    /// `len` at or past the committed length changes nothing, so the frame can only shrink.
+    fn truncate(&mut self, len: usize);
 
     /// Returns `true` if the buffer is empty, `false` otherwise.
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
-
-    /// Determines if the buffer is safe to drop. This typically checks if the buffer contains
-    /// essential data that still needs to be processed.
-    ///
-    /// Returns `true` if the buffer can be safely dropped, `false` otherwise.
-    fn is_droppable(&self) -> bool;
 }

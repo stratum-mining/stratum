@@ -72,10 +72,11 @@ pub(crate) fn decode_noise_frame(
 ) -> Option<(SerializedFrame, TransportDecryptState)> {
     let mut offset = 0;
     loop {
-        let writable = decoder.writable();
+        let writable = decoder.read_buf();
         let available = encoded.len().saturating_sub(offset);
         let n = writable.len().min(available);
         writable[..n].copy_from_slice(&encoded[offset..offset + n]);
+        decoder.advance(n).unwrap();
         offset += n;
 
         match decoder.next_transport_frame(state) {

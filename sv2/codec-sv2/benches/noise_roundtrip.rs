@@ -61,9 +61,10 @@ fn bench_noise_roundtrip(c: &mut Criterion) {
 
             // Decode
             let mut dec = NoiseDecoder::new();
-            let w = dec.writable();
+            let w = dec.read_buf();
             let len = w.len();
             w[..len].copy_from_slice(&encrypted[0..len]);
+            dec.advance(len).unwrap();
             let mut offset = len;
 
             loop {
@@ -75,9 +76,10 @@ fn bench_noise_roundtrip(c: &mut Criterion) {
                     }
                     Ok(Decrypted::Incomplete(_, state)) => {
                         dec_state = state;
-                        let w = dec.writable();
+                        let w = dec.read_buf();
                         let n = w.len();
                         w.copy_from_slice(&encrypted[offset..offset + n]);
+                        dec.advance(n).unwrap();
                         offset += n;
                     }
                     Err(e) => panic!("Decode error: {:?}", e),

@@ -18,9 +18,10 @@ fn bench_plain_decoder(c: &mut Criterion) {
         let mut dec = Decoder::new();
 
         b.iter(|| {
-            let w = dec.writable();
+            let w = dec.read_buf();
             let len = w.len();
             w.copy_from_slice(&enc_buf[..len]);
+            dec.advance(len).unwrap();
             let mut offset = len;
 
             loop {
@@ -30,9 +31,10 @@ fn bench_plain_decoder(c: &mut Criterion) {
                         break;
                     }
                     Ok(Decoded::Incomplete(_)) => {
-                        let w = dec.writable();
+                        let w = dec.read_buf();
                         let n = w.len();
                         w.copy_from_slice(&enc_buf[offset..offset + n]);
+                        dec.advance(n).unwrap();
                         offset += n;
                     }
                     Err(_) => panic!("Unexpected decode error"),

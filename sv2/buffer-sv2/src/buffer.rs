@@ -13,7 +13,6 @@
 // to using pre-allocated buffers.
 
 use crate::Buffer;
-use aes_gcm::aead::Buffer as AeadBuffer;
 use alloc::vec::Vec;
 
 /// Manages a dynamically growing buffer in system memory using an internal [`Vec<u8>`].
@@ -29,9 +28,8 @@ pub struct BufferFromSystemMemory {
     // Current cursor indicating where the next byte should be written.
     cursor: usize,
 
-    // Starting index for the buffer. Useful for scenarios where part of the buffer is skipped or
-    // invalid.
-    start: usize,
+    // Length of the last reservation, `0` once it is committed.
+    reserved: usize,
 }
 
 impl BufferFromSystemMemory {
@@ -40,7 +38,7 @@ impl BufferFromSystemMemory {
         Self {
             inner: Vec::new(),
             cursor: 0,
-            start: 0,
+            reserved: 0,
         }
     }
 }
@@ -56,23 +54,31 @@ impl Buffer for BufferFromSystemMemory {
     type Slice = Vec<u8>;
 
     // Dynamically allocates or resizes the internal `Vec<u8>` to ensure there is enough space for
-    // writing.
+    // writing, without moving the cursor.
     #[inline]
-    fn get_writable(&mut self, len: usize) -> &mut [u8] {
-        let cursor = self.cursor;
-
-        // Reserve space in the buffer for writing based on the requested `len`
-        let len = self.cursor + len;
+    fn reserve(&mut self, len: usize) -> &mut [u8] {
+        let end = self
+            .cursor
+            .checked_add(len)
+            .expect("writable length overflows usize");
 
         // If the internal buffer is not large enough to hold the new data, resize it
-        if len > self.inner.len() {
-            self.inner.resize(len, 0)
+        if end > self.inner.len() {
+            self.inner.resize(end, 0)
         };
 
-        self.cursor = len;
+        self.reserved = len;
 
         // Portion of the buffer where data can be written
-        &mut self.inner[cursor..len]
+        &mut self.inner[self.cursor..end]
+    }
+
+    // Moves the cursor past the first `len` bytes of the last reservation.
+    #[inline]
+    fn commit(&mut self, len: usize) {
+        assert!(len <= self.reserved, "commit exceeds the last reservation");
+        self.cursor += len;
+        self.reserved = 0;
     }
 
     // Splits off the written portion of the buffer, returning it as a new `Vec<u8>`. Swaps the
@@ -90,21 +96,20 @@ impl Buffer for BufferFromSystemMemory {
         // state for future writes
         let head = tail;
         self.cursor = 0;
+        self.reserved = 0;
         head
     }
 
-    // Returns a mutable reference to the written portion of the internal buffer that has been
-    // filled up with data, up to the specified length (`len`).
+    // Returns the portion of the internal buffer that has been committed, up to the cursor.
     #[inline]
-    fn get_data_by_ref(&mut self, len: usize) -> &mut [u8] {
-        &mut self.inner[..usize::min(len, self.cursor)]
+    fn frame(&self) -> &[u8] {
+        &self.inner[..self.cursor]
     }
 
-    // Returns an immutable reference to the written portion of the internal buffer that has been
-    // filled up with data, up to the specified length (`len`).
+    // Returns the portion of the internal buffer that has been committed, up to the cursor.
     #[inline]
-    fn get_data_by_ref_(&self, len: usize) -> &[u8] {
-        &self.inner[..usize::min(len, self.cursor)]
+    fn frame_mut(&mut self) -> &mut [u8] {
+        &mut self.inner[..self.cursor]
     }
 
     // Returns the current write position (cursor) in the buffer, representing how much of the
@@ -114,17 +119,11 @@ impl Buffer for BufferFromSystemMemory {
         self.cursor
     }
 
-    // Sets the start index for the buffer, adjusting where reads and writes begin. Used to discard
-    // part of the buffer by adjusting the starting point for future operations.
+    // Moves the cursor back to `len`, if it is past it.
     #[inline]
-    fn danger_set_start(&mut self, index: usize) {
-        self.start = index;
-    }
-
-    // Indicates that the buffer is always safe to drop, as `Vec<u8>` manages memory internally.
-    #[inline]
-    fn is_droppable(&self) -> bool {
-        true
+    fn truncate(&mut self, len: usize) {
+        self.cursor = self.cursor.min(len);
+        self.reserved = 0;
     }
 }
 
@@ -136,7 +135,11 @@ pub struct TestBufferFromMemory(pub Vec<u8>);
 impl Buffer for TestBufferFromMemory {
     type Slice = Vec<u8>;
 
-    fn get_writable(&mut self, _len: usize) -> &mut [u8] {
+    fn reserve(&mut self, _len: usize) -> &mut [u8] {
+        panic!()
+    }
+
+    fn commit(&mut self, _len: usize) {
         panic!()
     }
 
@@ -144,60 +147,19 @@ impl Buffer for TestBufferFromMemory {
         panic!()
     }
 
-    fn get_data_by_ref(&mut self, _len: usize) -> &mut [u8] {
-        &mut self.0[0..0]
+    fn frame(&self) -> &[u8] {
+        &self.0[0..0]
     }
 
-    fn get_data_by_ref_(&self, _len: usize) -> &[u8] {
-        &self.0[0..0]
+    fn frame_mut(&mut self) -> &mut [u8] {
+        &mut self.0[0..0]
     }
 
     fn len(&self) -> usize {
         0
     }
 
-    fn danger_set_start(&mut self, _index: usize) {
-        todo!()
-    }
-
-    fn is_droppable(&self) -> bool {
-        true
-    }
-}
-
-impl AsRef<[u8]> for BufferFromSystemMemory {
-    /// Returns a reference to the internal buffer as a byte slice, starting from the specified
-    /// `start` index. Provides an immutable view into the buffer's contents, allowing it to be
-    /// used as a regular slice for reading.
-    fn as_ref(&self) -> &[u8] {
-        let start = self.start;
-        &self.get_data_by_ref_(Buffer::len(self))[start..]
-    }
-}
-
-impl AsMut<[u8]> for BufferFromSystemMemory {
-    /// Returns a mutable reference to the internal buffer as a byte slice, starting from the
-    /// specified `start` index. Allows direct modification of the buffer's contents, while
-    /// restricting access to the data after the `start` index.
-    fn as_mut(&mut self) -> &mut [u8] {
-        let start = self.start;
-        self.get_data_by_ref(Buffer::len(self))[start..].as_mut()
-    }
-}
-
-impl AeadBuffer for BufferFromSystemMemory {
-    /// Extends the internal buffer by appending the given byte slice. Dynamically resizes the
-    /// internal buffer to accommodate the new data and copies the contents of `other` into it.
-    fn extend_from_slice(&mut self, other: &[u8]) -> aes_gcm::aead::Result<()> {
-        self.get_writable(other.len()).copy_from_slice(other);
-        Ok(())
-    }
-
-    /// Truncates the internal buffer to the specified length, adjusting for the `start` index.
-    /// Resets the buffer cursor to reflect the new size, effectively discarding any data beyond
-    /// the truncated length.
-    fn truncate(&mut self, len: usize) {
-        let len = len + self.start;
-        self.cursor = len;
+    fn truncate(&mut self, _len: usize) {
+        panic!()
     }
 }
