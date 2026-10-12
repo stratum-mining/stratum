@@ -108,7 +108,9 @@ impl<T: Job> JobStore<T> {
     /// Adds a future job associated with a template ID.
     ///
     /// If the template ID was already mapped to a future job, that job is dropped, since it could
-    /// never be activated again (activation resolves jobs through this mapping).
+    /// never be activated again (activation resolves jobs through this mapping). A future job
+    /// stored under the new job's ID by another template is dropped too, along with that
+    /// template's mapping.
     ///
     /// At most `MAX_FUTURE_JOBS` future jobs are kept: storing a new one beyond that limit evicts
     /// the oldest, since template IDs are peer-controlled and must not grow memory unboundedly.
@@ -125,7 +127,16 @@ impl<T: Job> JobStore<T> {
             self.future_jobs.remove(&old_job_id);
             dropped_job = true;
         }
-        self.future_jobs.insert(new_job_id, new_job);
+        // another template's job stored under the same job ID is replaced as well; that template
+        // could only resolve to the new job now, so it leaves the mapping and the eviction order,
+        // or evicting it would drop the new job and popping it would skip an eviction
+        if self.future_jobs.insert(new_job_id, new_job).is_some() {
+            self.future_template_to_job_id
+                .retain(|id, job_id| *id == template_id || *job_id != new_job_id);
+            self.future_template_order
+                .retain(|id| self.future_template_to_job_id.contains_key(id));
+            dropped_job = true;
+        }
 
         // a replaced template_id moves to the back of the eviction order
         self.future_template_order.retain(|id| *id != template_id);
@@ -142,9 +153,9 @@ impl<T: Job> JobStore<T> {
             }
         }
 
-        // a dropped job (replaced template ID or evicted-oldest) may have been the last one
-        // holding a retired extranonce prefix alive; release such slots now rather than at the
-        // next chain transition, which a peer can withhold
+        // a dropped job (replaced template ID, replaced job ID or evicted-oldest) may have been
+        // the last one holding a retired extranonce prefix alive; release such slots now rather
+        // than at the next chain transition, which a peer can withhold
         if dropped_job {
             self.prune_retired_extranonce_prefixes();
         }
@@ -613,6 +624,66 @@ mod tests {
             store.get_future_job_id_from_template_id(1),
             Some(new_job_id)
         );
+    }
+
+    #[test]
+    fn reused_job_id_releases_retired_extranonce_prefixes() {
+        let mut store = JobStore::new(MAX_PAST_JOBS);
+        // the allocator outlives the test, so the retired prefix keeps holding its slot
+        let mut allocator = ExtranonceAllocator::new(vec![], 1, 2).unwrap();
+        let old_prefix = allocator.allocate_extended(0).unwrap();
+
+        store.add_future_job(
+            1,
+            PrefixedJob {
+                job_id: 1,
+                prefix: old_prefix.as_bytes().to_vec(),
+            },
+        );
+        store.retire_extranonce_prefix(old_prefix.into());
+        assert_eq!(store.retired_extranonce_prefixes.len(), 1);
+
+        // a job for another template under the same job ID replaces the last job referencing
+        // the retired prefix, so its slot must be released right away
+        store.add_future_job(
+            2,
+            PrefixedJob {
+                job_id: 1,
+                prefix: vec![2u8],
+            },
+        );
+        assert!(store.retired_extranonce_prefixes.is_empty());
+        assert!(store.get_future_job_id_from_template_id(1).is_none());
+        assert_eq!(store.get_future_job_id_from_template_id(2), Some(1));
+    }
+
+    #[test]
+    fn reused_job_id_keeps_eviction_on_the_surviving_templates() {
+        let mut store = JobStore::new(MAX_PAST_JOBS);
+
+        store.add_future_job(1, DummyJob { job_id: 1 });
+        store.add_future_job(2, DummyJob { job_id: 2 });
+        // template 3 takes over job ID 1 from template 1
+        store.add_future_job(3, DummyJob { job_id: 1 });
+
+        // fill the store up to the cap, then push one more template in
+        for template_id in 4..=MAX_FUTURE_JOBS as u64 + 2 {
+            store.add_future_job(
+                template_id,
+                DummyJob {
+                    job_id: template_id as u32 + 100,
+                },
+            );
+        }
+
+        // template 2 is now the oldest and gets evicted; the job owned by template 3 survives
+        // and the cap still holds
+        assert!(store.get_future_job_id_from_template_id(2).is_none());
+        assert!(store.get_future_job(2).is_none());
+        assert_eq!(store.get_future_job_id_from_template_id(3), Some(1));
+        assert!(store.get_future_job(1).is_some());
+        assert_eq!(store.future_jobs.len(), MAX_FUTURE_JOBS);
+        assert_eq!(store.future_template_order.len(), MAX_FUTURE_JOBS);
     }
 
     #[test]
