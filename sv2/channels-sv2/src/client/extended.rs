@@ -678,22 +678,15 @@ impl ExtendedChannel {
     /// - Retires the previously active job as stale, leaving the channel with no active job until
     ///   the next job message arrives.
     /// - Marks all past jobs as stale and clears them.
-    /// - Clears all seen shares if `prev_hash` changed, as shares for the previous chain tip will
-    ///   be rejected as stale; a repeated `prev_hash` keeps them, see
-    ///   [`ShareAccounting::flush_seen_shares`].
+    /// - Keeps seen shares, see [`ShareAccounting::is_share_seen`].
     pub fn on_chain_tip_update(&mut self, chain_tip: ChainTip) -> Result<(), ExtendedChannelError> {
         self.update_chain_tip(chain_tip);
         Ok(())
     }
 
     // Moves the channel onto `chain_tip`: future jobs are dropped, the active and past jobs go
-    // stale, retired extranonce prefixes are pruned and seen shares are flushed if `prev_hash`
-    // changed.
+    // stale and retired extranonce prefixes are pruned.
     fn update_chain_tip(&mut self, chain_tip: ChainTip) {
-        let is_new_prev_hash = self
-            .chain_tip
-            .as_ref()
-            .is_some_and(|previous| previous.prev_hash() != chain_tip.prev_hash());
         self.chain_tip = Some(chain_tip);
 
         // all other future jobs are now useless
@@ -718,11 +711,6 @@ impl ExtendedChannel {
         // the jobs that just went stale can no longer accept shares, so any retired extranonce
         // prefix they were the last reference to is now releasable
         self.prune_retired_extranonce_prefixes();
-
-        // hashes are retained while prev_hash is unchanged, see ShareAccounting::flush_seen_shares
-        if is_new_prev_hash {
-            self.share_accounting.flush_seen_shares();
-        }
     }
 
     /// Handles a [`SetNewPrevHash`](SetNewPrevHashMp) message from upstream.
@@ -733,9 +721,7 @@ impl ExtendedChannel {
     ///   untouched.
     /// - If it is a future job, activates it as the current job.
     /// - Marks the previously active job and all past jobs as stale, and clears past jobs.
-    /// - Clears all seen shares if `prev_hash` changed, as shares for the previous chain tip will
-    ///   be rejected as stale; a repeated `prev_hash` keeps them, see
-    ///   [`ShareAccounting::flush_seen_shares`].
+    /// - Keeps seen shares, see [`ShareAccounting::is_share_seen`].
     /// - Updates the chain tip for the channel.
     pub fn on_set_new_prev_hash(
         &mut self,
@@ -780,15 +766,6 @@ impl ExtendedChannel {
         // the jobs that just went stale can no longer accept shares, so any retired extranonce
         // prefix they were the last reference to is now releasable
         self.prune_retired_extranonce_prefixes();
-
-        // hashes are retained while prev_hash is unchanged, see ShareAccounting::flush_seen_shares
-        if self
-            .chain_tip
-            .as_ref()
-            .is_some_and(|chain_tip| chain_tip.prev_hash() != set_new_prev_hash.prev_hash)
-        {
-            self.share_accounting.flush_seen_shares();
-        }
 
         self.chain_tip = Some(set_new_prev_hash.into());
 
@@ -3191,14 +3168,14 @@ mod tests {
         };
 
         // network target: 000000000000d7c0... (hard, so no accidental BlockFound)
-        let set_new_prev_hash = |job_id: u32| SetNewPrevHashMp {
+        let prev_hash = [
+            200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144, 205,
+            88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
+        ];
+        let set_new_prev_hash = |job_id: u32, prev_hash: [u8; 32]| SetNewPrevHashMp {
             channel_id,
             job_id,
-            prev_hash: [
-                200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144,
-                205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
-            ]
-            .into(),
+            prev_hash: prev_hash.into(),
             nbits: 453040064,
             ntime_start: 1745596970,
         };
@@ -3214,7 +3191,9 @@ mod tests {
         };
 
         channel.on_new_extended_mining_job(future_job(1)).unwrap();
-        channel.on_set_new_prev_hash(set_new_prev_hash(1)).unwrap();
+        channel
+            .on_set_new_prev_hash(set_new_prev_hash(1, prev_hash))
+            .unwrap();
         assert!(matches!(
             channel.validate_share(share(0, 1)),
             Ok(ShareValidationResult::Valid(_))
@@ -3222,7 +3201,9 @@ mod tests {
 
         // the upstream repeats the tip under a new job_id: same header space, new job
         channel.on_new_extended_mining_job(future_job(2)).unwrap();
-        channel.on_set_new_prev_hash(set_new_prev_hash(2)).unwrap();
+        channel
+            .on_set_new_prev_hash(set_new_prev_hash(2, prev_hash))
+            .unwrap();
 
         // the identical proof under the new job_id is a duplicate, not a second validation
         assert!(matches!(
@@ -3230,6 +3211,30 @@ mod tests {
             Err(ShareValidationError::DuplicateShare(_))
         ));
         assert_eq!(channel.get_share_accounting().get_validated_shares(), 1);
+
+        // the tip moves to another prev_hash, where the same nonce makes a different header
+        let mut other_prev_hash = prev_hash;
+        other_prev_hash[0] ^= 1;
+        channel.on_new_extended_mining_job(future_job(3)).unwrap();
+        channel
+            .on_set_new_prev_hash(set_new_prev_hash(3, other_prev_hash))
+            .unwrap();
+        assert!(matches!(
+            channel.validate_share(share(2, 3)),
+            Ok(ShareValidationResult::Valid(_))
+        ));
+
+        // and returns to the first one with the same job again (A→B→A): the proof validated
+        // under the first tip is still a duplicate
+        channel.on_new_extended_mining_job(future_job(4)).unwrap();
+        channel
+            .on_set_new_prev_hash(set_new_prev_hash(4, prev_hash))
+            .unwrap();
+        assert!(matches!(
+            channel.validate_share(share(3, 4)),
+            Err(ShareValidationError::DuplicateShare(_))
+        ));
+        assert_eq!(channel.get_share_accounting().get_validated_shares(), 2);
     }
 
     // An immediately-active job whose coinbase carries a 32-byte extranonce.

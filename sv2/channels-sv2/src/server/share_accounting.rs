@@ -19,6 +19,7 @@
 //! issue `SubmitShares.Success` or `SubmitShares.Error` messages. Not intended for use by mining
 //! clients.
 
+use binary_sv2::U256Owned;
 use bitcoin::hashes::sha256d::Hash;
 use std::collections::{HashMap, HashSet};
 
@@ -96,6 +97,8 @@ pub struct ShareAccounting {
     batch_acknowledged: bool,
     share_batch_size: usize,
     seen_shares: HashSet<Hash>,
+    // the hashes accepted under the previous prev_hash, put back if the tip returns to it
+    previous_seen_shares: Option<(U256Owned, HashSet<Hash>)>,
     seen_shares_budget: usize,
     best_diff: f64,
     blocks_found: u32,
@@ -121,6 +124,7 @@ impl ShareAccounting {
             batch_acknowledged: false,
             share_batch_size,
             seen_shares: HashSet::new(),
+            previous_seen_shares: None,
             seen_shares_budget,
             best_diff: 0.0,
             blocks_found: 0,
@@ -170,17 +174,33 @@ impl ShareAccounting {
         }
     }
 
-    /// Clears the set of seen share hashes.
+    /// Moves duplicate detection from the chain tip's `prev_hash` to `new_prev_hash`.
     ///
-    /// Must be called whenever the chain tip's `prev_hash` changes, and only then. Accepted
-    /// hashes are retained for as long as `prev_hash` is unchanged: job and template IDs are not
-    /// committed into the block header, so a job replaced under the same `prev_hash` commits to
-    /// the same header space as its predecessor, and flushing then would let a proof that was
-    /// already credited be credited again under the new job ID. This is also what makes the
-    /// seen-shares budget per-`prev_hash`: the set only ever holds the shares accepted while one
-    /// `prev_hash` was current.
-    pub fn flush_seen_shares(&mut self) {
-        self.seen_shares.clear();
+    /// Must be called whenever the chain tip's `prev_hash` changes; an unchanged `prev_hash` is a
+    /// no-op. Job and template IDs are not committed into the block header, so any job under a
+    /// given `prev_hash` can commit to the same header space as an earlier one, and forgetting
+    /// the hashes accepted under that `prev_hash` would let a proof that was already credited be
+    /// credited again under a new job ID. That holds while `prev_hash` is unchanged, and also
+    /// when the tip returns to the `prev_hash` it just left (A→B→A): the hashes of the
+    /// `prev_hash` being left are kept aside and become current again if the next change
+    /// returns to it. Hashes kept for an older `prev_hash` are dropped.
+    ///
+    /// Header hashes commit to `prev_hash`, so hashes accepted under different tips never
+    /// compare equal and only the current set needs checking. The seen-shares budget applies to
+    /// that set alone, so it stays per-`prev_hash`, and the cache holds at most twice
+    /// `seen_shares_budget` hashes.
+    pub fn on_prev_hash_change(&mut self, prev_hash: U256Owned, new_prev_hash: U256Owned) {
+        if prev_hash == new_prev_hash {
+            return;
+        }
+        let restored = match self.previous_seen_shares.take() {
+            Some((previous_prev_hash, seen_shares)) if previous_prev_hash == new_prev_hash => {
+                seen_shares
+            }
+            _ => HashSet::new(),
+        };
+        let left = std::mem::replace(&mut self.seen_shares, restored);
+        self.previous_seen_shares = Some((prev_hash, left));
     }
 
     /// Returns `true` once the accepted-share dedup cache has reached its budget.
@@ -262,9 +282,9 @@ impl ShareAccounting {
 
     /// Checks if the share hash has already been accepted (duplicate detection).
     ///
-    /// The underlying set holds at most `seen_shares_budget` hashes (see
-    /// [`is_seen_shares_budget_exhausted`](Self::is_seen_shares_budget_exhausted)) and is flushed
-    /// whenever the chain tip's `prev_hash` changes.
+    /// Only the hashes accepted under the current `prev_hash` are checked, see
+    /// [`on_prev_hash_change`](Self::on_prev_hash_change). They are at most `seen_shares_budget`
+    /// (see [`is_seen_shares_budget_exhausted`](Self::is_seen_shares_budget_exhausted)).
     pub fn is_share_seen(&self, share_hash: Hash) -> bool {
         self.seen_shares.contains(&share_hash)
     }
@@ -394,9 +414,42 @@ mod tests {
             assert!(accounting.is_share_seen(hash(i)));
         }
 
-        // a chain-tip transition resets the budget
-        accounting.flush_seen_shares();
+        // a prev_hash change resets the budget
+        accounting.on_prev_hash_change([1; 32].into(), [2; 32].into());
         assert!(!accounting.is_seen_shares_budget_exhausted());
         assert!(!accounting.is_share_seen(hash(0)));
+    }
+
+    #[test]
+    fn seen_shares_are_kept_for_the_previous_prev_hash() {
+        fn hash(i: u32) -> bitcoin::hashes::sha256d::Hash {
+            let mut bytes = [0u8; 32];
+            bytes[..4].copy_from_slice(&i.to_le_bytes());
+            <bitcoin::hashes::sha256d::Hash as bitcoin::hashes::Hash>::from_slice(&bytes).unwrap()
+        }
+        let (a, b, c) = ([1; 32], [2; 32], [3; 32]);
+        let mut accounting = ShareAccounting::new(10, 100);
+
+        accounting.update_share_accounting(1.0, 0, hash(0));
+        accounting.on_prev_hash_change(a.into(), b.into());
+        accounting.update_share_accounting(1.0, 1, hash(1));
+        assert!(!accounting.is_share_seen(hash(0)));
+
+        // A→B→A puts A's hashes back, and keeps B's aside
+        accounting.on_prev_hash_change(b.into(), a.into());
+        assert!(accounting.is_share_seen(hash(0)));
+        assert!(!accounting.is_share_seen(hash(1)));
+        accounting.on_prev_hash_change(a.into(), b.into());
+        assert!(accounting.is_share_seen(hash(1)));
+
+        // an unchanged prev_hash keeps the current hashes
+        accounting.on_prev_hash_change(b.into(), b.into());
+        assert!(accounting.is_share_seen(hash(1)));
+
+        // B→C→A: only B's hashes were kept aside, so A starts empty
+        accounting.on_prev_hash_change(b.into(), c.into());
+        accounting.on_prev_hash_change(c.into(), a.into());
+        assert!(!accounting.is_share_seen(hash(0)));
+        assert!(!accounting.is_share_seen(hash(1)));
     }
 }
