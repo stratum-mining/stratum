@@ -1008,13 +1008,13 @@ mod tests {
         server::{
             error::StandardChannelError,
             jobs::{
-                factory::{MAX_COINBASE_PREFIX_SIZE, MAX_SCRIPT_SIG_SIZE},
+                factory::MAX_COINBASE_PREFIX_SIZE,
                 job_store::{MAX_FUTURE_JOBS, MAX_PAST_JOBS},
             },
             share_accounting::{ShareValidationError, ShareValidationResult},
             standard::StandardChannel,
         },
-        MAX_EXTRANONCE_LEN,
+        MAX_EXTRANONCE_LEN, MAX_SCRIPT_SIG_SIZE,
     };
     use binary_sv2::Sv2OptionOwned as Sv2Option;
     use bitcoin::{
