@@ -26,6 +26,9 @@
 //!   reconstructed from binary data.
 //!   - **Generated Methods**: `get_structure` (defines field structure) and `from_decoded_fields`
 //!     (builds the struct from decoded fields).
+//!   - **Attributes**: `#[validate]` (optional) to call the struct's inherent `validate` method on
+//!     the decoded value before returning it, allowing a struct to reject values that decode
+//!     structurally but violate protocol rules.
 //!
 //! ## Internal Structure
 //!
@@ -103,6 +106,49 @@ fn is_already_sized(item: TokenStream) -> bool {
                 for t in g.stream().into_iter() {
                     if let TokenTree::Ident(i) = t {
                         if i.to_string() == "already_sized" {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
+// Checks if a `TokenStream` contains a group with a bracket delimiter (`[]`),
+// and further examines if the group has an identifier called `validate`.
+//
+// Iterates through the `TokenStream`, searching for a group of tokens that
+// is delimited by square brackets. Once a group is found, it looks inside
+// the group for an identifier named `validate`. If such an identifier is found,
+// the function returns `true`. Otherwise, it returns `false`.
+//
+// A struct annotated with `#[validate]` must provide an inherent method
+// `fn validate(&self) -> Result<(), binary_sv2::Error>`: the generated
+// `from_decoded_fields` calls it on the decoded value before returning it, so values that
+// are structurally decodable but violate protocol rules fail at parse time.
+//
+// # Example
+//
+// ```ignore
+// use proc_macro2::{Delimiter, Group, TokenStream, TokenTree};
+// use quote::quote;
+//
+// let input: TokenStream = quote! {
+//     [validate]
+// };
+// assert_eq!(has_validate_attribute(input), true);
+// ```
+fn has_validate_attribute(item: TokenStream) -> bool {
+    let stream = item.into_iter();
+
+    for next in stream {
+        if let TokenTree::Group(g) = next.clone() {
+            if g.delimiter() == proc_macro::Delimiter::Bracket {
+                for t in g.stream().into_iter() {
+                    if let TokenTree::Ident(i) = t {
+                        if i.to_string() == "validate" {
                             return true;
                         }
                     }
@@ -782,8 +828,49 @@ fn parse_struct_fields(group: Vec<TokenTree>) -> Result<Vec<ParsedField>, MacroE
 /// The `TestOwned` mirror and the `into_owned` / `as_owned` methods that build it are emitted
 /// only for structs that carry generics; a struct with no lifetime or type parameters already
 /// owns its data, so it gets the `Decodable` implementation alone.
-#[proc_macro_derive(Decodable)]
+///
+/// # Validation
+///
+/// A struct annotated with `#[validate]` must provide an inherent method
+/// `fn validate(&self) -> Result<(), binary_sv2::Error>`. The generated `from_decoded_fields`
+/// calls it on the decoded value before returning it, so a value that is structurally decodable
+/// but violates protocol rules fails at parse time instead of propagating.
+///
+/// Given a struct:
+///
+/// ```ignore
+/// #[derive(Decodable)]
+/// #[validate]
+/// pub struct Test<'decoder> {
+///     pub a: u32,
+/// }
+///
+/// impl<'decoder> Test<'decoder> {
+///     pub fn validate(&self) -> Result<(), binary_sv2::Error> {
+///         if self.a > 100 {
+///             return Err(binary_sv2::Error::PrimitiveConversionError);
+///         }
+///         Ok(())
+///     }
+/// }
+/// ```
+///
+/// the generated `from_decoded_fields` becomes:
+///
+/// ```ignore
+/// fn from_decoded_fields(mut __decodable_internal_data: Vec<DecodableField<'decoder>>) -> Result<Self, Error> {
+///     let decoded = Self {
+///         a: u32::from_decoded_fields(
+///             __decodable_internal_data.pop().ok_or(Error::NoDecodableFieldPassed)?.into(),
+///         )?,
+///     };
+///     decoded.validate()?;
+///     Ok(decoded)
+/// }
+/// ```
+#[proc_macro_derive(Decodable, attributes(validate))]
 pub fn decodable(item: TokenStream) -> TokenStream {
+    let has_validate = has_validate_attribute(item.clone());
     let parsed_struct = match get_struct_properties(item) {
         Ok(parsed_struct) => parsed_struct,
         Err(err) => return emit_compile_error_at(err.span, &err.message),
@@ -909,6 +996,32 @@ pub fn decodable(item: TokenStream) -> TokenStream {
         "<'decoder>".to_string()
     };
 
+    // The decoded value is validated by an inherent `validate` method before being returned
+    // when the struct carries the `validate` attribute.
+    let from_decoded_fields = if has_validate {
+        format!(
+            "
+        fn from_decoded_fields(mut {}: Vec<DecodableField<'decoder>>) -> Result<Self, Error> {{
+            let decoded = Self {{
+                {}
+            }};
+            decoded.validate()?;
+            Ok(decoded)
+        }}",
+            data_ident, derive_decoded_fields,
+        )
+    } else {
+        format!(
+            "
+        fn from_decoded_fields(mut {}: Vec<DecodableField<'decoder>>) -> Result<Self, Error> {{
+            Ok(Self {{
+                {}
+            }})
+        }}",
+            data_ident, derive_decoded_fields,
+        )
+    };
+
     let decodable_impl = format!(
         "
     impl{} Decodable<'decoder> for {}{} {{
@@ -918,12 +1031,7 @@ pub fn decodable(item: TokenStream) -> TokenStream {
             {}
             Ok(fields)
         }}
-
-        fn from_decoded_fields(mut {}: Vec<DecodableField<'decoder>>) -> Result<Self, Error> {{
-            Ok(Self {{
-                {}
-            }})
-        }}
+        {}
     }}",
         impl_generics,
         parsed_struct.name,
@@ -931,8 +1039,7 @@ pub fn decodable(item: TokenStream) -> TokenStream {
         data_ident,
         offset_ident,
         derive_fields,
-        data_ident,
-        derive_decoded_fields,
+        from_decoded_fields
     );
 
     let (owned_struct, owned_impl) = if parsed_struct.generics.is_empty() {
