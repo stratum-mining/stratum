@@ -1,6 +1,6 @@
 use crate::{
-    SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT, SV2_MINING_PROTOCOL_DISCRIMINANT,
-    SV2_TEMPLATE_DISTRIBUTION_PROTOCOL_DISCRIMINANT,
+    SUPPORTED_PROTOCOL_VERSION, SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT,
+    SV2_MINING_PROTOCOL_DISCRIMINANT, SV2_TEMPLATE_DISTRIBUTION_PROTOCOL_DISCRIMINANT,
 };
 use alloc::{fmt, vec::Vec};
 use binary_sv2::{
@@ -23,7 +23,13 @@ use core::convert::{TryFrom, TryInto};
 ///
 /// A valid response to this message from the upstream role can either be [`SetupConnectionSuccess`]
 /// or [`SetupConnectionError`] message.
+///
+/// The advertised version range must be exactly the version implemented by this crate: the spec
+/// currently defines only [`SUPPORTED_PROTOCOL_VERSION`], so decoding a message with any other
+/// [`SetupConnection::min_version`] or [`SetupConnection::max_version`] fails with
+/// [`binary_sv2::Error::UnsupportedProtocolVersion`].
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[validate]
 pub struct SetupConnection<'decoder> {
     /// Protocol to be used for the connection.
     pub protocol: Protocol,
@@ -92,6 +98,25 @@ impl fmt::Display for SetupConnectionOwned {
 }
 
 impl SetupConnection<'_> {
+    /// Check that the advertised protocol version range is the one implemented by this crate.
+    ///
+    /// The spec currently defines only [`SUPPORTED_PROTOCOL_VERSION`], so both
+    /// [`SetupConnection::min_version`] and [`SetupConnection::max_version`] must be set to it.
+    /// The `Decodable` derive calls this on every decoded [`SetupConnection`], so a message
+    /// advertising a different range fails at parse time with
+    /// [`binary_sv2::Error::UnsupportedProtocolVersion`] instead of reaching application code.
+    pub fn validate(&self) -> Result<(), binary_sv2::Error> {
+        if self.min_version != SUPPORTED_PROTOCOL_VERSION
+            || self.max_version != SUPPORTED_PROTOCOL_VERSION
+        {
+            return Err(binary_sv2::Error::UnsupportedProtocolVersion(
+                self.min_version,
+                self.max_version,
+            ));
+        }
+        Ok(())
+    }
+
     /// Set the flag to indicate that the downstream requires a standard job
     pub fn set_requires_standard_job(&mut self) {
         self.flags |= 0b_0000_0000_0000_0000_0000_0000_0000_0001;
@@ -507,6 +532,49 @@ mod test {
         }
     }
 
+    fn create_decodable_setup_connection() -> SetupConnection<'static> {
+        SetupConnection {
+            min_version: SUPPORTED_PROTOCOL_VERSION,
+            max_version: SUPPORTED_PROTOCOL_VERSION,
+            ..create_setup_connection()
+        }
+    }
+
+    #[test]
+    fn test_parsing_a_supported_version() {
+        let setup_conn = create_decodable_setup_connection();
+        let mut bytes = vec![0u8; setup_conn.get_size()];
+        setup_conn.clone().to_bytes(&mut bytes).unwrap();
+
+        let parsed = SetupConnection::from_bytes(&mut bytes).unwrap();
+
+        assert_eq!(parsed, setup_conn);
+    }
+
+    #[test]
+    fn test_parsing_rejects_any_other_version() {
+        let setup_conn = create_decodable_setup_connection();
+        let mut bytes = vec![0u8; setup_conn.get_size()];
+        setup_conn.to_bytes(&mut bytes).unwrap();
+
+        // Version layout after the 1-byte protocol: min_version then max_version, little endian.
+        for (min_version, max_version) in [(1_u16, 4_u16), (3, 3), (2, 3), (5, 2), (0, 2), (3, 1)] {
+            let mut data = bytes.clone();
+            data[1..3].copy_from_slice(&min_version.to_le_bytes());
+            data[3..5].copy_from_slice(&max_version.to_le_bytes());
+
+            let result = SetupConnection::from_bytes(&mut data);
+
+            assert_eq!(
+                result,
+                Err(binary_sv2::Error::UnsupportedProtocolVersion(
+                    min_version,
+                    max_version
+                )),
+                "expected [{min_version}, {max_version}] to be rejected"
+            );
+        }
+    }
     #[test]
     fn test_get_version() {
         let setup_conn = create_setup_connection();

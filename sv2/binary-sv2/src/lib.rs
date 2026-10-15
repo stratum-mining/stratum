@@ -231,6 +231,13 @@ pub enum Error {
     /// Error for protocol-specific invalid values.
     ValueIsNotAValidProtocol(u8),
 
+    /// The protocol version range advertised by the message is not supported.
+    ///
+    /// Carries the advertised `(min_version, max_version)`. The Stratum V2 spec currently
+    /// defines a single protocol version, so any range that is not exactly that version is
+    /// rejected.
+    UnsupportedProtocolVersion(u16, u16),
+
     /// Indicates a protocol constraint violation where `Sv2Option` unexpectedly contains multiple
     /// elements.
     Sv2OptionHaveMoreThenOneElement(u8),
@@ -269,6 +276,11 @@ impl core::fmt::Debug for Error {
             Error::ValueIsNotAValidProtocol(value) => f
                 .debug_tuple("ValueIsNotAValidProtocol")
                 .field(value)
+                .finish(),
+            Error::UnsupportedProtocolVersion(min_version, max_version) => f
+                .debug_tuple("UnsupportedProtocolVersion")
+                .field(min_version)
+                .field(max_version)
                 .finish(),
             Error::Sv2OptionHaveMoreThenOneElement(value) => f
                 .debug_tuple("Sv2OptionHaveMoreThenOneElement")

@@ -39,6 +39,14 @@ pub const SV2_MINING_PROTOCOL_DISCRIMINANT: u8 = 0;
 pub const SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT: u8 = 1;
 pub const SV2_TEMPLATE_DISTRIBUTION_PROTOCOL_DISCRIMINANT: u8 = 2;
 
+/// The Stratum V2 protocol version implemented by this crate.
+///
+/// The spec currently defines a single protocol version, so
+/// [`SetupConnection::min_version`] and [`SetupConnection::max_version`] must both be set to it.
+/// Decoding a [`SetupConnection`] that advertises any other range fails with
+/// [`binary_sv2::Error::UnsupportedProtocolVersion`].
+pub const SUPPORTED_PROTOCOL_VERSION: u16 = 2;
+
 // Common message types used across all Stratum V2 (sub)protocols.
 pub const MESSAGE_TYPE_SETUP_CONNECTION: u8 = 0x0;
 pub const MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS: u8 = 0x1;
