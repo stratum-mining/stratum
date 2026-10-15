@@ -238,6 +238,18 @@ pub enum Error {
     /// rejected.
     UnsupportedProtocolVersion(u16, u16),
 
+    /// A `coinbase_prefix` field is longer than the spec allows for it.
+    ///
+    /// Carries the length of the offending value. The spec caps the prefix at 8 bytes,
+    /// excluding the `B0_255` length prefix.
+    CoinbasePrefixTooLong(usize),
+
+    /// A `coinbase_prefix` field does not begin with a well-formed block height push.
+    ///
+    /// The spec requires the prefix to begin with the height push described by BIP34: a
+    /// length byte followed by that many little-endian bytes of the block height.
+    InvalidCoinbasePrefixHeightPush,
+
     /// Indicates a protocol constraint violation where `Sv2Option` unexpectedly contains multiple
     /// elements.
     Sv2OptionHaveMoreThenOneElement(u8),
@@ -282,6 +294,12 @@ impl core::fmt::Debug for Error {
                 .field(min_version)
                 .field(max_version)
                 .finish(),
+            Error::CoinbasePrefixTooLong(len) => {
+                f.debug_tuple("CoinbasePrefixTooLong").field(len).finish()
+            }
+            Error::InvalidCoinbasePrefixHeightPush => {
+                f.write_str("InvalidCoinbasePrefixHeightPush")
+            }
             Error::Sv2OptionHaveMoreThenOneElement(value) => f
                 .debug_tuple("Sv2OptionHaveMoreThenOneElement")
                 .field(value)
