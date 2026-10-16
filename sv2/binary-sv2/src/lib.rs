@@ -250,6 +250,12 @@ pub enum Error {
     /// length byte followed by that many little-endian bytes of the block height.
     InvalidCoinbasePrefixHeightPush,
 
+    /// A string code field contains a control character.
+    ///
+    /// Carries the offending byte. The spec forbids control characters in error codes and in
+    /// the other human-readable string codes, such as the `reason_code`.
+    ControlCharInStringCode(u8),
+
     /// Indicates a protocol constraint violation where `Sv2Option` unexpectedly contains multiple
     /// elements.
     Sv2OptionHaveMoreThenOneElement(u8),
@@ -300,6 +306,10 @@ impl core::fmt::Debug for Error {
             Error::InvalidCoinbasePrefixHeightPush => {
                 f.write_str("InvalidCoinbasePrefixHeightPush")
             }
+            Error::ControlCharInStringCode(byte) => f
+                .debug_tuple("ControlCharInStringCode")
+                .field(byte)
+                .finish(),
             Error::Sv2OptionHaveMoreThenOneElement(value) => f
                 .debug_tuple("Sv2OptionHaveMoreThenOneElement")
                 .field(value)

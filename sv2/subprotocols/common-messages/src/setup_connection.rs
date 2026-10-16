@@ -340,7 +340,11 @@ impl fmt::Display for SetupConnectionSuccess {
 /// The upstream must provide the full set of flags which it does not support in each
 /// [`SetupConnectionError`] message and must consistently support the same set of flags across all
 /// servers on the same hostname and port number.
+///
+/// Decoding fails if [`SetupConnectionError::error_code`] contains control characters, see
+/// [`SetupConnectionError::validate`].
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[validate]
 pub struct SetupConnectionError<'decoder> {
     /// Unsupported feature flags.
     ///
@@ -354,6 +358,21 @@ pub struct SetupConnectionError<'decoder> {
     /// - unsupported-protocol
     /// - missing-declare-tx-data-flag
     pub error_code: Str0255<'decoder>,
+}
+
+impl SetupConnectionError<'_> {
+    /// Check that [`SetupConnectionError::error_code`] contains no control characters.
+    ///
+    /// The spec forbids control characters in error codes and in the other human-readable string
+    /// codes, see section 3.5. The `Decodable` derive runs this on every decoded
+    /// [`SetupConnectionError`], so a value carrying one fails at parse time with
+    /// [`binary_sv2::Error::ControlCharInStringCode`] instead of reaching application code.
+    pub fn validate(&self) -> Result<(), binary_sv2::Error> {
+        if let Some(byte) = self.error_code.first_control_char() {
+            return Err(binary_sv2::Error::ControlCharInStringCode(byte));
+        }
+        Ok(())
+    }
 }
 
 impl fmt::Display for SetupConnectionError<'_> {
@@ -589,5 +608,31 @@ mod test {
         assert!(!setup_conn.requires_standard_job());
         setup_conn.set_requires_standard_job();
         assert!(setup_conn.requires_standard_job());
+    }
+
+    fn parse_setup_connection_error(error_code: &[u8]) -> Result<(), binary_sv2::Error> {
+        let msg = SetupConnectionError {
+            flags: 0,
+            error_code: Str0255::new(error_code).unwrap(),
+        };
+        let mut bytes = vec![0u8; msg.get_size()];
+        msg.clone().to_bytes(&mut bytes).unwrap();
+        SetupConnectionError::from_bytes(&mut bytes).map(|_| ())
+    }
+
+    #[test]
+    fn test_parsing_an_error_code_without_control_chars() {
+        assert!(parse_setup_connection_error(b"unsupported-protocol").is_ok());
+    }
+
+    #[test]
+    fn test_parsing_an_error_code_with_control_chars() {
+        for byte in [0x00_u8, 0x01, 0x1F, 0x7F] {
+            assert_eq!(
+                parse_setup_connection_error(&[b'a', byte, b'b']),
+                Err(binary_sv2::Error::ControlCharInStringCode(byte)),
+                "0x{byte:02X} must be rejected"
+            );
+        }
     }
 }

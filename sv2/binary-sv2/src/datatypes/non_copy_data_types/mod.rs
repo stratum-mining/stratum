@@ -120,6 +120,17 @@ impl Str0255<'_> {
             Err(_) => format!("0x{}", bytes_to_hex(self.as_bytes())),
         }
     }
+
+    /// Returns the first ASCII control character in the value, if it contains one.
+    ///
+    /// Control characters are the ranges 0x00 to 0x1F and 0x7F. The spec forbids them in error
+    /// codes and in the other human-readable string codes, such as the `reason_code`
+    pub fn first_control_char(&self) -> Option<u8> {
+        self.as_bytes()
+            .iter()
+            .copied()
+            .find(|b| b.is_ascii_control())
+    }
 }
 
 impl Str0255Owned {
@@ -129,6 +140,17 @@ impl Str0255Owned {
             Ok(s) => alloc::string::String::from(s),
             Err(_) => format!("0x{}", bytes_to_hex(self.as_bytes())),
         }
+    }
+
+    /// Returns the first ASCII control character in the value, if it contains one.
+    ///
+    /// Control characters are the ranges 0x00 to 0x1F and 0x7F. The spec forbids them in error
+    /// codes and in the other human-readable string codes, such as the `reason_code`
+    pub fn first_control_char(&self) -> Option<u8> {
+        self.as_bytes()
+            .iter()
+            .copied()
+            .find(|b| b.is_ascii_control())
     }
 }
 
@@ -480,7 +502,10 @@ impl<'a> TryFrom<&'a mut String> for Str0255<'a> {
 
 #[cfg(test)]
 mod test {
-    use super::{inner::MAX_DISPLAY_BYTES, B0255Owned, B064KOwned, Seq064K, B016M, B0255, B064K};
+    use super::{
+        inner::MAX_DISPLAY_BYTES, B0255Owned, B064KOwned, Seq064K, Str0255, Str0255Owned, B016M,
+        B0255, B064K,
+    };
     use alloc::{format, string::ToString, vec, vec::Vec};
 
     #[test]
@@ -510,6 +535,30 @@ mod test {
 
         let short = [0xAB_u8];
         assert_eq!(B0255::new(&short).unwrap().as_hex(), "B0255(ab)");
+    }
+
+    #[test]
+    fn str0255_first_control_char_reports_the_offending_byte() {
+        for byte in [0x00_u8, 0x1F, 0x7F] {
+            let value = [b'a', byte, b'b'];
+
+            assert_eq!(
+                Str0255::new(&value).unwrap().first_control_char(),
+                Some(byte)
+            );
+            let owned: Str0255Owned = value.to_vec().try_into().unwrap();
+            assert_eq!(owned.first_control_char(), Some(byte));
+        }
+    }
+
+    #[test]
+    fn str0255_without_control_chars_has_none_to_report() {
+        // a space is not a control character
+        let value = b"stale share 42";
+
+        assert_eq!(Str0255::new(value).unwrap().first_control_char(), None);
+        let owned: Str0255Owned = value.to_vec().try_into().unwrap();
+        assert_eq!(owned.first_control_char(), None);
     }
 
     #[test]
