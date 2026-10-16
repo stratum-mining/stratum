@@ -231,6 +231,38 @@ pub enum Error {
     /// Error for protocol-specific invalid values.
     ValueIsNotAValidProtocol(u8),
 
+    /// The protocol version range advertised by the message is not supported.
+    ///
+    /// Carries the advertised `(min_version, max_version)`. The Stratum V2 spec currently
+    /// defines a single protocol version, so any range that is not exactly that version is
+    /// rejected.
+    UnsupportedProtocolVersion(u16, u16),
+
+    /// A `coinbase_prefix` field is longer than the spec allows for it.
+    ///
+    /// Carries the length of the offending value. The spec caps the prefix at 8 bytes,
+    /// excluding the `B0_255` length prefix.
+    CoinbasePrefixTooLong(usize),
+
+    /// A `coinbase_prefix` field does not begin with a well-formed block height push.
+    ///
+    /// The spec requires the prefix to begin with the height push described by BIP34: a
+    /// length byte followed by that many little-endian bytes of the block height.
+    InvalidCoinbasePrefixHeightPush,
+
+    /// A string code field contains a control character.
+    ///
+    /// Carries the offending byte. The spec forbids control characters in error codes and in
+    /// the other human-readable string codes, such as the `reason_code`.
+    ControlCharInStringCode(u8),
+
+    /// An `F32` field carries a value the spec defines as a protocol error.
+    ///
+    /// Carries the IEEE-754 bit pattern of the offending value, so `Eq` still holds for the error
+    /// enum; `f32::from_bits` recovers the value. The spec requires a receiver to treat NaN, both
+    /// infinities, and negative values, including `-0.0`, as protocol errors.
+    ValueIsNotAValidF32(u32),
+
     /// Indicates a protocol constraint violation where `Sv2Option` unexpectedly contains multiple
     /// elements.
     Sv2OptionHaveMoreThenOneElement(u8),
@@ -269,6 +301,25 @@ impl core::fmt::Debug for Error {
             Error::ValueIsNotAValidProtocol(value) => f
                 .debug_tuple("ValueIsNotAValidProtocol")
                 .field(value)
+                .finish(),
+            Error::UnsupportedProtocolVersion(min_version, max_version) => f
+                .debug_tuple("UnsupportedProtocolVersion")
+                .field(min_version)
+                .field(max_version)
+                .finish(),
+            Error::CoinbasePrefixTooLong(len) => {
+                f.debug_tuple("CoinbasePrefixTooLong").field(len).finish()
+            }
+            Error::InvalidCoinbasePrefixHeightPush => {
+                f.write_str("InvalidCoinbasePrefixHeightPush")
+            }
+            Error::ControlCharInStringCode(byte) => f
+                .debug_tuple("ControlCharInStringCode")
+                .field(byte)
+                .finish(),
+            Error::ValueIsNotAValidF32(bits) => f
+                .debug_tuple("ValueIsNotAValidF32")
+                .field(&f32::from_bits(*bits))
                 .finish(),
             Error::Sv2OptionHaveMoreThenOneElement(value) => f
                 .debug_tuple("Sv2OptionHaveMoreThenOneElement")

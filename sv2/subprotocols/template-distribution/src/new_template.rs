@@ -1,10 +1,15 @@
+use crate::COINBASE_PREFIX_MAX_LEN;
 use alloc::{fmt, vec::Vec};
 use binary_sv2::{Deserialize, Seq0255, Serialize, B0255, B064K, U256};
 use core::convert::TryInto;
 
 /// Message used by an upstream(Template Provider) to provide a new template for downstream to mine
 /// on.
+///
+/// Decoding fails if [`NewTemplate::coinbase_prefix`] violates the constraints the spec defines
+/// for it, see [`NewTemplate::validate`].
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[validate]
 pub struct NewTemplate<'decoder> {
     /// Upstream’s identification of the template.
     ///
@@ -92,5 +97,113 @@ impl fmt::Display for NewTemplateOwned {
             self.coinbase_tx_locktime,
             self.merkle_path
         )
+    }
+}
+
+impl NewTemplate<'_> {
+    /// Check that [`NewTemplate::coinbase_prefix`] satisfies the constraints the spec defines
+    /// for it.
+    ///
+    /// The prefix must be at most [`COINBASE_PREFIX_MAX_LEN`] bytes long, excluding the `B0_255`
+    /// length prefix, and must begin with the block height push described by BIP34: a length
+    /// byte followed by that many little-endian bytes of the height. The `Decodable` derive calls
+    /// this on every decoded [`NewTemplate`], so a prefix violating either constraint fails at
+    /// parse time instead of reaching application code.
+    ///
+    /// The check is structural: it verifies that the length byte of the height push fits in the
+    /// prefix. The number the push encodes is not inspected, so the minimal-encoding rules the
+    /// height push is subject to under Bitcoin consensus are not applied here.
+    pub fn validate(&self) -> Result<(), binary_sv2::Error> {
+        let prefix = self.coinbase_prefix.as_bytes();
+        if prefix.len() > COINBASE_PREFIX_MAX_LEN {
+            return Err(binary_sv2::Error::CoinbasePrefixTooLong(prefix.len()));
+        }
+        match prefix.split_first() {
+            // BIP34 height push: a length byte followed by that many bytes of the height. A zero
+            // length byte encodes height 0 as an empty push.
+            Some((height_len, height)) if (*height_len as usize) <= height.len() => Ok(()),
+            _ => Err(binary_sv2::Error::InvalidCoinbasePrefixHeightPush),
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use alloc::{vec, vec::Vec};
+    use binary_sv2::GetSize;
+
+    fn new_template_with_prefix(prefix: &[u8]) -> NewTemplate<'_> {
+        let empty_merkle_path: Vec<U256<'_>> = vec![];
+        let merkle_path: Seq0255<'_, U256<'_>> = Seq0255::new(empty_merkle_path).unwrap();
+
+        NewTemplate {
+            template_id: 0,
+            future_template: false,
+            version: 0,
+            coinbase_tx_version: 2,
+            coinbase_prefix: B0255::new(prefix).unwrap(),
+            coinbase_tx_input_sequence: 0,
+            coinbase_tx_value_remaining: 0,
+            coinbase_tx_outputs_count: 0,
+            coinbase_tx_outputs: B064K::new(&[]).unwrap(),
+            coinbase_tx_locktime: 0,
+            merkle_path,
+        }
+    }
+
+    /// Encodes a template with the given prefix and decodes it back, mapping a successful parse
+    /// to `Ok(())` so the borrowed message does not outlive the buffer it reads from.
+    fn parse_with_prefix(prefix: Vec<u8>) -> Result<(), binary_sv2::Error> {
+        let template = new_template_with_prefix(&prefix);
+        let mut bytes = vec![0u8; template.get_size()];
+        template.clone().to_bytes(&mut bytes).unwrap();
+        NewTemplate::from_bytes(&mut bytes).map(|_| ())
+    }
+
+    #[test]
+    fn parses_a_bip34_height_push() {
+        // height 159: a 2-byte push followed by 0x9F, 0x00
+        assert!(parse_with_prefix(vec![2, 159, 0, 0]).is_ok());
+        assert!(new_template_with_prefix(&[2, 159, 0, 0]).validate().is_ok());
+    }
+
+    #[test]
+    fn parses_the_maximum_length_prefix() {
+        assert!(parse_with_prefix(vec![7, 1, 2, 3, 4, 5, 6, 7]).is_ok());
+    }
+
+    #[test]
+    fn rejects_a_prefix_longer_than_the_spec_allows() {
+        let result = parse_with_prefix(vec![8, 1, 2, 3, 4, 5, 6, 7, 8]);
+
+        assert_eq!(
+            result,
+            Err(binary_sv2::Error::CoinbasePrefixTooLong(9)),
+            "a 9-byte coinbase_prefix must be rejected"
+        );
+    }
+
+    #[test]
+    fn rejects_a_prefix_without_a_height_push() {
+        let result = parse_with_prefix(vec![]);
+
+        assert_eq!(
+            result,
+            Err(binary_sv2::Error::InvalidCoinbasePrefixHeightPush),
+            "an empty coinbase_prefix must be rejected"
+        );
+    }
+
+    #[test]
+    fn rejects_a_height_push_that_does_not_fit_the_prefix() {
+        // the push claims 82 bytes of height but the prefix only carries one more byte
+        let result = parse_with_prefix(vec![82, 0]);
+
+        assert_eq!(
+            result,
+            Err(binary_sv2::Error::InvalidCoinbasePrefixHeightPush),
+            "a height push longer than the prefix must be rejected"
+        );
     }
 }

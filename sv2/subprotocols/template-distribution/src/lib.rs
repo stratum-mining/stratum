@@ -31,6 +31,13 @@ pub use request_transaction_data::{
 pub use set_new_prev_hash::{SetNewPrevHash, SetNewPrevHashOwned};
 pub use submit_solution::{SubmitSolution, SubmitSolutionOwned};
 
+/// The maximum length of a [`NewTemplate::coinbase_prefix`], excluding the `B0_255` length
+/// prefix.
+///
+/// The spec also requires the prefix to begin with the block height push described by BIP34,
+/// which [`NewTemplate::validate`] enforces together with this limit.
+pub const COINBASE_PREFIX_MAX_LEN: usize = 8;
+
 // Template Distribution Protocol message types.
 pub const MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS: u8 = 0x70;
 pub const MESSAGE_TYPE_NEW_TEMPLATE: u8 = 0x71;

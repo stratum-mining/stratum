@@ -52,6 +52,56 @@ mod test_f32 {
 
         assert_eq!(deserialized, expected);
     }
+
+    #[test]
+    fn accepts_zero_and_positive_values() {
+        // a proxy with no downstream device connected sends 0.0, per the spec
+        for value in [0.0_f32, 0.345, 1e30] {
+            let msg = Test {
+                c: value,
+                a: 9,
+                b: 67_u32.try_into().unwrap(),
+            };
+            let mut bytes = to_bytes(msg).unwrap();
+
+            let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
+
+            assert_eq!(deserialized.c, value);
+        }
+    }
+
+    #[test]
+    fn rejects_values_the_spec_defines_as_protocol_errors() {
+        // NaN cannot be checked with assert_eq because it is not equal to itself, so it is
+        // asserted on separately below.
+        for value in [f32::INFINITY, f32::NEG_INFINITY, -0.0, -1.0] {
+            let msg = Test {
+                c: value,
+                a: 9,
+                b: 67_u32.try_into().unwrap(),
+            };
+            let mut bytes = to_bytes(msg).unwrap();
+
+            assert_eq!(
+                from_bytes::<Test>(&mut bytes[..]),
+                Err(binary_sv2::Error::ValueIsNotAValidF32(value.to_bits())),
+                "{value} must be rejected"
+            );
+        }
+
+        let msg = Test {
+            c: f32::NAN,
+            a: 9,
+            b: 67_u32.try_into().unwrap(),
+        };
+        let mut bytes = to_bytes(msg).unwrap();
+        let err = from_bytes::<Test>(&mut bytes[..]).unwrap_err();
+
+        assert!(
+            matches!(err, binary_sv2::Error::ValueIsNotAValidF32(bits) if f32::from_bits(bits).is_nan()),
+            "NaN must be rejected, got {err:?}"
+        );
+    }
 }
 
 mod test_b0255 {
