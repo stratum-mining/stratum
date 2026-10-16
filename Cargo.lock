@@ -311,7 +311,7 @@ dependencies = [
 
 [[package]]
 name = "codec_sv2"
-version = "7.0.0"
+version = "8.0.0"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
@@ -781,7 +781,7 @@ dependencies = [
 
 [[package]]
 name = "noise_sv2"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "chacha20poly1305",
  "criterion",

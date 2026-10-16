@@ -49,8 +49,14 @@ impl fmt::Display for Error {
             FramingSv2Error(e) => write!(f, "Framing Sv2 Error: `{e}`"),
             #[cfg(feature = "noise_sv2")]
             NoiseSv2Error(e) => match e {
-                NoiseError::InvalidCertificate(msg) => {
-                    write!(f, "Invalid Certificate: {}", msg)
+                NoiseError::InvalidCertificate {
+                    signature_noise_message,
+                    reason,
+                } => {
+                    write!(
+                        f,
+                        "Invalid Certificate ({reason}): {signature_noise_message}"
+                    )
                 }
                 other => {
                     write!(f, "Noise SV2 Error: {:?}", other)

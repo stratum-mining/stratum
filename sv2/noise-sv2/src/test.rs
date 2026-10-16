@@ -20,6 +20,24 @@ fn test_1() {
 }
 
 #[test]
+#[cfg(feature = "std")]
+#[cfg_attr(miri, ignore)]
+fn handshake_reports_why_the_certificate_was_rejected() {
+    let wrong_authority = Responder::generate_key();
+    let mut initiator = Initiator::new(Some(wrong_authority.public_key().into()));
+    let mut responder = Responder::new(Responder::generate_key(), 31449600);
+    let first_message = initiator.step_0().unwrap();
+    let (second_message, _) = responder.step_1(first_message).unwrap();
+    assert!(matches!(
+        initiator.step_2(second_message),
+        Err(crate::Error::InvalidCertificate {
+            reason: crate::CertificateError::InvalidSignature,
+            ..
+        })
+    ));
+}
+
+#[test]
 #[cfg_attr(miri, ignore)]
 fn test_1_with_rng() {
     let key_pair = Responder::generate_key_with_rng(&mut rand::thread_rng());
