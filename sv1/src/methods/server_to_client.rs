@@ -610,16 +610,16 @@ impl TryFrom<&Response> for Configure {
 
         let version_rolling_ = params.get("version-rolling");
         let version_rolling_mask = params.get("version-rolling.mask");
-        let version_rolling_min_bit_count = params.get("version-rolling.min-bit-count");
         let minimum_difficulty = params.get("minimum-difficulty");
 
-        // Deserialize version-rolling response.
-        // Composed by 3 fields:
-        //   version-rolling (required),
-        //   version-rolling.mask (required)
-        //   version-rolling.min-bit-count (optional)
         let version_rolling: Option<VersionRollingParams>;
-        if version_rolling_.is_some() && version_rolling_mask.is_some() {
+        if matches!(version_rolling_, Some(JBool(false)) | Some(JString(_))) {
+            version_rolling = Some(VersionRollingParams {
+                version_rolling: false,
+                version_rolling_mask: HexU32Be(0),
+                version_rolling_min_bit_count: HexU32Be(0),
+            });
+        } else if version_rolling_.is_some() && version_rolling_mask.is_some() {
             let vr: bool = version_rolling_
                 .unwrap()
                 .as_bool()
@@ -631,25 +631,12 @@ impl TryFrom<&Response> for Configure {
                 .ok_or_else(|| ParsingMethodError::UnexpectedObjectParams(params.clone()))?
                 .try_into()?;
 
-            // version-rolling.min-bit-count is often not returned by stratum servers,
-            // but min-bit-count should be taken into consideration in the returned mask
-            let version_rolling_min_bit_count: HexU32Be = match version_rolling_min_bit_count {
-                Some(version_rolling_min_bit_count) => version_rolling_min_bit_count
-                    .as_str()
-                    .ok_or_else(|| ParsingMethodError::UnexpectedObjectParams(params.clone()))?
-                    .try_into()?,
-                None => HexU32Be(0),
-            };
-
             version_rolling = Some(VersionRollingParams {
                 version_rolling: vr,
                 version_rolling_mask,
-                version_rolling_min_bit_count,
+                version_rolling_min_bit_count: HexU32Be(0),
             });
-        } else if version_rolling_.is_none()
-            && version_rolling_mask.is_none()
-            && version_rolling_min_bit_count.is_none()
-        {
+        } else if version_rolling_.is_none() && version_rolling_mask.is_none() {
             version_rolling = None;
         } else {
             return Err(ParsingMethodError::UnexpectedObjectParams(params.clone()));
@@ -673,8 +660,10 @@ impl TryFrom<&Response> for Configure {
 
 #[derive(Debug, Clone)]
 pub struct VersionRollingParams {
+    /// True when the pool accepts version rolling; an error string maps to false.
     pub version_rolling: bool,
     pub version_rolling_mask: HexU32Be,
+    /// Parsed responses set this to zero because BIP 310 does not define this response key.
     pub version_rolling_min_bit_count: HexU32Be,
 }
 
@@ -691,7 +680,7 @@ impl fmt::Display for VersionRollingParams {
 }
 
 #[test]
-fn configure_response_parsing_all_fields() {
+fn configure_response_ignores_undefined_min_bit_count() {
     let client_response_str = r#"{"id":0,
             "result":{
                 "version-rolling":true,
@@ -710,7 +699,7 @@ fn configure_response_parsing_all_fields() {
         version_rolling.version_rolling_mask,
         HexU32Be(VERSION_ROLLING_MASK)
     );
-    assert_eq!(version_rolling.version_rolling_min_bit_count, HexU32Be(5));
+    assert_eq!(version_rolling.version_rolling_min_bit_count, HexU32Be(0));
 
     assert_eq!(server_configure.minimum_difficulty, Some(false));
 }
@@ -737,6 +726,45 @@ fn configure_response_parsing_no_vr_min_bit_count() {
     assert_eq!(version_rolling.version_rolling_min_bit_count, HexU32Be(0));
 
     assert_eq!(server_configure.minimum_difficulty, Some(false));
+}
+
+#[test]
+fn configure_response_accepts_rejected_version_rolling() {
+    for status in [
+        serde_json::json!(false),
+        serde_json::json!("unsupported mask"),
+    ] {
+        let response = serde_json::from_value(serde_json::json!({
+            "id": 0,
+            "result": {"version-rolling": status}
+        }))
+        .unwrap();
+        let configure = Configure::try_from(&response).unwrap();
+        assert!(!configure.version_rolling.as_ref().unwrap().version_rolling);
+        assert_eq!(configure.version_rolling_mask(), None);
+        assert_eq!(configure.version_rolling_min_bit(), None);
+    }
+}
+
+#[test]
+fn configure_response_ignores_numeric_min_bit_count() {
+    let response = serde_json::from_value(serde_json::json!({
+        "id": 0,
+        "result": {
+            "version-rolling": true,
+            "version-rolling.mask": "1fffffe0",
+            "version-rolling.min-bit-count": 5
+        }
+    }))
+    .unwrap();
+    let configure = Configure::try_from(&response).unwrap();
+    assert_eq!(
+        configure
+            .version_rolling
+            .unwrap()
+            .version_rolling_min_bit_count,
+        HexU32Be(0)
+    );
 }
 
 #[test]
