@@ -15,7 +15,7 @@ use crate::{
     extranonce_manager::{prefix::RetiredExtranoncePrefixes, ExtranoncePrefix},
     merkle_root::merkle_root_from_path,
     target::{bytes_to_hex, u256_to_block_hash},
-    MAX_EXTRANONCE_LEN, MAX_FUTURE_BLOCK_TIME, VERSION_ROLLING_MASK,
+    MAX_EXTRANONCE_LEN, MAX_FUTURE_BLOCK_TIME, MAX_SCRIPT_SIG_SIZE, VERSION_ROLLING_MASK,
 };
 use alloc::{collections::VecDeque, format, string::String, vec, vec::Vec};
 use binary_sv2::Sv2OptionOwned;
@@ -518,6 +518,10 @@ impl ExtendedChannel {
     /// The previous active job (if any) moves to the past jobs list. At most [`MAX_PAST_JOBS`]
     /// past jobs are kept: retiring one beyond that limit evicts the oldest.
     ///
+    /// Returns [`ExtendedChannelError::ScriptSigSizeTooLarge`] if the job's `coinbase_prefix` and
+    /// the full extranonce do not fit within [`MAX_SCRIPT_SIG_SIZE`], leaving the channel
+    /// unchanged.
+    ///
     /// To be used by a Sv2 Job Declarator Client
     pub fn on_set_custom_mining_job_success(
         &mut self,
@@ -545,6 +549,17 @@ impl ExtendedChannel {
             return Err(ExtendedChannelError::ChainTipMismatch);
         }
 
+        // the caller passes the SetCustomMiningJob it sent, which is not necessarily one built by
+        // JobFactory::new_custom_job, so the scriptSig budget is checked here too. an oversized
+        // prefix would otherwise yield a consensus-invalid coinbase, and past 252 bytes it would
+        // also break the one-byte CompactSize assumption the prefix/suffix split below relies
+        // on, silently mis-slicing the coinbase.
+        let full_extranonce_size = self.get_full_extranonce_size();
+        if set_custom_mining_job.coinbase_prefix.len() + full_extranonce_size > MAX_SCRIPT_SIG_SIZE
+        {
+            return Err(ExtendedChannelError::ScriptSigSizeTooLarge);
+        }
+
         let deserialized_outputs = Vec::<TxOut>::consensus_decode(
             &mut set_custom_mining_job
                 .coinbase_tx_outputs
@@ -555,7 +570,6 @@ impl ExtendedChannel {
 
         let mut script_sig = vec![];
         script_sig.extend_from_slice(set_custom_mining_job.coinbase_prefix.as_bytes());
-        let full_extranonce_size = self.get_full_extranonce_size();
         let full_extranonce = vec![0; full_extranonce_size];
         script_sig.extend_from_slice(&full_extranonce);
 
@@ -577,6 +591,9 @@ impl ExtendedChannel {
 
         let serialized_coinbase = serialize(&coinbase);
 
+        // the coinbase scriptSig is limited to 100 bytes by Bitcoin consensus rules, which is
+        // always below the 253 byte threshold where CompactSize switches from a 1-byte to a
+        // 3-byte encoding, so the script length prefix is unconditionally 1 byte
         let prefix_index = 4 // tx version
             + 2 // segwit
             + 1 // number of inputs
@@ -1023,15 +1040,102 @@ mod tests {
         extranonce_manager::{
             ExtranonceAllocator, ExtranonceAllocatorError, ExtranoncePrefix, MAX_EXTRANONCE_LEN,
         },
+        MAX_SCRIPT_SIG_SIZE,
     };
     use binary_sv2::Sv2OptionOwned as Sv2Option;
-    use bitcoin::Target;
+    use bitcoin::{consensus::serialize, Amount, ScriptBuf, Target, TxOut};
     use mining_sv2::{
-        NewExtendedMiningJobOwned as NewExtendedMiningJob, SetNewPrevHashOwned as SetNewPrevHashMp,
-        SubmitSharesExtendedOwned as SubmitSharesExtended,
+        NewExtendedMiningJobOwned as NewExtendedMiningJob,
+        SetCustomMiningJobOwned as SetCustomMiningJob, SetCustomMiningJobSuccess,
+        SetNewPrevHashOwned as SetNewPrevHashMp, SubmitSharesExtendedOwned as SubmitSharesExtended,
         ERROR_CODE_SUBMIT_SHARES_INVALID_NON_ROLLABLE_VERSION_BIT,
     };
     use std::convert::TryInto;
+
+    #[test]
+    fn test_custom_job_success_rejects_oversized_script_sig() {
+        // the scriptSig is the custom job's coinbase_prefix followed by the full extranonce, and
+        // must fit within MAX_SCRIPT_SIG_SIZE. past 252 bytes its length prefix would also take
+        // three bytes, so the prefix/suffix split would land two bytes early.
+        let full_extranonce_size = 32;
+        let mut channel = ExtendedChannel::new(
+            1,
+            "user_identity".to_string(),
+            ExtranoncePrefix::from_wire(vec![1; 24]).unwrap(),
+            Target::from_le_bytes([0xff; 32]),
+            1.0,
+            true,
+            (full_extranonce_size - 24) as u16,
+            None,
+        )
+        .unwrap();
+        assert_eq!(channel.get_full_extranonce_size(), full_extranonce_size);
+        channel
+            .on_chain_tip_update(ChainTip::new([0u8; 32].into(), 503543726, 1746839905))
+            .unwrap();
+
+        let mut script_bytes = vec![0]; // SegWit version 0
+        script_bytes.push(20); // Push 20 bytes (length of pubkey hash)
+        script_bytes.extend_from_slice(&[
+            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
+            8, 252,
+        ]);
+        let coinbase_outputs = vec![TxOut {
+            value: Amount::from_sat(5_000_000_000),
+            script_pubkey: ScriptBuf::from(script_bytes),
+        }];
+
+        let mut on_custom_job = |coinbase_prefix_len: usize, job_id: u32| {
+            let set_custom_mining_job = SetCustomMiningJob {
+                channel_id: 1,
+                request_id: job_id,
+                token: vec![0].try_into().unwrap(),
+                version: 536870912,
+                prev_hash: [0u8; 32].into(),
+                ntime_start: 1746839905,
+                nbits: 503543726,
+                coinbase_tx_version: 2,
+                coinbase_prefix: vec![0xab; coinbase_prefix_len].try_into().unwrap(),
+                coinbase_tx_input_n_sequence: 4294967295,
+                coinbase_tx_outputs: serialize(&coinbase_outputs).try_into().unwrap(),
+                coinbase_tx_locktime: 0,
+                merkle_path: vec![].try_into().unwrap(),
+            };
+            let set_custom_mining_job_success = SetCustomMiningJobSuccess {
+                channel_id: 1,
+                request_id: job_id,
+                job_id,
+            };
+            channel
+                .on_set_custom_mining_job_success(
+                    set_custom_mining_job,
+                    set_custom_mining_job_success,
+                )
+                .map(|_| channel.get_active_job().unwrap().job_message.job_id)
+        };
+
+        // a prefix that fills the budget exactly is accepted
+        assert_eq!(
+            on_custom_job(MAX_SCRIPT_SIG_SIZE - full_extranonce_size, 1).unwrap(),
+            1
+        );
+
+        // one byte over is a consensus-invalid coinbase
+        assert!(matches!(
+            on_custom_job(MAX_SCRIPT_SIG_SIZE - full_extranonce_size + 1, 2),
+            Err(ExtendedChannelError::ScriptSigSizeTooLarge)
+        ));
+
+        // 252 + 32 = 284 bytes would also need a three-byte length prefix
+        assert!(matches!(
+            on_custom_job(252, 3),
+            Err(ExtendedChannelError::ScriptSigSizeTooLarge)
+        ));
+
+        // the rejected jobs left the channel unchanged
+        assert_eq!(channel.get_active_job().unwrap().job_message.job_id, 1);
+        assert_eq!(channel.get_past_jobs_count(), 0);
+    }
 
     #[test]
     fn upstream_prefix_update_only_affects_subsequent_jobs() {

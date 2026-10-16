@@ -397,11 +397,11 @@ mod tests {
             error::GroupChannelError,
             group::GroupChannel,
             jobs::{
-                error::JobFactoryError,
-                factory::{MAX_COINBASE_PREFIX_SIZE, MAX_SCRIPT_SIG_SIZE},
+                error::JobFactoryError, factory::MAX_COINBASE_PREFIX_SIZE,
                 job_store::MAX_FUTURE_JOBS,
             },
         },
+        MAX_SCRIPT_SIG_SIZE,
     };
     use binary_sv2::Sv2OptionOwned as Sv2Option;
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf};
