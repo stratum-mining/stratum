@@ -122,8 +122,12 @@ impl fmt::Display for DeclareMiningJobSuccessOwned {
 ///
 /// Downstream should consider this as a trigger to fallback into some other Pool/JDS or solo
 /// mining.
+///
+/// Decoding fails if [`DeclareMiningJobError::error_code`] contains control characters, see
+/// [`DeclareMiningJobError::validate`].
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
+#[validate]
 pub struct DeclareMiningJobError<'decoder> {
     /// The unique identifier of the request.
     ///
@@ -164,5 +168,54 @@ impl fmt::Display for DeclareMiningJobErrorOwned {
             self.error_code.as_utf8_or_hex(),
             self.error_details
         )
+    }
+}
+
+impl DeclareMiningJobError<'_> {
+    /// Check that [`DeclareMiningJobError::error_code`] contains no control characters.
+    ///
+    /// The spec forbids control characters in error codes and in the other human-readable string
+    /// codes. The `Decodable` derive runs this on every decoded
+    /// [`DeclareMiningJobError`], so a value carrying one fails at parse time with
+    /// [`binary_sv2::Error::ControlCharInStringCode`].
+    pub fn validate(&self) -> Result<(), binary_sv2::Error> {
+        if let Some(byte) = self.error_code.first_control_char() {
+            return Err(binary_sv2::Error::ControlCharInStringCode(byte));
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use alloc::{vec, vec::Vec};
+    use binary_sv2::GetSize;
+
+    fn parse_declare_mining_job_error(error_code: Vec<u8>) -> Result<(), binary_sv2::Error> {
+        let msg = DeclareMiningJobError {
+            request_id: 0,
+            error_code: Str0255::new(&error_code).unwrap(),
+            error_details: B064K::new(&[]).unwrap(),
+        };
+        let mut bytes = vec![0u8; msg.get_size()];
+        msg.clone().to_bytes(&mut bytes).unwrap();
+        DeclareMiningJobError::from_bytes(&mut bytes).map(|_| ())
+    }
+
+    #[test]
+    fn parses_an_error_code_without_control_chars() {
+        assert!(parse_declare_mining_job_error(b"stale-chain-tip".to_vec()).is_ok());
+    }
+
+    #[test]
+    fn rejects_an_error_code_with_control_chars() {
+        for byte in [0x00_u8, 0x0A, 0x1F, 0x7F] {
+            assert_eq!(
+                parse_declare_mining_job_error(vec![b'a', byte]),
+                Err(binary_sv2::Error::ControlCharInStringCode(byte)),
+                "0x{byte:02X} must be rejected"
+            );
+        }
     }
 }
