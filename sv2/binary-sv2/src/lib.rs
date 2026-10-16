@@ -256,6 +256,13 @@ pub enum Error {
     /// the other human-readable string codes, such as the `reason_code`.
     ControlCharInStringCode(u8),
 
+    /// An `F32` field carries a value the spec defines as a protocol error.
+    ///
+    /// Carries the IEEE-754 bit pattern of the offending value, so `Eq` still holds for the error
+    /// enum; `f32::from_bits` recovers the value. The spec requires a receiver to treat NaN, both
+    /// infinities, and negative values, including `-0.0`, as protocol errors.
+    ValueIsNotAValidF32(u32),
+
     /// Indicates a protocol constraint violation where `Sv2Option` unexpectedly contains multiple
     /// elements.
     Sv2OptionHaveMoreThenOneElement(u8),
@@ -309,6 +316,10 @@ impl core::fmt::Debug for Error {
             Error::ControlCharInStringCode(byte) => f
                 .debug_tuple("ControlCharInStringCode")
                 .field(byte)
+                .finish(),
+            Error::ValueIsNotAValidF32(bits) => f
+                .debug_tuple("ValueIsNotAValidF32")
+                .field(&f32::from_bits(*bits))
                 .finish(),
             Error::Sv2OptionHaveMoreThenOneElement(value) => f
                 .debug_tuple("Sv2OptionHaveMoreThenOneElement")

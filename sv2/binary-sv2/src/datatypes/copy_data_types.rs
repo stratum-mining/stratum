@@ -122,7 +122,33 @@ impl Fixed for f32 {
     const SIZE: usize = 4;
 }
 
-impl_sv2_for_unsigned!(f32);
+/// Impl f32 as a primitive.
+///
+/// Unlike the unsigned integers, f32 does not share the generic implementation: the spec defines
+/// some encodable values as protocol errors, so decoding validates them before returning.
+impl<'a> Sv2DataType<'a> for f32 {
+    fn from_bytes_(data: &'a mut [u8]) -> Result<Self, Error> {
+        Self::size_hint(data, 0)?;
+        let a: &[u8; Self::SIZE] = data[0..Self::SIZE]
+            .try_into()
+            .expect("Try to decode a copy data type from a buffer that do not have enough bytes");
+        let value = Self::from_le_bytes(*a);
+        if !value.is_finite() || value.is_sign_negative() {
+            return Err(Error::ValueIsNotAValidF32(value.to_bits()));
+        }
+        Ok(value)
+    }
+
+    fn to_slice(&'a self, dst: &mut [u8]) -> Result<usize, Error> {
+        if dst.len() < Self::SIZE {
+            return Err(Error::WriteError(Self::SIZE, dst.len()));
+        }
+        let dst = &mut dst[0..Self::SIZE];
+        let src = self.to_le_bytes();
+        dst.copy_from_slice(&src);
+        Ok(Self::SIZE)
+    }
+}
 
 /// Represents a 24-bit unsigned integer (`U24`), supporting SV2 serialization and deserialization.
 /// Only first 3 bytes of a u32 is considered to get the SV2 value, and rest are ignored (in little
