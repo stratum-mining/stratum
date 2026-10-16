@@ -1,7 +1,7 @@
 use buffer_sv2::{Buffer, Slice};
 use std::sync::{Arc, Mutex};
 
-use core::{sync::atomic::Ordering, time::Duration};
+use core::time::Duration;
 use rand::Rng;
 
 const FILE_LEN: usize = 5242880;
@@ -12,8 +12,9 @@ pub fn add_random_bytes(message_len: usize, buffer: &mut impl Buffer, input: &[u
     let rounds = message_len / 10;
 
     for i in 0..rounds {
-        let writable: &mut [u8] = buffer.get_writable(10).as_mut();
+        let writable: &mut [u8] = buffer.reserve(10).as_mut();
         writable.copy_from_slice(&input[i..i + 10]);
+        buffer.commit(10);
     }
 }
 
@@ -31,7 +32,7 @@ impl Load for Vec<u8> {
 impl Load for Slice {
     #[inline(always)]
     fn load(&mut self) -> usize {
-        self.shared_state.load(Ordering::SeqCst) as usize
+        self.len()
     }
 }
 
@@ -148,23 +149,29 @@ impl Buffer for PPool {
     type Slice = SSlice;
 
     #[inline(always)]
-    fn get_writable(&mut self, len: usize) -> &mut [u8] {
-        if self.free_slots.len() > 0 {
+    fn reserve(&mut self, len: usize) -> &mut [u8] {
+        if !self.free_slots.is_empty() {
             let slot = self.free_slots[self.free_slots.len() - 1];
 
             let b = self.pool.get_mut(&slot).unwrap();
             let offset = b.len();
 
             if offset + len <= b.capacity() {
-                unsafe { b.set_len(offset + len) };
-                &mut b[offset..offset + len]
+                unsafe { core::slice::from_raw_parts_mut(b.as_mut_ptr().add(offset), len) }
             } else {
                 panic!()
             }
         } else {
             self.free();
-            self.get_writable(len)
+            self.reserve(len)
         }
+    }
+
+    #[inline(always)]
+    fn commit(&mut self, len: usize) {
+        let slot = self.free_slots[self.free_slots.len() - 1];
+        let b = self.pool.get_mut(&slot).unwrap();
+        unsafe { b.set_len(b.len() + len) };
     }
 
     #[inline(always)]
@@ -183,7 +190,7 @@ impl Buffer for PPool {
         }
     }
 
-    fn get_data_by_ref(&mut self, _len: usize) -> &mut [u8] {
+    fn frame_mut(&mut self) -> &mut [u8] {
         todo!()
     }
 
@@ -191,15 +198,11 @@ impl Buffer for PPool {
         todo!()
     }
 
-    fn get_data_by_ref_(&self, _len: usize) -> &[u8] {
+    fn frame(&self) -> &[u8] {
         todo!()
     }
 
-    fn danger_set_start(&mut self, _index: usize) {
-        todo!()
-    }
-
-    fn is_droppable(&self) -> bool {
+    fn truncate(&mut self, _len: usize) {
         todo!()
     }
 }
@@ -248,9 +251,12 @@ impl Buffer for MaxEfficiency {
     type Slice = MaxESlice;
 
     #[inline(always)]
-    fn get_writable(&mut self, len: usize) -> &mut [u8] {
+    fn reserve(&mut self, len: usize) -> &mut [u8] {
         &mut self.inner[0..len]
     }
+
+    #[inline(always)]
+    fn commit(&mut self, _len: usize) {}
 
     #[inline(always)]
     fn get_data_owned(&mut self) -> Self::Slice {
@@ -262,7 +268,7 @@ impl Buffer for MaxEfficiency {
         }
     }
 
-    fn get_data_by_ref(&mut self, _len: usize) -> &mut [u8] {
+    fn frame_mut(&mut self) -> &mut [u8] {
         todo!()
     }
 
@@ -270,15 +276,11 @@ impl Buffer for MaxEfficiency {
         todo!()
     }
 
-    fn get_data_by_ref_(&self, _len: usize) -> &[u8] {
+    fn frame(&self) -> &[u8] {
         todo!()
     }
 
-    fn danger_set_start(&mut self, _index: usize) {
-        todo!()
-    }
-
-    fn is_droppable(&self) -> bool {
+    fn truncate(&mut self, _len: usize) {
         todo!()
     }
 }

@@ -11,8 +11,8 @@
 // - Managing slice allocation and ensuring enough capacity for new operations.
 // - Switching between different pool modes, such as front or back, depending on memory state.
 //
-// By default, memory is always first allocated from the back of the `BufferPool`. If the all of
-// the initially allocated buffer memory is completely filled and a new memory request comes in,
+// By default, memory is always first allocated from the back of the `BufferPool`. If all of the
+// initially allocated buffer memory is completely filled and a new memory request comes in,
 // `BufferPool` checks whether any memory has been freed at the back or the front using
 // `SharedState`. If, for example, a slice has been freed that corresponds to the head of
 // `SharedState`, `BufferPool` will switch to front mode and start allocating incoming memory
@@ -29,7 +29,7 @@ use crate::buffer_pool::{InnerMemory, PoolFront, PoolMode, POOL_CAPACITY};
 // Handles the allocation of memory slices at the back of the buffer pool. It tracks the number of
 // slices in use and attempts to free unused slices when necessary to maximize available memory.
 // The back of the buffer pool is used first, if it fills up, the front of the buffer pool is used.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct PoolBack {
     // Starting index of the back section of the buffer pool.
     back_start: usize,
@@ -119,16 +119,25 @@ impl PoolBack {
             (0, _, _, _) => {
                 let element_to_drop = element_to_drop - already_dropped;
 
-                self.len -= element_to_drop;
+                let back_len = self.len - element_to_drop;
 
                 #[cfg(feature = "fuzz")]
                 assert!(
-                    !(self.len + self.back_start > POOL_CAPACITY
-                        || self.len + element_to_drop + already_dropped + self.back_start
+                    !(back_len + self.back_start > POOL_CAPACITY
+                        || back_len + element_to_drop + already_dropped + self.back_start
                             != POOL_CAPACITY)
                 );
 
-                memory.try_change_len(self.len + self.back_start, len)
+                // With the whole back free, the back resumes after the live front slices.
+                let raw_offset = match back_len {
+                    0 => memory.front_end(shared_state, self.back_start),
+                    _ => memory.raw_offset_from_len(back_len + self.back_start),
+                };
+                let cleared = memory.try_change_len(back_len + self.back_start, raw_offset, len);
+                if cleared {
+                    self.len = back_len;
+                }
+                cleared
             }
             // If leading_0 is > than 0 return and clear the head
             (_, _, _, _) => false,
@@ -163,16 +172,17 @@ impl PoolBack {
         //
         // The first 2 elements have been dropped so back start at 2 and `BufferPool` can go in
         // front mode
-        self.back_start = shared_state.leading_zeros() as usize;
+        let front_slots = shared_state.leading_zeros() as usize;
 
-        if self.back_start >= 1 && memory.raw_len < memory.slots[self.back_start].0 {
-            if self.back_start >= self.len {
-                self.len = 0;
-            } else {
-                self.len -= self.back_start;
+        if front_slots >= 1 && memory.raw_len < memory.slots[front_slots].0 {
+            // `len` counts slots from the boundary to the end of the pool, so the boundary only
+            // moves forward, past head slots that were freed since it was set. A free prefix
+            // shorter than the boundary, left by a live front slot, only narrows the front.
+            if front_slots > self.back_start {
+                self.len -= front_slots - self.back_start;
+                self.back_start = front_slots;
             }
-            let pool_front =
-                PoolFront::new(memory.get_front_capacity(self.back_start), self.back_start);
+            let pool_front = PoolFront::new(memory.get_front_capacity(front_slots), front_slots);
             Err(PoolMode::Front(pool_front))
         } else {
             Err(PoolMode::Alloc)
@@ -211,7 +221,7 @@ impl PoolBack {
     // Returns `Ok(*mut u8)` if writable memory is available, otherwise an `Err(PoolMode)` if a
     // mode change is required.
     #[inline(always)]
-    pub fn get_writable(
+    pub fn reserve(
         &mut self,
         len: usize,
         memory: &mut InnerMemory,
@@ -223,7 +233,7 @@ impl PoolBack {
         if pool_has_byte_capacity && pool_has_slice_capacity {
             #[cfg(feature = "fuzz")]
             assert!(self.len + self.back_start < POOL_CAPACITY);
-            return Ok(memory.get_writable_raw_unchecked(len));
+            return Ok(memory.reserve_raw(len));
         }
 
         if !self.tail_is_clearable(shared_state) {
@@ -233,12 +243,12 @@ impl PoolBack {
         match self.clear_unchecked(memory, shared_state, len) {
             Ok(_) => {
                 let pool_has_byte_capacity = memory.has_tail_capacity(len);
-                let pool_has_slice_capacity = self.len < POOL_CAPACITY;
+                let pool_has_slice_capacity = (self.len + self.back_start) < POOL_CAPACITY;
 
                 if pool_has_byte_capacity && pool_has_slice_capacity {
                     #[cfg(feature = "fuzz")]
                     assert!(self.len + self.back_start < POOL_CAPACITY);
-                    Ok(memory.get_writable_raw_unchecked(len))
+                    Ok(memory.reserve_raw(len))
                 } else {
                     Err(PoolMode::Alloc)
                 }

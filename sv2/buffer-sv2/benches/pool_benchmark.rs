@@ -183,7 +183,7 @@ fn add_random_bytes_test(
             break;
         };
 
-        let writable: &mut [u8] = buffer.get_writable(w_len).as_mut();
+        let writable: &mut [u8] = buffer.reserve(w_len).as_mut();
         writable.copy_from_slice(&input[written..written + w_len]);
         v.extend_from_slice(&input[written..written + w_len]);
 
@@ -191,19 +191,19 @@ fn add_random_bytes_test(
             &writable[..] == &input[written..written + w_len]
                 && &writable[..] == &v[written..written + w_len]
         );
+        buffer.commit(w_len);
 
         written += w_len;
         i += 1;
     }
     //println!("END {}", buffer.is_back_mode());
-    let i = buffer.get_data_by_ref(written);
+    let i = buffer.frame();
     assert!(&v[..] == i);
     v
 }
 
 #[inline(always)]
 fn keep_slice_test_p(mut slice: Slice, mut control: Vec<u8>, ms: u64) {
-    let _i = slice.index;
     std::thread::spawn(move || {
         std::thread::sleep(core::time::Duration::from_micros(ms));
         let control: &mut [u8] = control.as_mut();

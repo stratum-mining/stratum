@@ -124,12 +124,14 @@ fn receiver_side(mut stream_receiver: TcpStream, decoder: &mut Decoder) -> Seria
     // Note: The length of the payload is defined in a header field. Every call to `next_frame`
     // returns `Incomplete`, until the full payload is received.
     loop {
-        let decoder_buf = decoder.writable();
-
-        // Read the frame header into the decoder buffer
-        stream_receiver
-            .read_exact(decoder_buf)
-            .expect("Failed to read the encoded frame header");
+        // Read whatever the stream has into the decoder's window, then report how much arrived
+        let read = stream_receiver
+            .read(decoder.read_buf())
+            .expect("Failed to read the encoded frame");
+        assert_ne!(read, 0, "The stream closed before the frame was complete");
+        decoder
+            .advance(read)
+            .expect("Read more than the window holds");
 
         match decoder.next_frame() {
             Ok(Decoded::Frame(decoded_frame)) => {
