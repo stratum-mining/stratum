@@ -33,10 +33,6 @@ The guarantees that must hold once this is fixed, observable from outside the co
 A PR is reviewed against these.
 -->
 
-## Possible approach (non-binding)
-
-<!-- Implementation and test ideas. A PR may solve the problem another way. -->
-
 ## Loupe findings
 
 <!-- Every Loupe finding reporting this defect. They close together with this issue. -->

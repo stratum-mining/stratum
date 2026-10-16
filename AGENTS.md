@@ -39,7 +39,7 @@ Whenever helping me review PRs, don't restrict the output to an analysis of the 
 
 While listing findings, for each finding, give me a draft comment and the file/line where it would be appropriate to drop it. Also mention the finding severity, and whether you believe it's a blocker or not. This is deliberately designed to keep human reviewers on the loop, as opposed to blindly copypasting a huge "clanker review" body of text without ever looking into what each finding means.
 
-Judge a PR against the problem and the expected outcome of the issues it closes. Everything else an issue lists, including suggested approaches and the `fix` / `regression tests` sections of older issues, is context: a PR that reaches the outcome another way is not a finding, as long as its description explains why. Flag a divergence only when part of the expected outcome is left unsolved, and say which part.
+Judge a PR against the problem and the expected outcome of the issues it closes. Everything else an issue lists is context: a PR that reaches the outcome another way is not a finding, as long as its description explains why. Flag a divergence only when part of the expected outcome is left unsolved, and say which part.
 
 ## Drafting issues
 
@@ -47,7 +47,7 @@ SRI repositories try to leverage github subissue clustering. When helping humans
 
 You always draft github issues under human supervision. Your role here is to help human SRI contributors reason about the issues being reported, not create github noise.
 
-Describe the problem and the outcome a fix must guarantee, observable from outside the code. Implementation and test ideas are suggestions for whoever picks the issue up, so mark them as non-binding: written as requirements, they make reviewers flag every PR that solves the problem another way.
+Describe the problem and the outcome a fix must guarantee, observable from outside the code. Leave out how to fix it, non-binding ideas included: the solution is up to whoever picks up the issue.
 
 ## Triaging audit findings
 
