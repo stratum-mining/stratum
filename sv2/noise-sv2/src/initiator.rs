@@ -45,7 +45,7 @@ use crate::{
     cipher_state::{Cipher, CipherState},
     error::Error,
     handshake::HandshakeOp,
-    signature_message::SignatureNoiseMessage,
+    signature_message::{Certificate, SignatureNoiseMessage},
     AeadError, NoiseEngine, ELLSWIFT_ENCODING_SIZE, ENCRYPTED_ELLSWIFT_ENCODING_SIZE,
     ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
     SIGNATURE_NOISE_MESSAGE_SIZE,
@@ -158,8 +158,8 @@ impl Initiator {
     /// # Security
     ///
     /// Passing `None` disables responder authentication. The handshake then accepts any peer,
-    /// and the resulting session is encrypted but not authenticated. It is also indistinguishable
-    /// from an authenticated one, since [`Self::step_2`] returns `Ok` in both cases. Prefer
+    /// and the resulting session is encrypted but not authenticated: [`Self::step_2`] still
+    /// returns `Ok`, and only the missing [`NoiseEngine::certificate`] tells it apart. Prefer
     /// [`Self::without_pk`] when this is intended, so that the choice is visible at the call site,
     /// and read its documentation for the consequences.
     #[cfg(feature = "std")]
@@ -233,9 +233,8 @@ impl Initiator {
     /// eavesdropping, but an active attacker on the path can impersonate the responder or sit
     /// between the two roles and read or rewrite every message.
     ///
-    /// Nothing in the returned [`NoiseEngine`] records that the responder was not authenticated,
-    /// and [`Self::step_2`] returns `Ok` exactly as it does for a verified session. Callers that
-    /// need to tell the two apart must track which constructor they used.
+    /// [`Self::step_2`] returns `Ok` as it does for a verified session; the only difference is
+    /// that the returned [`NoiseEngine`] has no [`NoiseEngine::certificate`].
     ///
     /// Only use this constructor when the initiator and responder are on the same trusted network
     /// and the responder has no authority key to pin. Whenever the responder's authority public
@@ -301,13 +300,13 @@ impl Initiator {
     /// for secure communication. If the provided `message` has an incorrect length, it returns an
     /// [`Error::InvalidMessageLength`]. If the certificate fails verification, it returns an
     /// [`Error::InvalidCertificate`] carrying the [`SignatureNoiseMessage`] and the check it
-    /// failed.
+    /// failed. The verified certificate is available from [`NoiseEngine::certificate`].
     ///
     /// # Security
     ///
     /// Without a responder authority public key (see [`Self::without_pk`]) the certificate is
     /// accepted unverified, and `Ok` does not mean the responder was authenticated. The returned
-    /// [`NoiseEngine`] carries no indication of which case applies.
+    /// [`NoiseEngine`] then has no [`NoiseEngine::certificate`].
     ///
     /// On success the remaining handshake secrets, including the ephemeral keypair, are erased,
     /// so the [`Initiator`] cannot be used for another handshake.
@@ -425,6 +424,13 @@ impl Initiator {
         let engine = crate::NoiseEngine {
             encryptor,
             decryptor,
+            certificate: self
+                .responder_authority_pk
+                .map(|authority_pubkey| Certificate {
+                    signature_noise_message: signature_message,
+                    server_static_pubkey: rs_pk_xonly,
+                    authority_pubkey,
+                }),
         };
         self.erase();
         Ok(engine)

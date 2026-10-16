@@ -36,9 +36,10 @@
 //! The responder is only authenticated when the [`Initiator`] is given the responder's authority
 //! public key, which it uses to verify the certificate formed during the handshake. An
 //! [`Initiator`] built without one, through `Initiator::without_pk` or `Initiator::new` with
-//! `None`, accepts any responder and yields an encrypted but unauthenticated session that the
-//! crate does not distinguish from an authenticated one. Always pin the authority key for
-//! connections that cross a network boundary.
+//! `None`, accepts any responder and yields an encrypted but unauthenticated session: the
+//! handshake still succeeds, and only the missing [`NoiseEngine::certificate`] tells it apart
+//! from an authenticated one. Always pin the authority key for connections that cross a network
+//! boundary.
 
 #![cfg_attr(all(not(feature = "std"), not(test)), no_std)]
 
@@ -125,6 +126,9 @@ pub struct NoiseEngine {
 
     // Cipher to decrypt incoming messages.
     decryptor: Cipher<ChaCha20Poly1305>,
+
+    // The responder's certificate, kept only when it was verified against an authority key.
+    certificate: Option<Certificate>,
 }
 
 impl core::fmt::Debug for NoiseEngine {
@@ -134,6 +138,16 @@ impl core::fmt::Debug for NoiseEngine {
 }
 
 impl NoiseEngine {
+    /// The responder's certificate, verified against the authority public key the [`Initiator`]
+    /// was built with.
+    ///
+    /// `None` on the [`Responder`] side, and on an [`Initiator`] built without an authority key
+    /// (see [`Initiator::without_pk`]), whose session is not authenticated. Read it before
+    /// [`Self::into_split`], which drops it.
+    pub fn certificate(&self) -> Option<&Certificate> {
+        self.certificate.as_ref()
+    }
+
     /// Encrypts a message (`msg`) in place using the stored cipher.
     pub fn encrypt<T: Buffer>(&mut self, msg: &mut T) -> Result<(), AeadError> {
         self.encryptor.encrypt(msg)
@@ -196,4 +210,4 @@ impl NoiseDecryptor {
 pub use error::Error;
 pub use initiator::Initiator;
 pub use responder::Responder;
-pub use signature_message::{CertificateError, SignatureNoiseMessage};
+pub use signature_message::{Certificate, CertificateError, SignatureNoiseMessage};

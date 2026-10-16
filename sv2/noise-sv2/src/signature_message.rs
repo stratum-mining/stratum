@@ -2,7 +2,8 @@
 //
 // Defines the [`SignatureNoiseMessage`] (spec 4.5.2 `SIGNATURE_NOISE_MESSAGE`), which the
 // responder sends as the payload of the second handshake message, and verification of the
-// certificate (spec 4.5.3 `CERTIFICATE`) it forms together with the responder's static public key.
+// certificate (spec 4.5.3 `CERTIFICATE`) it forms together with the responder's static public key,
+// kept as a [`Certificate`] once that verification succeeds.
 //
 // ## Usage
 //
@@ -43,6 +44,23 @@ impl fmt::Display for SignatureNoiseMessage {
             self.version, self.valid_from, self.not_valid_after
         )
     }
+}
+
+/// The responder's certificate (spec 4.5.3 `CERTIFICATE`), which the handshake never sends as
+/// such: it is formed by the [`SignatureNoiseMessage`] received during the handshake and the
+/// server's static public key its signature covers, together with the authority public key that
+/// signature was verified against.
+///
+/// Only a `Certificate` returned by [`crate::NoiseEngine::certificate`] is known to have been
+/// verified; one built from its public fields carries no such guarantee.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Certificate {
+    /// The `SIGNATURE_NOISE_MESSAGE` the responder sent.
+    pub signature_noise_message: SignatureNoiseMessage,
+    /// The responder's static public key used in the NX handshake, which the signature covers.
+    pub server_static_pubkey: XOnlyPublicKey,
+    /// The authority public key the signature was verified against; not covered by the signature.
+    pub authority_pubkey: XOnlyPublicKey,
 }
 
 /// The check the responder's certificate failed during verification.
