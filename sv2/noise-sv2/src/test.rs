@@ -11,12 +11,54 @@ fn test_1() {
     let first_message = initiator.step_0().unwrap();
     let (second_message, mut responder_engine) = responder.step_1(first_message).unwrap();
     let mut initiator_engine = initiator.step_2(second_message).unwrap();
+    let certificate = initiator_engine.certificate().unwrap();
+    assert_eq!(certificate.authority_pubkey, key_pair.x_only_public_key().0);
+    // The server static pubkey is the one the authority signed.
+    assert_eq!(
+        certificate.signature_noise_message.verify_with_now(
+            &certificate.server_static_pubkey,
+            &Some(certificate.authority_pubkey),
+            certificate.signature_noise_message.valid_from,
+        ),
+        Ok(())
+    );
+    assert!(responder_engine.certificate().is_none());
     let mut message = "ciao".as_bytes().to_vec();
     initiator_engine.encrypt(&mut message).unwrap();
     assert!(message != "ciao".as_bytes().to_vec());
     responder_engine.decrypt(&mut message).unwrap();
 
     assert!(message == "ciao".as_bytes().to_vec());
+}
+
+#[test]
+#[cfg(feature = "std")]
+#[cfg_attr(miri, ignore)]
+fn handshake_reports_why_the_certificate_was_rejected() {
+    let wrong_authority = Responder::generate_key();
+    let mut initiator = Initiator::new(Some(wrong_authority.public_key().into()));
+    let mut responder = Responder::new(Responder::generate_key(), 31449600);
+    let first_message = initiator.step_0().unwrap();
+    let (second_message, _) = responder.step_1(first_message).unwrap();
+    assert!(matches!(
+        initiator.step_2(second_message),
+        Err(crate::Error::InvalidCertificate {
+            reason: crate::CertificateError::InvalidSignature,
+            ..
+        })
+    ));
+}
+
+#[test]
+#[cfg(feature = "std")]
+#[cfg_attr(miri, ignore)]
+fn unverified_session_exposes_no_certificate() {
+    let mut initiator = Initiator::without_pk().unwrap();
+    let mut responder = Responder::new(Responder::generate_key(), 31449600);
+    let first_message = initiator.step_0().unwrap();
+    let (second_message, _) = responder.step_1(first_message).unwrap();
+    let initiator_engine = initiator.step_2(second_message).unwrap();
+    assert!(initiator_engine.certificate().is_none());
 }
 
 #[test]

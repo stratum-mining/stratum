@@ -24,8 +24,8 @@ use alloc::boxed::Box;
 use buffer_sv2::AeadBuffer;
 use framing_sv2::framing::HandshakeMessage;
 use noise_sv2::{
-    Initiator, NoiseDecryptor, NoiseEncryptor, NoiseEngine, Responder, ELLSWIFT_ENCODING_SIZE,
-    INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
+    Certificate, Initiator, NoiseDecryptor, NoiseEncryptor, NoiseEngine, Responder,
+    ELLSWIFT_ENCODING_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
 };
 
 /// A handshake role that is waiting on a message from its counterpart.
@@ -225,6 +225,12 @@ pub struct Transport {
 impl Transport {
     fn new(engine: NoiseEngine) -> Self {
         Self { engine }
+    }
+
+    /// The responder's verified certificate, see [`NoiseEngine::certificate`]. Read it before
+    /// [`Self::split`], which drops it.
+    pub fn certificate(&self) -> Option<&Certificate> {
+        self.engine.certificate()
     }
 
     /// Splits into the half the encoder uses and the half the decoder uses, consuming it.
