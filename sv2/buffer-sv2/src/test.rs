@@ -780,6 +780,50 @@ fn a_live_front_slot_past_the_free_prefix_keeps_the_back_usable() {
 }
 
 #[test]
+fn a_free_head_slot_does_not_keep_the_pool_off_a_free_back_tail() {
+    let mut pool = Pool::new(80);
+    let mut back = Vec::new();
+    for value in 0_u8..8 {
+        pool.reserve(10).fill(value);
+        pool.commit(10);
+        back.push(Some(pool.get_data_owned()));
+    }
+    for slot in &mut back[..3] {
+        *slot = None;
+    }
+
+    let mut front = Vec::new();
+    for value in 8_u8..11 {
+        pool.reserve(10).fill(value);
+        pool.commit(10);
+        front.push(Some(pool.get_data_owned()));
+    }
+    assert!(pool.is_front_mode());
+    front[0] = None;
+    front[2] = None;
+
+    pool.reserve(11).fill(11);
+    pool.commit(11);
+    drop(pool.get_data_owned());
+    assert!(pool.is_alloc_mode());
+
+    // Slot 0 is free but too small, and the back tail has room for the frame.
+    for slot in &mut back[5..] {
+        *slot = None;
+    }
+    pool.reserve(11).fill(12);
+    pool.commit(11);
+    let reused = pool.get_data_owned();
+
+    assert!(pool.is_back_mode());
+    assert_eq!(reused.as_ref(), &[12; 11]);
+    assert_eq!(front[1].as_ref().unwrap().as_ref(), &[9; 10]);
+    for (value, slot) in (3_u8..5).zip(&back[3..5]) {
+        assert_eq!(slot.as_ref().unwrap().as_ref(), &[value; 10]);
+    }
+}
+
+#[test]
 fn switching_front_to_back_does_not_overwrite_a_live_slice() {
     let mut pool = Pool::new(80);
     let mut back = Vec::new();

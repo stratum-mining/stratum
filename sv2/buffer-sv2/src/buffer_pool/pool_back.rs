@@ -92,7 +92,7 @@ impl PoolBack {
         shared_state: u8,
         len: usize,
     ) -> bool {
-        let (leading_0, trailing_0) = (shared_state.leading_zeros(), shared_state.trailing_zeros());
+        let trailing_0 = shared_state.trailing_zeros();
         let element_in_back = POOL_CAPACITY - self.back_start;
 
         // 0b11000000   6 trailing zeros
@@ -108,15 +108,12 @@ impl PoolBack {
         let already_dropped = POOL_CAPACITY - (self.back_start + self.len);
 
         match (
-            leading_0,
             trailing_0,
             element_in_back,
             element_to_drop < already_dropped,
         ) {
-            (0, 0, _, _) => false,
-            (0, _, 0, _) => false,
-            (_, _, _, true) => false,
-            (0, _, _, _) => {
+            (0, _, _) | (_, 0, _) | (_, _, true) => false,
+            _ => {
                 let element_to_drop = element_to_drop - already_dropped;
 
                 let back_len = self.len - element_to_drop;
@@ -139,8 +136,6 @@ impl PoolBack {
                 }
                 cleared
             }
-            // If leading_0 is > than 0 return and clear the head
-            (_, _, _, _) => false,
         }
     }
 
