@@ -37,6 +37,14 @@ pub enum Error {
 
     /// The bytes taken out of the decoder buffer do not hold exactly one frame.
     UnexpectedFrameSize(SizeHint),
+
+    /// A decoder was told more bytes were read than its read window holds.
+    ReadBeyondWindow {
+        /// The number of bytes reported as read.
+        read: usize,
+        /// The size of the window the last `read_buf` returned, or `0` if none is open.
+        window: usize,
+    },
 }
 
 impl fmt::Display for Error {
@@ -58,6 +66,9 @@ impl fmt::Display for Error {
             },
             UnexpectedFrameSize(hint) => {
                 write!(f, "Buffered bytes do not hold exactly one frame: {hint}")
+            }
+            ReadBeyondWindow { read, window } => {
+                write!(f, "Reported {read} bytes read into a window of {window}")
             }
         }
     }

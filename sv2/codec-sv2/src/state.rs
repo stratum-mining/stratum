@@ -21,11 +21,11 @@
 
 use crate::Result;
 use alloc::boxed::Box;
-use buffer_sv2::AeadBuffer;
+use buffer_sv2::Buffer as IsBuffer;
 use framing_sv2::framing::HandshakeMessage;
 use noise_sv2::{
-    Initiator, NoiseDecryptor, NoiseEncryptor, NoiseEngine, Responder, ELLSWIFT_ENCODING_SIZE,
-    INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
+    AeadBuffer, AeadError, Initiator, NoiseDecryptor, NoiseEncryptor, NoiseEngine, Responder,
+    ELLSWIFT_ENCODING_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
 };
 
 /// A handshake role that is waiting on a message from its counterpart.
@@ -234,6 +234,44 @@ impl Transport {
             TransportEncryptState { encryption },
             TransportDecryptState { decryption },
         )
+    }
+}
+
+// The committed bytes of `buffer` from `start` on: the one chunk AEAD encrypts or decrypts in
+// place, growing it by the tag or shrinking it by the tag.
+pub(crate) struct Chunk<'a, B> {
+    buffer: &'a mut B,
+    start: usize,
+}
+
+impl<'a, B: IsBuffer> Chunk<'a, B> {
+    pub(crate) fn new(buffer: &'a mut B, start: usize) -> Self {
+        Self { buffer, start }
+    }
+}
+
+impl<B: IsBuffer> AsRef<[u8]> for Chunk<'_, B> {
+    fn as_ref(&self) -> &[u8] {
+        &self.buffer.frame()[self.start..]
+    }
+}
+
+impl<B: IsBuffer> AsMut<[u8]> for Chunk<'_, B> {
+    fn as_mut(&mut self) -> &mut [u8] {
+        let start = self.start;
+        &mut self.buffer.frame_mut()[start..]
+    }
+}
+
+impl<B: IsBuffer> AeadBuffer for Chunk<'_, B> {
+    fn extend_from_slice(&mut self, other: &[u8]) -> core::result::Result<(), AeadError> {
+        self.buffer.reserve(other.len()).copy_from_slice(other);
+        self.buffer.commit(other.len());
+        Ok(())
+    }
+
+    fn truncate(&mut self, len: usize) {
+        self.buffer.truncate(self.start.saturating_add(len));
     }
 }
 

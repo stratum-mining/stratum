@@ -11,7 +11,7 @@
 // Supports different allocation modes to optimize memory usage:
 //
 // - **Back Mode**: Allocates from the back of the buffer pool (default).
-// - **Front Mode**: Allocates from the front when the back is full the front has space.
+// - **Front Mode**: Allocates from the front when the back is full and the front has space.
 // - **Alloc Mode**: Falls back to heap allocation when the buffer pool cannot fulfill requests
 //   (with reduced performance).
 //
@@ -26,13 +26,11 @@
 // message, the memory can be cleared, and the buffer pool resets, making the memory available
 // for future messages.
 
-// **Note**: To prevent leaks or deadlocks, ensure that memory slices are properly released after
-// use by allowing them to go out of scope or explicitly dropping them. Avoid holding onto slices
-// longer than necessary or cloning them. After processing, you can obtain ownership of the data
-// using methods like `get_data_owned()` and then let the slice be dropped.
+// **Note**: A slice keeps its slot, and the pool's memory, in use until it is dropped, so avoid
+// holding onto slices longer than necessary. Cloning a slice copies its bytes into memory the
+// clone owns, so the slot is freed as soon as the original is dropped.
 
-use alloc::{vec, vec::Vec};
-use core::sync::atomic::Ordering;
+use alloc::vec::Vec;
 
 #[cfg(test)]
 use crate::buffer::TestBufferFromMemory;
@@ -44,10 +42,10 @@ use crate::{
 #[cfg(feature = "debug")]
 use std::time::SystemTime;
 
-use aes_gcm::aead::Buffer as AeadBuffer;
-
 mod pool_back;
 pub use pool_back::PoolBack;
+#[cfg(test)]
+mod test;
 
 // Maximum number of memory slices the buffer pool can concurrently manage.
 //
@@ -62,7 +60,7 @@ pub const POOL_CAPACITY: usize = 8;
 // Handles the allocation of memory slices at the front of the buffer pool. It tracks the number of
 // slices in use and attempts to free unused slices when necessary to maximize available memory.
 // The front of the buffer pool is used if the back of the buffer pool is filled up.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct PoolFront {
     // Starting index of the front section of the buffer pool.
     back_start: usize,
@@ -107,8 +105,9 @@ impl PoolFront {
             8 => {
                 self.len = 0;
 
+                memory.len = self.len;
                 let raw_offset = memory.raw_offset();
-                memory.move_raw_at_offset_unchecked(raw_offset);
+                memory.move_raw_at_offset(raw_offset);
 
                 true
             }
@@ -122,7 +121,7 @@ impl PoolFront {
 
                 memory.len = self.len;
                 let raw_offset = memory.raw_offset();
-                memory.move_raw_at_offset_unchecked(raw_offset);
+                memory.move_raw_at_offset(raw_offset);
 
                 true
             }
@@ -160,7 +159,7 @@ impl PoolFront {
     // `Err(PoolMode::Back)` if the memory cannot be cleared or lacks capacity. This error
     // indicates the `BufferPool` should attempt a transition to use the back of the buffer pool.
     #[inline(always)]
-    fn get_writable(
+    fn reserve(
         &mut self,
         len: usize,
         memory: &mut InnerMemory,
@@ -170,11 +169,11 @@ impl PoolFront {
         let pool_has_head_capacity = memory.has_capacity_until_offset(len, self.byte_capacity);
 
         if pool_has_slice_capacity && pool_has_head_capacity {
-            return Ok(memory.get_writable_raw_unchecked(len));
+            return Ok(memory.reserve_raw(len));
         };
 
         self.clear(memory, shared_state, len)
-            .map(|_| memory.get_writable_raw_unchecked(len))
+            .map(|_| memory.reserve_raw(len))
     }
 }
 
@@ -183,10 +182,10 @@ impl PoolFront {
 /// The pool operates in three modes based on memory availability: it first allocates from the
 /// back, then from the front if the back is full, and finally from system memory (with reduced
 /// performance) if both sections are exhausted.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum PoolMode {
     /// The buffer pool is operating in "back" mode, where memory is allocated from the back of the
-    // buffer pool.
+    /// buffer pool.
     Back,
 
     /// The buffer pool is operating in "front" mode, where memory is allocated from the front of
@@ -201,13 +200,16 @@ pub enum PoolMode {
 // Internal memory management for the `BufferPool`.
 //
 // Handles allocating, tracking, and managing memory slices for manipulating memory offsets,
-// copying data, and managing capacity. It uses a contiguous block of memory (`Vec<u8>`), tracking
+// copying data, and managing capacity. It uses a contiguous block of memory, tracking
 // its usage through offsets (`raw_offset`, `raw_length`), and manages slice allocations through
 // `slots`. Used by `BufferPool` to optimize memory reused and minimize heap allocations.
-#[derive(Debug, Clone)]
+//
+// The memory is only ever reached through raw pointers narrowed to the range being accessed, so
+// that no reference covers a range a live slice points into.
 pub struct InnerMemory {
-    // Underlying contiguous block of memory to be managed.
-    pool: Vec<u8>,
+    // Underlying contiguous block of memory to be managed, shared with the slices pointing into it
+    // along with the bits that track them.
+    memory: SharedState,
 
     // Current offset into the contiguous block of memory where the next write will occur.
     pub(crate) raw_offset: usize,
@@ -223,18 +225,70 @@ pub struct InnerMemory {
     len: usize,
 }
 
+// Formats the bookkeeping only: the bytes may belong to live slices written on other threads.
+impl core::fmt::Debug for InnerMemory {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("InnerMemory")
+            .field("memory", &self.memory)
+            .field("raw_offset", &self.raw_offset)
+            .field("raw_len", &self.raw_len)
+            .field("slots", &self.slots)
+            .field("len", &self.len)
+            .finish()
+    }
+}
+
 impl InnerMemory {
     // Initializes a new `InnerMemory` with a specified size of the internal memory buffer
     // (`capacity`), in bytes.
     fn new(capacity: usize) -> Self {
-        let pool = vec![0; capacity];
         Self {
-            pool,
+            memory: SharedState::new(capacity),
             raw_offset: 0,
             raw_len: 0,
             slots: [(0_usize, 0_usize); POOL_CAPACITY],
             len: 0,
         }
+    }
+
+    // Returns the size of the underlying memory, in bytes.
+    #[inline(always)]
+    fn capacity(&self) -> usize {
+        self.memory.capacity()
+    }
+
+    // Checks that `len` bytes starting at `offset` lie within the underlying memory.
+    #[inline(always)]
+    fn in_bounds(&self, offset: usize, len: usize) -> bool {
+        offset
+            .checked_add(len)
+            .is_some_and(|end| end <= self.capacity())
+    }
+
+    // Returns the data written so far, from `raw_offset` to `raw_offset + raw_len`.
+    #[inline(always)]
+    fn raw_data(&self) -> &[u8] {
+        assert!(self.in_bounds(self.raw_offset, self.raw_len));
+        unsafe {
+            core::slice::from_raw_parts(self.memory.bytes().add(self.raw_offset), self.raw_len)
+        }
+    }
+
+    // Returns the data written so far, from `raw_offset` to `raw_offset + raw_len`.
+    #[inline(always)]
+    fn raw_data_mut(&mut self) -> &mut [u8] {
+        assert!(self.in_bounds(self.raw_offset, self.raw_len));
+        unsafe {
+            core::slice::from_raw_parts_mut(self.memory.bytes().add(self.raw_offset), self.raw_len)
+        }
+    }
+
+    // Copies `len` bytes from offset `src` to offset `dst`. The two ranges may overlap.
+    #[inline(always)]
+    fn copy_within(&mut self, src: usize, len: usize, dst: usize) {
+        assert!(self.in_bounds(src, len) && self.in_bounds(dst, len));
+        let bytes = self.memory.bytes();
+        unsafe { core::ptr::copy(bytes.add(src), bytes.add(dst), len) }
     }
 
     // Resets the internal memory pool, clearing all used memory and resetting the slot tracking.
@@ -263,7 +317,7 @@ impl InnerMemory {
             (1..POOL_CAPACITY).contains(&back_start)
                 && self.slots[back_start].0 != 0_usize
                 && self.slots[back_start].1 != 0_usize
-                && self.slots[back_start].0 + self.slots[back_start].1 <= self.pool.len()
+                && self.slots[back_start].0 + self.slots[back_start].1 <= self.capacity()
         );
 
         self.slots[back_start].0
@@ -273,22 +327,7 @@ impl InnerMemory {
     // the current memory length and slot usage.
     #[inline(always)]
     fn raw_offset(&self) -> usize {
-        match self.len {
-            0 => 0,
-            _ => {
-                let index = self.len - 1;
-                #[cfg(feature = "fuzz")]
-                assert!(
-                    index < POOL_CAPACITY
-                        && self.slots[index].1 != 0_usize
-                        && self.slots[index].0 + self.slots[index].1 <= self.pool.len()
-                );
-
-                let (index, len) = self.slots[index];
-
-                index + len
-            }
-        }
+        self.raw_offset_from_len(self.len)
     }
 
     // Calculates the offset for a specific length of memory. Returns the offset based on the
@@ -303,7 +342,7 @@ impl InnerMemory {
                 assert!(
                     index < POOL_CAPACITY
                         && self.slots[index].1 != 0_usize
-                        && self.slots[index].0 + self.slots[index].1 <= self.pool.len()
+                        && self.slots[index].0 + self.slots[index].1 <= self.capacity()
                 );
 
                 let (index, len) = self.slots[index];
@@ -313,33 +352,39 @@ impl InnerMemory {
         }
     }
 
-    // Moves the raw data to the front of the memory pool to avoid fragmentation, if necessary.
-    //
-    // Used to compact the raw data by moving all the active slices to the front of the memory
-    // pool, making the pool contiguous again. This process is only performed when needed to free
-    // up space for new allocations without increasing the total memory footprint.
+    // Moves the raw data to the front of the memory pool, once no live slice comes before it.
     #[inline(always)]
     fn move_raw_at_front(&mut self) {
-        match self.raw_len {
-            0 => self.raw_offset = 0,
-            _ => {
-                self.pool
-                    .copy_within(self.raw_offset..self.raw_offset + self.raw_len, 0);
-                self.raw_offset = 0;
+        self.move_raw_at_offset(0);
+    }
+
+    // Returns the offset right after the highest front slot still live in `shared_state`, or `0`
+    // if none is. Freed front slots are skipped, since a front slot reused for a larger slice can
+    // leave a later, freed entry pointing inside it.
+    #[inline(always)]
+    fn front_end(&self, shared_state: u8, back_start: usize) -> usize {
+        if back_start == 0 {
+            return 0;
+        }
+        match shared_state >> (POOL_CAPACITY - back_start) {
+            0 => 0,
+            front => {
+                let highest = back_start - 1 - front.trailing_zeros() as usize;
+                let (offset, len) = self.slots[highest];
+                offset + len
             }
         }
     }
 
-    // Tries to update the length and offset of the memory pool and moves the raw offset if there
-    // is enough capacity to accommodate new memory. Returns `true` if successful, otherwise false.
+    // Tries to update the length of the memory pool and to move the raw data to `raw_offset` if
+    // there is enough capacity to accommodate new memory. Returns `true` if successful, otherwise
+    // false.
     #[inline(always)]
-    fn try_change_len(&mut self, slot_len: usize, raw_len: usize) -> bool {
-        let raw_offset = self.raw_offset_from_len(slot_len);
-
+    fn try_change_len(&mut self, slot_len: usize, raw_offset: usize, raw_len: usize) -> bool {
         let end = raw_offset + self.raw_len;
-        if end + raw_len <= self.pool.capacity() {
+        if self.in_bounds(end, raw_len) {
             self.len = slot_len;
-            self.move_raw_at_offset_unchecked(raw_offset);
+            self.move_raw_at_offset(raw_offset);
             true
         } else {
             false
@@ -349,15 +394,13 @@ impl InnerMemory {
     // Moves the raw data to a specific offset within the memory pool to avoid fragmentation, if
     // necessary.
     //
-    // Misuse of this function can lead to undefined behavior, such as memory corruption or
-    // crashes, if it operates on out-of-bounds or misaligned memory.
+    // Panics if the data would not fit in the memory at `offset`.
     #[inline(always)]
-    fn move_raw_at_offset_unchecked(&mut self, offset: usize) {
+    fn move_raw_at_offset(&mut self, offset: usize) {
         match self.raw_len {
             0 => self.raw_offset = offset,
             _ => {
-                self.pool
-                    .copy_within(self.raw_offset..self.raw_offset + self.raw_len, offset);
+                self.copy_within(self.raw_offset, self.raw_len, offset);
                 self.raw_offset = offset;
             }
         }
@@ -366,44 +409,54 @@ impl InnerMemory {
     // Inserts raw data at the front of the memory pool, adjusting the raw offset and length.
     #[inline(never)]
     fn prepend_raw_data(&mut self, raw_data: &[u8]) {
+        assert!(self.in_bounds(0, raw_data.len()));
+        let dest = self.memory.bytes();
+        unsafe { core::ptr::copy_nonoverlapping(raw_data.as_ptr(), dest, raw_data.len()) };
+
         self.raw_offset = 0;
         self.raw_len = raw_data.len();
-
-        let dest = &mut self.pool[0..self.raw_len];
-
-        dest.copy_from_slice(raw_data);
     }
 
     // Copies the internal raw memory into another buffer. Used when transitioning memory between
     // different pool modes.
     #[inline(never)]
     fn copy_into_buffer(&mut self, buffer: &mut impl Buffer) {
-        let writable = buffer.get_writable(self.raw_len);
-        writable.copy_from_slice(&self.pool[self.raw_offset..self.raw_offset + self.raw_len]);
+        buffer
+            .reserve(self.raw_len)
+            .copy_from_slice(self.raw_data());
+        buffer.commit(self.raw_len);
     }
 
     // Checks if there is enough capacity at the tail of the memory pool to accommodate `len`
     // bytes.
     #[inline(always)]
     fn has_tail_capacity(&self, len: usize) -> bool {
-        let end = self.raw_offset + self.raw_len;
-        end + len <= self.pool.capacity()
+        self.in_bounds(self.raw_offset + self.raw_len, len)
     }
 
     // Checks if there is enough capacity in the memory pool up to the specified offset to
     // accommodate `len` bytes.
     #[inline(always)]
     fn has_capacity_until_offset(&self, len: usize, offset: usize) -> bool {
-        self.raw_offset + self.raw_len + len <= offset
+        (self.raw_offset + self.raw_len)
+            .checked_add(len)
+            .is_some_and(|end| end <= offset)
     }
 
-    // Returns a raw pointer to the writable memory region of the memory pool, marking the section
-    // as used.
+    // Returns a raw pointer to `len` bytes right after the data written so far, without counting
+    // them as written.
     #[inline(always)]
-    fn get_writable_raw_unchecked(&mut self, len: usize) -> *mut u8 {
+    fn reserve_raw(&mut self, len: usize) -> *mut u8 {
         let writable_offset = self.raw_offset + self.raw_len;
+        assert!(self.in_bounds(writable_offset, len));
+        unsafe { self.memory.bytes().add(writable_offset) }
+    }
+
+    // Counts `len` more bytes, right after the data written so far, as written.
+    #[inline(always)]
+    fn commit_raw(&mut self, len: usize) {
+        assert!(self.in_bounds(self.raw_offset + self.raw_len, len));
         self.raw_len += len;
-        self.pool[writable_offset..writable_offset + len].as_mut_ptr()
     }
 
     /// Provides access to the raw memory slice containing the data written into the buffer,
@@ -418,44 +471,29 @@ impl InnerMemory {
     /// or further manipulation. The returned `Slice` contains the data, while the buffer itself
     /// remains ready to handle new incoming data by pointing to a fresh memory region.
     #[inline(always)]
-    fn get_data_owned(
-        &mut self,
-        shared_state: &mut SharedState,
-        #[cfg(feature = "debug")] mode: u8,
-    ) -> Slice {
-        let offset = unsafe { self.pool.as_mut_ptr().add(self.raw_offset) };
-
-        let mut index: u8 = crate::slice::INGORE_INDEX;
-
-        if self.raw_len > 0 {
-            self.slots[self.len] = (self.raw_offset, self.raw_len);
-
-            self.len += 1;
-            index = self.len as u8;
-
-            #[cfg(feature = "debug")]
-            shared_state.toogle(index, mode);
-
-            #[cfg(not(feature = "debug"))]
-            shared_state.toogle(index);
+    fn get_data_owned(&mut self, #[cfg(feature = "debug")] mode: u8) -> Slice {
+        if self.raw_len == 0 {
+            return Slice::from(Vec::new());
         }
 
-        let len = self.raw_len;
+        let offset = unsafe { self.memory.bytes().add(self.raw_offset) };
+
+        self.slots[self.len] = (self.raw_offset, self.raw_len);
+        self.len += 1;
+
+        let slice = Slice::pooled(
+            self.memory.clone(),
+            offset,
+            self.raw_len,
+            self.len as u8,
+            #[cfg(feature = "debug")]
+            mode,
+        );
 
         self.raw_offset += self.raw_len;
         self.raw_len = 0;
 
-        Slice {
-            offset,
-            len,
-            index,
-            shared_state: shared_state.clone(),
-            owned: None,
-            #[cfg(feature = "debug")]
-            mode,
-            #[cfg(feature = "debug")]
-            time: SystemTime::now(),
-        }
+        slice
     }
 }
 
@@ -472,25 +510,20 @@ pub struct BufferPool<T: Buffer> {
     // Manages memory allocation from the back section of the buffer pool.
     pool_back: PoolBack,
 
-    /// Tracks the current mode of memory allocation (back, front, or system).
-    pub mode: PoolMode,
-
-    // Tracks the usage state of memory slices using atomic operations, ensuring memory is not
-    // prematurely reused and allowing safe concurrent access across threads.
-    shared_state: SharedState,
+    // Tracks the current mode of memory allocation (back, front, or system).
+    mode: PoolMode,
 
     // Core memory area from which slices are allocated and reused. Manages the actual memory
-    // buffer used by the buffer pool.
+    // buffer used by the buffer pool, and tracks the usage state of memory slices using atomic
+    // operations, ensuring memory is not prematurely reused.
     inner_memory: InnerMemory,
 
     // Allocates memory directly from system memory when the buffer pool is full, acting as a
     // fallback when preallocated memory cannot satisfy buffer requests.
     system_memory: T,
 
-    // Tracks the starting index for buffer access, determining where data begins to be read or
-    // written in the buffer pool. Primarily used when `as_ref` or `as_mut` is called, ensuring
-    // that the buffer starts at the element specified by `start`.
-    start: usize,
+    // Length of the last reservation, `0` once it is committed.
+    reserved: usize,
 }
 
 impl BufferPool<BufferFromSystemMemory> {
@@ -503,25 +536,22 @@ impl BufferPool<BufferFromSystemMemory> {
         Self {
             pool_back: PoolBack::new(),
             mode: PoolMode::Back,
-            shared_state: SharedState::new(),
             inner_memory: InnerMemory::new(capacity),
             system_memory: BufferFromSystemMemory::default(),
-            start: 0,
+            reserved: 0,
         }
     }
 }
 
 #[cfg(test)]
 impl BufferPool<TestBufferFromMemory> {
-    #[cfg(test)]
     pub fn new_fail_system_memory(capacity: usize) -> Self {
         Self {
             pool_back: PoolBack::new(),
             mode: PoolMode::Back,
-            shared_state: SharedState::new(),
             inner_memory: InnerMemory::new(capacity),
             system_memory: TestBufferFromMemory(Vec::new()),
-            start: 0,
+            reserved: 0,
         }
     }
 }
@@ -534,11 +564,7 @@ impl<T: Buffer> BufferPool<T> {
     /// using the front section for memory allocation. Returns `true` if the pool is in front mode,
     /// otherwise `false`.
     pub fn is_front_mode(&self) -> bool {
-        match self.mode {
-            PoolMode::Back => false,
-            PoolMode::Front(_) => true,
-            PoolMode::Alloc => false,
-        }
+        matches!(self.mode, PoolMode::Front(_))
     }
 
     /// Checks if the buffer pool is operating in the back mode.
@@ -546,11 +572,7 @@ impl<T: Buffer> BufferPool<T> {
     /// The back mode is the default state, where the buffer pool first tries to allocate memory.
     /// Returns `true` if the pool is in back mode, otherwise `false`.
     pub fn is_back_mode(&self) -> bool {
-        match self.mode {
-            PoolMode::Back => true,
-            PoolMode::Front(_) => false,
-            PoolMode::Alloc => false,
-        }
+        matches!(self.mode, PoolMode::Back)
     }
 
     /// Checks if the buffer pool is operating in the system memory allocation mode.
@@ -559,11 +581,7 @@ impl<T: Buffer> BufferPool<T> {
     /// leading the system to allocate memory from the heap, which has performance trade-offs.
     /// Returns `true` if the pool is in alloc mode, otherwise `false`.
     pub fn is_alloc_mode(&self) -> bool {
-        match self.mode {
-            PoolMode::Back => false,
-            PoolMode::Front(_) => false,
-            PoolMode::Alloc => true,
-        }
+        matches!(self.mode, PoolMode::Alloc)
     }
 
     // Resets the buffer pool based on its current mode when the shared state indicates all slices
@@ -590,11 +608,11 @@ impl<T: Buffer> BufferPool<T> {
                 self.pool_back.reset();
             }
             PoolMode::Alloc => {
-                if self.system_memory.len() < self.inner_memory.pool.capacity() {
+                if self.system_memory.len() < self.inner_memory.capacity() {
                     let raw_len = self.system_memory.len();
                     if raw_len > 0 {
                         self.inner_memory
-                            .prepend_raw_data(self.system_memory.get_data_by_ref(raw_len));
+                            .prepend_raw_data(self.system_memory.frame());
                         self.system_memory.get_data_owned();
                     } else {
                         self.inner_memory.reset();
@@ -614,7 +632,7 @@ impl<T: Buffer> BufferPool<T> {
     // remain in back or front pool modes. When `without_check` is `true`, the function bypasses
     // memory checks and allocates directly from the heap.
     #[inline(never)]
-    fn get_writable_from_system_memory(
+    fn reserve_from_system_memory(
         &mut self,
         len: usize,
         shared_state: u8,
@@ -625,7 +643,7 @@ impl<T: Buffer> BufferPool<T> {
             || self.pool_back.len() == 0
             || !self.pool_back.tail_is_clearable(shared_state)
         {
-            self.system_memory.get_writable(len)
+            self.system_memory.reserve(len)
         } else {
             #[cfg(feature = "fuzz")]
             assert!(self.inner_memory.raw_len == 0 && self.inner_memory.raw_offset == 0);
@@ -636,17 +654,17 @@ impl<T: Buffer> BufferPool<T> {
             {
                 Ok(_) => {
                     self.change_mode(PoolMode::Back, len, shared_state);
-                    self.get_writable_(len, shared_state, false)
+                    self.reserve_(len, shared_state, false)
                 }
                 Err(PoolMode::Front(f)) => {
                     self.change_mode(PoolMode::Front(f), len, shared_state);
-                    self.get_writable_(len, shared_state, false)
+                    self.reserve_(len, shared_state, false)
                 }
                 Err(PoolMode::Alloc) => {
                     self.inner_memory.reset_raw();
-                    self.system_memory.get_writable(len)
+                    self.system_memory.reserve(len)
                 }
-                Err(_) => panic!(),
+                Err(PoolMode::Back) => unreachable!("clearing the back never asks for the back"),
             }
         }
     }
@@ -654,7 +672,7 @@ impl<T: Buffer> BufferPool<T> {
     // Returns ownership of the heap-allocated buffer data by converting it into a `Slice` for
     // further use or processing.
     #[inline(never)]
-    fn get_data_owned_from_sytem_memory(&mut self) -> Slice {
+    fn get_data_owned_from_system_memory(&mut self) -> Slice {
         self.system_memory.get_data_owned().into()
     }
 
@@ -670,7 +688,7 @@ impl<T: Buffer> BufferPool<T> {
             (PoolMode::Back, PoolMode::Alloc) => {
                 #[cfg(feature = "debug")]
                 println!(
-                    "BACK => ALLOc {} {:?}",
+                    "BACK => ALLOC {} {:?}",
                     self.pool_back.len(),
                     SystemTime::now()
                 );
@@ -691,7 +709,7 @@ impl<T: Buffer> BufferPool<T> {
             }
             (PoolMode::Front(_), PoolMode::Back) => {
                 #[cfg(feature = "debug")]
-                println!("FRONT +> BACL");
+                println!("FRONT => BACK");
 
                 if !self.pool_back.tail_is_clearable(shared_state) {
                     self.inner_memory.copy_into_buffer(&mut self.system_memory);
@@ -723,23 +741,19 @@ impl<T: Buffer> BufferPool<T> {
                 #[cfg(feature = "fuzz")]
                 assert!(shared_state.leading_zeros() > 0);
                 #[cfg(feature = "debug")]
-                println!("ALLOC +> FORNT {:?} {:b}", SystemTime::now(), shared_state);
+                println!("ALLOC => FRONT {:?} {:b}", SystemTime::now(), shared_state);
 
                 self.inner_memory.reset_raw();
                 self.inner_memory.len = 0;
                 self.mode = mode;
             }
             (PoolMode::Front(_), PoolMode::Alloc) => {
-                panic!();
+                unreachable!("front mode only ever gives way to the back")
             }
-            (PoolMode::Back, PoolMode::Back) => {
-                panic!();
-            }
-            (PoolMode::Front(_), PoolMode::Front(_)) => {
-                panic!();
-            }
-            (PoolMode::Alloc, PoolMode::Alloc) => {
-                panic!();
+            (PoolMode::Back, PoolMode::Back)
+            | (PoolMode::Front(_), PoolMode::Front(_))
+            | (PoolMode::Alloc, PoolMode::Alloc) => {
+                unreachable!("a mode change always leaves the current mode")
             }
         }
     }
@@ -751,15 +765,14 @@ impl<T: Buffer> BufferPool<T> {
     // unsuccessful, switches modes and retries, starting with the memory pool before resorting to
     // system memory.
     #[inline(always)]
-    fn get_writable_(&mut self, len: usize, shared_state: u8, without_check: bool) -> &mut [u8] {
+    fn reserve_(&mut self, len: usize, shared_state: u8, without_check: bool) -> &mut [u8] {
         let writable = match &mut self.mode {
-            PoolMode::Back => {
-                self.pool_back
-                    .get_writable(len, &mut self.inner_memory, shared_state)
-            }
-            PoolMode::Front(front) => front.get_writable(len, &mut self.inner_memory, shared_state),
+            PoolMode::Back => self
+                .pool_back
+                .reserve(len, &mut self.inner_memory, shared_state),
+            PoolMode::Front(front) => front.reserve(len, &mut self.inner_memory, shared_state),
             PoolMode::Alloc => {
-                return self.get_writable_from_system_memory(len, shared_state, without_check)
+                return self.reserve_from_system_memory(len, shared_state, without_check)
             }
         };
 
@@ -774,7 +787,7 @@ impl<T: Buffer> BufferPool<T> {
             Err(mode) => {
                 self.change_mode(mode, len, shared_state);
                 let without_check = self.is_alloc_mode();
-                self.get_writable_(len, shared_state, without_check)
+                self.reserve_(len, shared_state, without_check)
             }
         }
     }
@@ -790,16 +803,33 @@ impl<T: Buffer> Buffer for BufferPool<T> {
     // pool to free up memory. It then attempts to allocate writable memory, which may switch
     // between different modes as needed.
     #[inline(always)]
-    fn get_writable(&mut self, len: usize) -> &mut [u8] {
-        let shared_state = self.shared_state.load(Ordering::Relaxed);
+    fn reserve(&mut self, len: usize) -> &mut [u8] {
+        let shared_state = self.inner_memory.memory.load();
 
-        // If all the slices have been dropped, reset the pool to free up memory
-        if shared_state == 0 && self.pool_back.len() != 0 {
+        // If all the slices have been dropped, reset the pool to free up memory. A pool in alloc
+        // mode with nothing in the back has nothing to clear, so it resets as soon as the frame
+        // it was writing to system memory is handed out.
+        let alloc_mode_is_done = self.is_alloc_mode() && self.system_memory.len() == 0;
+        if shared_state == 0 && (self.pool_back.len() != 0 || alloc_mode_is_done) {
             self.reset();
         }
 
-        // Attempt to allocate writable memory, potentially switching pool modes
-        self.get_writable_(len, shared_state, false)
+        self.reserved = len;
+
+        // Attempt to reserve writable memory, potentially switching pool modes
+        self.reserve_(len, shared_state, false)
+    }
+
+    // Counts the first `len` bytes of the last reservation as written, in whichever memory the
+    // reservation was made.
+    #[inline(always)]
+    fn commit(&mut self, len: usize) {
+        assert!(len <= self.reserved, "commit exceeds the last reservation");
+        self.reserved = 0;
+        match self.mode {
+            PoolMode::Alloc => self.system_memory.commit(len),
+            _ => self.inner_memory.commit_raw(len),
+        }
     }
 
     // Transfers ownership of the written data as a `Slice`, handling different pool modes.
@@ -809,7 +839,7 @@ impl<T: Buffer> Buffer for BufferPool<T> {
     // accordingly. In alloc mode, it retrieves data from the heap-allocated system memory.
     #[inline(always)]
     fn get_data_owned(&mut self) -> Self::Slice {
-        let shared_state = &mut self.shared_state;
+        self.reserved = 0;
 
         #[cfg(feature = "debug")]
         let mode: u8 = match self.mode {
@@ -818,74 +848,66 @@ impl<T: Buffer> Buffer for BufferPool<T> {
             PoolMode::Alloc => 8,
         };
 
-        #[cfg(feature = "debug")]
         match &mut self.mode {
             PoolMode::Back => {
+                #[cfg(feature = "debug")]
                 println!(
                     "{} {} {}",
                     self.inner_memory.raw_offset, self.inner_memory.raw_len, self.inner_memory.len
                 );
-                let res = self.inner_memory.get_data_owned(shared_state, mode);
+
+                let res = self.inner_memory.get_data_owned(
+                    #[cfg(feature = "debug")]
+                    mode,
+                );
                 self.pool_back
                     .set_len_from_inner_memory(self.inner_memory.len);
-                println!(
-                    "{} {} {}",
-                    self.inner_memory.raw_offset, self.inner_memory.raw_len, self.inner_memory.len
-                );
-                println!("GET DATA BACK {:?}", self.inner_memory.slots);
+
+                #[cfg(feature = "debug")]
+                {
+                    println!(
+                        "{} {} {}",
+                        self.inner_memory.raw_offset,
+                        self.inner_memory.raw_len,
+                        self.inner_memory.len
+                    );
+                    println!("GET DATA BACK {:?}", self.inner_memory.slots);
+                }
+
                 res
             }
             PoolMode::Front(f) => {
-                let res = self.inner_memory.get_data_owned(shared_state, mode);
+                let res = self.inner_memory.get_data_owned(
+                    #[cfg(feature = "debug")]
+                    mode,
+                );
                 f.len = self.inner_memory.len;
+
+                #[cfg(feature = "debug")]
                 println!("GET DATA FRONT {:?}", self.inner_memory.slots);
-                res
-            }
-            PoolMode::Alloc => self.get_data_owned_from_sytem_memory(),
-        }
 
-        #[cfg(not(feature = "debug"))]
-        match &mut self.mode {
-            PoolMode::Back => {
-                // Retrieve data and update state in Back mode
-                let res = self.inner_memory.get_data_owned(shared_state);
-                self.pool_back
-                    .set_len_from_inner_memory(self.inner_memory.len);
                 res
             }
-            PoolMode::Front(f) => {
-                // Retrieve data and update state in Front mode
-                let res = self.inner_memory.get_data_owned(shared_state);
-                f.len = self.inner_memory.len;
-                res
-            }
-            PoolMode::Alloc => self.get_data_owned_from_sytem_memory(),
+            PoolMode::Alloc => self.get_data_owned_from_system_memory(),
         }
     }
 
-    // Retrieves data differently based on the current buffer pool mode:
-    // - In alloc mode, it delegates to the system memory buffer.
-    // - In back or front modes, it returns a mutable slice of the internal memory buffer.
-    fn get_data_by_ref(&mut self, len: usize) -> &mut [u8] {
+    // Returns the committed bytes of the frame being written:
+    // - In back or front modes, from the internal memory buffer.
+    // - In alloc mode, from the system memory buffer.
+    fn frame(&self) -> &[u8] {
         match self.mode {
-            PoolMode::Alloc => self.system_memory.get_data_by_ref(len),
-            _ => {
-                &mut self.inner_memory.pool[self.inner_memory.raw_offset
-                    ..self.inner_memory.raw_offset + self.inner_memory.raw_len]
-            }
+            PoolMode::Alloc => self.system_memory.frame(),
+            _ => self.inner_memory.raw_data(),
         }
     }
 
-    // Retrieves data differently based on the current pool mode:
-    // - In back or front modes, it returns an immutable slice of the internal memory buffer.
-    // - In alloc mode, it delegates to the system memory buffer.
-    fn get_data_by_ref_(&self, len: usize) -> &[u8] {
+    // Returns the committed bytes of the frame being written, mutably, from the same memory as
+    // `frame`.
+    fn frame_mut(&mut self) -> &mut [u8] {
         match self.mode {
-            PoolMode::Alloc => self.system_memory.get_data_by_ref_(len),
-            _ => {
-                &self.inner_memory.pool[self.inner_memory.raw_offset
-                    ..self.inner_memory.raw_offset + self.inner_memory.raw_len]
-            }
+            PoolMode::Alloc => self.system_memory.frame_mut(),
+            _ => self.inner_memory.raw_data_mut(),
         }
     }
 
@@ -897,74 +919,25 @@ impl<T: Buffer> Buffer for BufferPool<T> {
     // - In alloc mode, it returns the length from the system memory buffer.
     fn len(&self) -> usize {
         match self.mode {
-            PoolMode::Back => self.inner_memory.raw_len,
-            PoolMode::Front(_) => self.inner_memory.raw_len,
             PoolMode::Alloc => self.system_memory.len(),
+            _ => self.inner_memory.raw_len,
         }
     }
 
-    // Sets the start index for the buffer, adjusting where reads and writes begin. Used to discard
-    // part of the buffer by adjusting the starting point for future operations.
-    fn danger_set_start(&mut self, index: usize) {
-        self.start = index;
-    }
-
-    // Returns `true` if all memory slices have been released (`shared_state` is zero), indicating
-    // that no other threads or components are using the pool's memory.
-    #[inline(always)]
-    fn is_droppable(&self) -> bool {
-        self.shared_state.load(Ordering::Relaxed) == 0
-    }
-}
-
-#[cfg(not(test))]
-impl<T: Buffer> Drop for BufferPool<T> {
-    // Waits until all slices are released before dropping the `BufferPool`. Will not drop the
-    // buffer pool while slices are still in use.
-    fn drop(&mut self) {
-        while self.shared_state.load(Ordering::Relaxed) != 0 {
-            core::hint::spin_loop();
-        }
-    }
-}
-
-// Allows `BufferPool` to be treated as a buffer.
-impl<T: Buffer> BufferPool<T> {
-    /// Determines if the [`BufferPool`] can be safely dropped.
-    ///
-    /// Returns `true` if all memory slices managed by the buffer pool have been released (i.e.,
-    /// the `shared_state` is zero), indicating that all the slices are dropped. This check helps
-    /// prevent dropping the buffer pool while it's still in use.
-    pub fn droppable(&self) -> bool {
-        self.shared_state.load(Ordering::Relaxed) == 0
-    }
-}
-
-impl<T: Buffer> AsRef<[u8]> for BufferPool<T> {
-    fn as_ref(&self) -> &[u8] {
-        &self.get_data_by_ref_(Buffer::len(self))[self.start..]
-    }
-}
-
-impl<T: Buffer> AsMut<[u8]> for BufferPool<T> {
-    fn as_mut(&mut self) -> &mut [u8] {
-        let start = self.start;
-        self.get_data_by_ref(Buffer::len(self))[start..].as_mut()
-    }
-}
-
-impl<T: Buffer + AeadBuffer> AeadBuffer for BufferPool<T> {
-    fn extend_from_slice(&mut self, other: &[u8]) -> aes_gcm::aead::Result<()> {
-        self.get_writable(other.len()).copy_from_slice(other);
-        Ok(())
-    }
-
+    // Drops the committed bytes past `len`, in whichever memory holds the frame, if there are any.
     fn truncate(&mut self, len: usize) {
-        let len = len + self.start;
+        self.reserved = 0;
         match self.mode {
-            PoolMode::Back => self.inner_memory.raw_len = len,
-            PoolMode::Front(_) => self.inner_memory.raw_len = len,
-            PoolMode::Alloc => self.system_memory.truncate(len),
+            PoolMode::Alloc => Buffer::truncate(&mut self.system_memory, len),
+            _ => self.inner_memory.raw_len = self.inner_memory.raw_len.min(len),
         }
+    }
+}
+
+#[cfg(test)]
+impl<T: Buffer> BufferPool<T> {
+    // Returns the bits of the slots whose slices are still alive.
+    pub(crate) fn live_slots(&self) -> u8 {
+        self.inner_memory.memory.load()
     }
 }

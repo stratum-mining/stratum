@@ -18,8 +18,9 @@ fn main() {
 
     // Function to write data to the buffer pool and store the slice
     let write_data = |pool: &mut BufferPool<_>, data: &[u8], slices: &mut VecDeque<_>| {
-        let writable = pool.get_writable(data.len());
+        let writable = pool.reserve(data.len());
         writable.copy_from_slice(data);
+        pool.commit(data.len());
         let data_slice = pool.get_data_owned();
         slices.push_back(data_slice);
         println!("{:?}", &pool);

@@ -192,12 +192,14 @@ fn main() {
     // Note: The length of the payload is defined in a header field. Every call to
     // `next_transport_frame` returns `Incomplete`, until the full payload is received.
     let mut decoded_frame = loop {
-        let decoder_buf = decoder.writable();
-
-        // Read the frame header into the decoder buffer
-        stream_receiver
-            .read_exact(decoder_buf)
-            .expect("Failed to read the encoded frame header");
+        // Read whatever the stream has into the decoder's window, then report how much arrived
+        let read = stream_receiver
+            .read(decoder.read_buf())
+            .expect("Failed to read the encoded frame");
+        assert_ne!(read, 0, "The stream closed before the frame was complete");
+        decoder
+            .advance(read)
+            .expect("Read more than the window holds");
 
         match decoder.next_transport_frame(receiver_decrypt) {
             Ok(Decrypted::Frame(frame, _)) => break frame,

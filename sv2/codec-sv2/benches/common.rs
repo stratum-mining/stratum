@@ -123,17 +123,19 @@ pub fn acquire_frame(
     dec: &mut codec_sv2::Decoder,
     enc_buf: &[u8],
 ) -> framing_sv2::framing::SerializedFrame<Slice> {
-    let w = dec.writable();
+    let w = dec.read_buf();
     let header_len = w.len();
     w.copy_from_slice(&enc_buf[..header_len]);
+    dec.advance(header_len).unwrap();
     let mut offset = header_len;
     loop {
         match dec.next_frame() {
             Ok(codec_sv2::Decoded::Frame(frame)) => return frame,
             Ok(codec_sv2::Decoded::Incomplete(_)) => {
-                let w = dec.writable();
+                let w = dec.read_buf();
                 let n = w.len();
                 w.copy_from_slice(&enc_buf[offset..offset + n]);
+                dec.advance(n).unwrap();
                 offset += n;
             }
             Err(e) => panic!("decode error: {:?}", e),
