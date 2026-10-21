@@ -88,12 +88,9 @@ pub struct WithNoise<B: IsBuffer> {
 pub enum Decoded<F> {
     /// A complete frame.
     Frame(F),
-    /// The frame is not fully buffered yet.
-    ///
-    /// Carries the number of bytes the decoder will accept on the next read, which is always
-    /// `read_len` and never more than one chunk, not the number of bytes left in the frame.
-    /// Zero means the bytes are already buffered: call again without reading.
-    Incomplete(usize),
+    /// The frame is not fully buffered yet, and the decoder's `read_buf` is never empty: read
+    /// into it, report the read with `advance`, and call again.
+    Incomplete,
 }
 
 /// The outcome of a transport-mode decode round.
@@ -105,13 +102,9 @@ pub enum Decoded<F> {
 pub enum Decrypted<F> {
     /// A complete frame, and the state to decrypt the next one with.
     Frame(F, TransportDecryptState),
-    /// The frame is not fully buffered yet.
-    ///
-    /// Carries the number of bytes the decoder will accept on the next read, which is always
-    /// [`WithNoise::read_len`] and never more than one chunk, not the number of bytes left in
-    /// the frame, along with the state to call again with. Zero means the bytes are already
-    /// buffered: call again without reading.
-    Incomplete(usize, TransportDecryptState),
+    /// The frame is not fully buffered yet, and [`WithNoise::read_buf`] is never empty: read into
+    /// it, report the read with [`WithNoise::advance`], and call again with this state.
+    Incomplete(TransportDecryptState),
 }
 
 #[cfg(feature = "noise_sv2")]
@@ -121,14 +114,8 @@ impl<B: IsBuffer> WithNoise<B> {
     /// Handshake messages have a fixed size that depends on the role `state` plays, so no header
     /// is read: the decoder buffers exactly that many bytes.
     ///
-    /// On [`Decoded::Incomplete`], read another chunk from the stream into [`Self::read_buf`],
-    /// report it with [`Self::advance`], and call this method again until it returns a
-    /// [`Decoded::Frame`]. The count it carries is what the decoder will accept on the next read,
-    /// which is always [`Self::read_len`] and never more than one chunk, not the number of bytes
-    /// left in the message.
-    ///
-    /// Bytes buffered past the end of the message are kept as the start of the next one, or of
-    /// the first encrypted header.
+    /// On [`Decoded::Incomplete`], read from the stream into [`Self::read_buf`], report the read
+    /// with [`Self::advance`], and call this method again until it returns a [`Decoded::Frame`].
     ///
     /// Only a state that is waiting on its counterpart can be read for. An [`crate::Handshake`]
     /// in the [`noise_sv2::Initiator`] role has sent nothing yet, so nothing is coming back:
@@ -146,7 +133,7 @@ impl<B: IsBuffer> WithNoise<B> {
     ) -> Result<Decoded<HandshakeMessage>> {
         self.window = 0;
         if self.missing(R::EXPECTED_MESSAGE_SIZE) {
-            return Ok(Decoded::Incomplete(self.read_len()));
+            return Ok(Decoded::Incomplete);
         }
         let message =
             HandshakeMessage::from_message(&self.noise_buffer.frame()[..R::EXPECTED_MESSAGE_SIZE]);
@@ -183,15 +170,12 @@ impl<B: IsBuffer> WithNoise<B> {
     /// Attempts to decode the next encrypted frame with the decrypting half of a completed
     /// handshake.
     ///
-    /// On [`Decrypted::Incomplete`], read another chunk from the stream into [`Self::read_buf`],
-    /// report it with [`Self::advance`], and call this method again with the state it carries
-    /// until it returns a [`Decrypted::Frame`]. The count it carries is what the decoder will
-    /// accept on the next read, which is always [`Self::read_len`] and never more than one
-    /// chunk, not the number of bytes left in the frame.
+    /// On [`Decrypted::Incomplete`], read from the stream into [`Self::read_buf`], report the read
+    /// with [`Self::advance`], and call this method again with the state it carries until it
+    /// returns a [`Decrypted::Frame`].
     ///
     /// Each chunk of the payload is decrypted as soon as it is buffered, so a chunk that fails to
-    /// authenticate errors out before the rest of the frame is read. Bytes buffered past the end
-    /// of the frame are kept as the start of the next one.
+    /// authenticate errors out before the rest of the frame is read.
     ///
     /// An `Err` consumes the state. After a failed decryption the cipher's nonce no longer
     /// follows the bytes the peer keeps sending: a retransmission of the ciphertext that just
@@ -217,7 +201,7 @@ impl<B: IsBuffer> WithNoise<B> {
     ) -> Result<Decrypted<SerializedFrame<B::Slice>>> {
         match self.next_transport(|buf| state.decrypt(buf))? {
             Decoded::Frame(frame) => Ok(Decrypted::Frame(frame, state)),
-            Decoded::Incomplete(n) => Ok(Decrypted::Incomplete(n, state)),
+            Decoded::Incomplete => Ok(Decrypted::Incomplete(state)),
         }
     }
 
@@ -261,7 +245,7 @@ impl<B: IsBuffer> WithNoise<B> {
                 left.min(SV2_FRAME_PLAINTEXT_CHUNK_SIZE) + AEAD_MAC_LEN
             };
             if self.missing(expected) {
-                return Ok(Decoded::Incomplete(self.read_len()));
+                return Ok(Decoded::Incomplete);
             }
             self.sv2_buffer
                 .reserve(expected)
@@ -298,10 +282,10 @@ impl<B: IsBuffer> WithNoise<B> {
     /// actually filled. Calling this again first returns a new window, and bytes left in the old
     /// one are not kept.
     ///
-    /// The window is empty when nothing is missing: after [`Self::advance`] has covered all of
-    /// [`Self::read_len`], or after a `next_` call whose carried-over bytes already hold the next
-    /// step. Call a `next_` method before reading again, since a read into an empty window
-    /// returns 0, which looks like a closed stream.
+    /// A `next_` call that returns `Incomplete` always leaves this window non-empty, so a loop
+    /// that calls a `next_` method first and reads only when it returns `Incomplete` never reads
+    /// into an empty one. The window is empty once [`Self::advance`] has covered all of
+    /// [`Self::read_len`]; a read into it returns 0, which looks like a closed stream.
     #[inline]
     pub fn read_buf(&mut self) -> &mut [u8] {
         self.window = self.read_len();
@@ -329,7 +313,7 @@ impl<B: IsBuffer> WithNoise<B> {
 
 #[cfg(feature = "noise_sv2")]
 impl WithNoise<Buffer> {
-    /// Crates a new [`WithNoise`] decoder with default buffer sizes.
+    /// Creates a new [`WithNoise`] decoder with default buffer sizes.
     ///
     /// It starts waiting for an encrypted Sv2 header, so [`Self::read_buf`] is that wide before
     /// the first `next_` call. A handshake message is longer; the first `next_handshake_frame`
@@ -378,13 +362,9 @@ pub struct WithoutNoise<B: IsBuffer> {
 impl<B: IsBuffer> WithoutNoise<B> {
     /// Attempts to decode the next frame.
     ///
-    /// [`Decoded::Incomplete`] carries the number of bytes the decoder will accept on the next
-    /// read: read up to that many bytes from the stream into [`Self::read_buf`], report them with
-    /// [`Self::advance`], and call `next_frame` again until it returns a [`Decoded::Frame`]. The
-    /// count always equals [`Self::read_len`], so it is capped at one chunk and is not the number
-    /// of bytes left in the frame — a frame longer than that takes several rounds.
-    ///
-    /// Bytes buffered past the end of the frame are kept as the start of the next one.
+    /// On [`Decoded::Incomplete`], read from the stream into [`Self::read_buf`], report the read
+    /// with [`Self::advance`], and call `next_frame` again until it returns a [`Decoded::Frame`].
+    /// The window is capped at one chunk, so a frame longer than that takes several rounds.
     #[inline]
     pub fn next_frame(&mut self) -> Result<Decoded<SerializedFrame<B::Slice>>> {
         self.window = 0;
@@ -401,7 +381,7 @@ impl<B: IsBuffer> WithoutNoise<B> {
             }
             Err(SizeHint::Missing(missing)) => {
                 self.missing_b = missing;
-                Ok(Decoded::Incomplete(self.read_len()))
+                Ok(Decoded::Incomplete)
             }
             Err(SizeHint::Surplus(surplus)) => {
                 let bytes = self.buffer.get_data_owned();
@@ -436,10 +416,11 @@ impl<B: IsBuffer> WithoutNoise<B> {
     /// actually filled. Calling this again first returns a new window, and bytes left in the old
     /// one are not kept.
     ///
-    /// The window is empty when nothing is missing: after [`Self::advance`] has covered all of
-    /// [`Self::read_len`], or after a [`Self::next_frame`] call whose carried-over bytes already
-    /// hold the next header. Call [`Self::next_frame`] before reading again, since a read into an
-    /// empty window returns 0, which looks like a closed stream.
+    /// A [`Self::next_frame`] call that returns [`Decoded::Incomplete`] always leaves this window
+    /// non-empty, so a loop that calls [`Self::next_frame`] first and reads only when it returns
+    /// [`Decoded::Incomplete`] never reads into an empty one. The window is empty once
+    /// [`Self::advance`] has covered all of [`Self::read_len`]; a read into it returns 0, which
+    /// looks like a closed stream.
     pub fn read_buf(&mut self) -> &mut [u8] {
         self.window = self.read_len();
         self.buffer.reserve(self.window)
@@ -511,15 +492,16 @@ mod tests {
         let mut decoder = NoiseDecoder::new();
         assert!(matches!(
             decoder.next_handshake_frame::<Responder>(),
-            Ok(Decoded::Incomplete(n)) if n == Responder::EXPECTED_MESSAGE_SIZE
+            Ok(Decoded::Incomplete)
         ));
         assert_eq!(decoder.read_len(), Responder::EXPECTED_MESSAGE_SIZE);
 
         let mut decoder = NoiseDecoder::new();
         assert!(matches!(
             decoder.next_handshake_frame::<InitiatorSent>(),
-            Ok(Decoded::Incomplete(n)) if n == InitiatorSent::EXPECTED_MESSAGE_SIZE
+            Ok(Decoded::Incomplete)
         ));
+        assert_eq!(decoder.read_len(), InitiatorSent::EXPECTED_MESSAGE_SIZE);
     }
 }
 
@@ -585,7 +567,7 @@ mod prop_tests {
 
             match decoder.next_frame() {
                 Ok(Decoded::Frame(frame)) => return Some(frame),
-                Ok(Decoded::Incomplete(_)) => continue,
+                Ok(Decoded::Incomplete) => continue,
                 Err(_) => return None,
             }
         }
@@ -674,9 +656,9 @@ mod prop_tests {
 
             match decoder.next_frame() {
                 Ok(Decoded::Frame(_)) => return TestResult::passed(),
-                Ok(Decoded::Incomplete(n)) => {
+                Ok(Decoded::Incomplete) => {
                     missing_bytes_count += 1;
-                    assert!(n > 0);
+                    assert!(decoder.read_len() > 0);
                 }
                 Err(_) => return TestResult::failed(),
             }
@@ -704,7 +686,7 @@ mod prop_tests {
         let mut decoder = Decoder::new();
         decoder.read_buf().copy_from_slice(&first[..Header::SIZE]);
         decoder.advance(Header::SIZE).unwrap();
-        assert!(matches!(decoder.next_frame(), Ok(Decoded::Incomplete(_))));
+        assert!(matches!(decoder.next_frame(), Ok(Decoded::Incomplete)));
         decoder.read_buf().copy_from_slice(&first[Header::SIZE..]);
         decoder.advance(first.len() - Header::SIZE).unwrap();
         decoder
@@ -739,8 +721,9 @@ mod prop_tests {
         let mut decoder = NoiseDecoder::new();
         assert!(matches!(
             decoder.next_handshake_frame::<Responder>(),
-            Ok(Decoded::Incomplete(ELLSWIFT_ENCODING_SIZE))
+            Ok(Decoded::Incomplete)
         ));
+        assert_eq!(decoder.read_len(), ELLSWIFT_ENCODING_SIZE);
         decoder.read_buf().fill(0);
         decoder.advance(decoder.read_len()).unwrap();
         decoder
@@ -789,7 +772,7 @@ mod prop_tests {
             .reserve(SURPLUS)
             .copy_from_slice(&first_payload[..SURPLUS]);
         decoder.noise_buffer.commit(SURPLUS);
-        let Ok(Decrypted::Incomplete(_, receiver)) = decoder.next_transport_frame(receiver) else {
+        let Ok(Decrypted::Incomplete(receiver)) = decoder.next_transport_frame(receiver) else {
             panic!("expected the decoder to want the payload");
         };
         assert_eq!(decoder.read_len(), first_payload.len() - SURPLUS);
@@ -874,7 +857,7 @@ mod prop_tests {
             offset += n;
             match decoder.next_handshake_frame::<Responder>() {
                 Ok(Decoded::Frame(_)) => break,
-                Ok(Decoded::Incomplete(_)) => continue,
+                Ok(Decoded::Incomplete) => continue,
                 Err(e) => panic!("failed to read the handshake message: {e:?}"),
             }
         }
@@ -905,7 +888,7 @@ mod prop_tests {
             offset += n;
             match decoder.next_handshake_frame::<Responder>() {
                 Ok(Decoded::Frame(_)) => break,
-                Ok(Decoded::Incomplete(_)) => continue,
+                Ok(Decoded::Incomplete) => continue,
                 Err(e) => panic!("{e:?}"),
             }
         }
@@ -929,7 +912,7 @@ mod prop_tests {
             offset += n;
             match decoder.next_transport_frame(receiver) {
                 Ok(Decrypted::Frame(..)) => break,
-                Ok(Decrypted::Incomplete(_, state)) => receiver = state,
+                Ok(Decrypted::Incomplete(state)) => receiver = state,
                 Err(e) => panic!("failed to decode the first transport frame: {e:?}"),
             }
         }
@@ -965,7 +948,7 @@ mod prop_tests {
         loop {
             match decoder.next_transport_frame(receiver) {
                 Ok(Decrypted::Frame(..)) => panic!("the tampered frame should not decode"),
-                Ok(Decrypted::Incomplete(_, state)) => {
+                Ok(Decrypted::Incomplete(state)) => {
                     receiver = state;
                     let w = decoder.read_buf();
                     let n = w.len().min(encrypted.len() - offset);
@@ -978,7 +961,7 @@ mod prop_tests {
         }
 
         let (_, receiver) = make_transport_state_pair();
-        let Ok(Decrypted::Incomplete(_, receiver)) = decoder.next_transport_frame(receiver) else {
+        let Ok(Decrypted::Incomplete(receiver)) = decoder.next_transport_frame(receiver) else {
             panic!("expected the decoder to want a header");
         };
         decoder.read_buf().fill(0);
@@ -1015,7 +998,7 @@ mod prop_tests {
         loop {
             match decoder.next_transport_frame(receiver) {
                 Ok(Decrypted::Frame(..)) => panic!("the tampered frame should not decode"),
-                Ok(Decrypted::Incomplete(_, state)) => {
+                Ok(Decrypted::Incomplete(state)) => {
                     receiver = state;
                     let w = decoder.read_buf();
                     let n = w.len();
@@ -1041,18 +1024,15 @@ mod prop_tests {
             .copy_from_slice(&[0, 0, 0, 0xff, 0xff, 0xff]);
         decoder.advance(Header::SIZE).unwrap();
 
-        assert!(matches!(
-            decoder.next_frame(),
-            Ok(Decoded::Incomplete(SV2_FRAME_CHUNK_SIZE))
-        ));
+        assert!(matches!(decoder.next_frame(), Ok(Decoded::Incomplete)));
         assert_eq!(decoder.read_len(), SV2_FRAME_CHUNK_SIZE);
         assert_eq!(decoder.read_buf().len(), SV2_FRAME_CHUNK_SIZE);
     }
 
-    /// A caller that sizes its read from `Incomplete` and one that sizes it from `read_buf`
-    /// must agree, on every round of a frame that takes more than one.
+    /// A caller that reads only after `Incomplete` must never be handed an empty window, on
+    /// every round of a frame that takes more than one.
     #[test]
-    fn incomplete_always_reports_the_next_read_window() {
+    fn incomplete_always_leaves_a_non_empty_read_window() {
         const PAYLOAD: usize = 2 * SV2_FRAME_CHUNK_SIZE + 7;
 
         let mut encoded = vec![0u8; Header::SIZE + PAYLOAD];
@@ -1062,13 +1042,14 @@ mod prop_tests {
         let mut decoder = Decoder::new();
         let mut offset = 0;
         loop {
-            let missing = match decoder.next_frame() {
+            match decoder.next_frame() {
                 Ok(Decoded::Frame(_)) => break,
-                Ok(Decoded::Incomplete(n)) => n,
+                Ok(Decoded::Incomplete) => {}
                 Err(e) => panic!("failed to decode a multi-chunk frame: {e:?}"),
             };
             let writable = decoder.read_buf();
-            assert_eq!(missing, writable.len());
+            let missing = writable.len();
+            assert!(missing > 0);
             writable[..missing].copy_from_slice(&encoded[offset..offset + missing]);
             decoder.advance(missing).unwrap();
             offset += missing;
@@ -1102,7 +1083,7 @@ mod prop_tests {
 
             match decoder.next_frame() {
                 Ok(Decoded::Frame(frame)) => break frame,
-                Ok(Decoded::Incomplete(_)) => continue,
+                Ok(Decoded::Incomplete) => continue,
                 Err(e) => panic!("failed to decode a multi-chunk frame: {e:?}"),
             }
         };
@@ -1133,25 +1114,24 @@ mod prop_tests {
         let header = header.get_data_owned();
 
         let mut decoder = NoiseDecoder::new();
-        let Ok(Decrypted::Incomplete(ENCRYPTED_SV2_FRAME_HEADER_SIZE, receiver)) =
-            decoder.next_transport_frame(receiver)
-        else {
+        let Ok(Decrypted::Incomplete(receiver)) = decoder.next_transport_frame(receiver) else {
             panic!("expected the decoder to want a header");
         };
+        assert_eq!(decoder.read_len(), ENCRYPTED_SV2_FRAME_HEADER_SIZE);
         let header: &[u8] = header.as_ref();
         decoder.read_buf().copy_from_slice(header);
         decoder.advance(header.len()).unwrap();
 
         assert!(matches!(
             decoder.next_transport_frame(receiver),
-            Ok(Decrypted::Incomplete(..))
+            Ok(Decrypted::Incomplete(_))
         ));
         assert_eq!(decoder.read_len(), SV2_FRAME_CHUNK_SIZE);
         assert_eq!(decoder.read_buf().len(), SV2_FRAME_CHUNK_SIZE);
     }
 
-    /// A Noise frame whose payload spans several chunks survives the round trip, and every round
-    /// of it agrees on how many bytes the decoder wants next.
+    /// A Noise frame whose payload spans several chunks survives the round trip, read one
+    /// encrypted chunk at a time, and no round of it leaves the read window empty.
     #[cfg(feature = "noise_sv2")]
     #[test]
     fn a_noise_frame_longer_than_the_read_window_is_read_over_several_rounds() {
@@ -1176,10 +1156,11 @@ mod prop_tests {
         let decoded = loop {
             match decoder.next_transport_frame(receiver) {
                 Ok(Decrypted::Frame(frame, _)) => break frame,
-                Ok(Decrypted::Incomplete(n, state)) => {
+                Ok(Decrypted::Incomplete(state)) => {
                     receiver = state;
                     let writable = decoder.read_buf();
-                    assert_eq!(n, writable.len());
+                    let n = writable.len();
+                    assert!(n > 0 && n <= SV2_FRAME_CHUNK_SIZE);
                     writable.copy_from_slice(&encrypted[offset..offset + n]);
                     decoder.advance(n).unwrap();
                     offset += n;
@@ -1321,10 +1302,10 @@ mod prop_tests {
 
             match decoder.next_transport_frame(receiver_state) {
                 Ok(Decrypted::Frame(..)) => return TestResult::from_bool(missing_bytes_count > 0),
-                Ok(Decrypted::Incomplete(n, state)) => {
+                Ok(Decrypted::Incomplete(state)) => {
                     receiver_state = state;
                     missing_bytes_count += 1;
-                    assert!(n > 0);
+                    assert!(decoder.read_len() > 0);
                 }
                 Err(_) => return TestResult::failed(),
             }
@@ -1348,7 +1329,7 @@ mod prop_tests {
         // stays where it was and the same bytes can be replayed below.
         assert!(matches!(
             decoder.next_transport(|_| Err(crate::Error::AeadError(noise_sv2::AeadError))),
-            Ok(Decoded::Incomplete(_))
+            Ok(Decoded::Incomplete)
         ));
         let writable = decoder.read_buf();
         let len = writable.len();
@@ -1483,8 +1464,9 @@ mod prop_tests {
         decoder.advance(10).unwrap();
         assert!(matches!(
             decoder.next_handshake_frame::<Responder>(),
-            Ok(Decoded::Incomplete(n)) if n == first.len() - 10
+            Ok(Decoded::Incomplete)
         ));
+        assert_eq!(decoder.read_len(), first.len() - 10);
 
         decoder.read_buf().copy_from_slice(&first[10..]);
         decoder.advance(first.len() - 10).unwrap();

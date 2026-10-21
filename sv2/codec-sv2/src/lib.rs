@@ -243,7 +243,7 @@ mod tests {
 
             match decoder.next_handshake_frame::<R>() {
                 Ok(Decoded::Frame(frame)) => return frame,
-                Ok(Decoded::Incomplete(_)) => {}
+                Ok(Decoded::Incomplete) => {}
                 Err(e) => panic!("failed to decode a handshake frame: {e:?}"),
             }
         }

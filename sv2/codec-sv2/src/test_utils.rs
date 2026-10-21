@@ -81,7 +81,7 @@ pub(crate) fn decode_noise_frame(
 
         match decoder.next_transport_frame(state) {
             Ok(Decrypted::Frame(frame, state)) => return Some((frame, state)),
-            Ok(Decrypted::Incomplete(_, next)) => state = next,
+            Ok(Decrypted::Incomplete(next)) => state = next,
             Err(_) => return None,
         }
     }

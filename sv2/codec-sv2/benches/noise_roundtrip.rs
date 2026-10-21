@@ -74,7 +74,7 @@ fn bench_noise_roundtrip(c: &mut Criterion) {
                         dec_state = state;
                         break;
                     }
-                    Ok(Decrypted::Incomplete(_, state)) => {
+                    Ok(Decrypted::Incomplete(state)) => {
                         dec_state = state;
                         let w = dec.read_buf();
                         let n = w.len();
