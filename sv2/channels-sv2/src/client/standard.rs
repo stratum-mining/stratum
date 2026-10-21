@@ -405,6 +405,10 @@ impl StandardChannel {
     /// and activating it in this channel's context.
     ///
     /// The new job is constructed using the current extranonce prefix.
+    /// The group's `version_rolling_allowed` is dropped by design: standard jobs always allow
+    /// rolling within the general-purpose version mask, as specified by
+    /// [`NewMiningJob`](mining_sv2::NewMiningJob). A group job's `false` cannot restrict rolling
+    /// on standard channels.
     ///
     /// Returns [`StandardChannelError::InvalidCoinbase`] if the job's coinbase transaction
     /// (prefix + this channel's extranonce prefix + suffix) is malformed, and

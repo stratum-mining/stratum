@@ -114,6 +114,11 @@ impl StandardJob {
     /// [`PrebuiltJob`](super::PrebuiltJob), so that the job served directly is the one a
     /// group would broadcast for the same bytes.
     ///
+    /// The extended job's `version_rolling_allowed` is dropped by design:
+    /// [`NewMiningJob`](mining_sv2::NewMiningJob) has no such flag, and standard jobs always allow
+    /// rolling within the general-purpose version mask. A group job's `false` cannot restrict
+    /// rolling on standard channels.
+    ///
     /// An extended job originating from `SetCustomMiningJob` belongs to a single extended
     /// channel, never to a group channel, so passing one here is refused with
     /// [`StandardJobError::InvalidJobOrigin`].
