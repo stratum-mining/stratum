@@ -312,7 +312,7 @@ fn bench_decoder_pool_back_vs_alloc(
                             black_box(f);
                             break;
                         }
-                        Ok(Decoded::Incomplete(_)) => {
+                        Ok(Decoded::Incomplete) => {
                             let w = dec.read_buf();
                             let n = w.len();
                             w.copy_from_slice(&enc_buf[offset..offset + n]);
@@ -346,7 +346,7 @@ fn bench_decoder_pool_back_vs_alloc(
                                 held.push(f);
                                 break;
                             }
-                            Ok(Decoded::Incomplete(_)) => {
+                            Ok(Decoded::Incomplete) => {
                                 let w = dec.read_buf();
                                 let n = w.len();
                                 w.copy_from_slice(&enc_buf[offset..offset + n]);
@@ -371,7 +371,7 @@ fn bench_decoder_pool_back_vs_alloc(
                             held.push(f);
                             break;
                         }
-                        Ok(Decoded::Incomplete(_)) => {
+                        Ok(Decoded::Incomplete) => {
                             let w = dec.read_buf();
                             let n = w.len();
                             w.copy_from_slice(&enc_buf[offset..offset + n]);
@@ -415,7 +415,7 @@ fn bench_decoder_per_slot_latency(c: &mut Criterion, group_name: &str, enc_buf: 
                                         pre.push(f);
                                         break;
                                     }
-                                    Ok(Decoded::Incomplete(_)) => {
+                                    Ok(Decoded::Incomplete) => {
                                         let w = dec.read_buf();
                                         let n = w.len();
                                         w.copy_from_slice(&enc_buf[offset..offset + n]);
@@ -440,7 +440,7 @@ fn bench_decoder_per_slot_latency(c: &mut Criterion, group_name: &str, enc_buf: 
                                     pre.push(f);
                                     break;
                                 }
-                                Ok(Decoded::Incomplete(_)) => {
+                                Ok(Decoded::Incomplete) => {
                                     let w = dec.read_buf();
                                     let n = w.len();
                                     w.copy_from_slice(&enc_buf[offset..offset + n]);

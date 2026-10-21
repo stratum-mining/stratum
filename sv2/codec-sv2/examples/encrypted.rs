@@ -203,7 +203,7 @@ fn main() {
 
         match decoder.next_transport_frame(receiver_decrypt) {
             Ok(Decrypted::Frame(frame, _)) => break frame,
-            Ok(Decrypted::Incomplete(_, state)) => receiver_decrypt = state,
+            Ok(Decrypted::Incomplete(state)) => receiver_decrypt = state,
             Err(_) => panic!("Failed to decode the frame"),
         }
     };
