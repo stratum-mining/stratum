@@ -175,9 +175,18 @@ impl<B: IsBuffer> WithNoise<B> {
 impl WithNoise<Buffer> {
     /// Creates a new `NoiseEncoder` with default buffer sizes.
     pub fn new() -> Self {
+        Self::with_capacity(crate::DEFAULT_POOL_BUFFER_SIZE)
+    }
+
+    /// Creates a new `NoiseEncoder` like [`Self::new`], with each of its two buffers holding
+    /// `capacity` bytes.
+    ///
+    /// Only the `with_buffer_pool` feature preallocates that memory: a frame that does not fit
+    /// spills onto the heap. Without it the buffers grow on the heap and `capacity` is unused.
+    pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            sv2_buffer: Buffer::new(crate::DEFAULT_POOL_BUFFER_SIZE),
-            noise_buffer: Buffer::new(crate::DEFAULT_POOL_BUFFER_SIZE),
+            sv2_buffer: Buffer::new(capacity),
+            noise_buffer: Buffer::new(capacity),
         }
     }
 }
@@ -225,8 +234,16 @@ impl<B: IsBuffer> WithoutNoise<B> {
 impl WithoutNoise<Buffer> {
     /// Creates a new `Encoder` with a buffer of default size.
     pub fn new() -> Self {
+        Self::with_capacity(crate::DEFAULT_POOL_BUFFER_SIZE)
+    }
+
+    /// Creates a new `Encoder` like [`Self::new`], with its buffer holding `capacity` bytes.
+    ///
+    /// Only the `with_buffer_pool` feature preallocates that memory: a frame that does not fit
+    /// spills onto the heap. Without it the buffer grows on the heap and `capacity` is unused.
+    pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            buffer: Buffer::new(crate::DEFAULT_POOL_BUFFER_SIZE),
+            buffer: Buffer::new(capacity),
         }
     }
 }

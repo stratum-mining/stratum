@@ -322,9 +322,18 @@ impl WithNoise<Buffer> {
     /// the first `next_` call. A handshake message is longer; the first `next_handshake_frame`
     /// moves the decoder into the handshake phase and asks for the rest.
     pub fn new() -> Self {
+        Self::with_capacity(crate::DEFAULT_POOL_BUFFER_SIZE)
+    }
+
+    /// Creates a new [`WithNoise`] decoder like [`Self::new`], with each of its two buffers
+    /// holding `capacity` bytes.
+    ///
+    /// Only the `with_buffer_pool` feature preallocates that memory: a frame that does not fit
+    /// spills onto the heap. Without it the buffers grow on the heap and `capacity` is unused.
+    pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            noise_buffer: Buffer::new(crate::DEFAULT_POOL_BUFFER_SIZE),
-            sv2_buffer: Buffer::new(crate::DEFAULT_POOL_BUFFER_SIZE),
+            noise_buffer: Buffer::new(capacity),
+            sv2_buffer: Buffer::new(capacity),
             missing_noise_b: ENCRYPTED_SV2_FRAME_HEADER_SIZE,
             window: 0,
         }
@@ -456,8 +465,17 @@ impl WithoutNoise<Buffer> {
     /// Initializes the decoder with a default buffer size and sets the number of missing bytes to
     /// the size of the header.
     pub fn new() -> Self {
+        Self::with_capacity(crate::DEFAULT_POOL_BUFFER_SIZE)
+    }
+
+    /// Creates a new [`WithoutNoise`] like [`Self::new`], with its buffer holding `capacity`
+    /// bytes.
+    ///
+    /// Only the `with_buffer_pool` feature preallocates that memory: a frame that does not fit
+    /// spills onto the heap. Without it the buffer grows on the heap and `capacity` is unused.
+    pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            buffer: Buffer::new(crate::DEFAULT_POOL_BUFFER_SIZE),
+            buffer: Buffer::new(capacity),
             missing_b: Header::SIZE,
             window: 0,
         }
@@ -1018,6 +1036,49 @@ mod prop_tests {
         }
         assert_eq!(offset, first_chunk + SV2_FRAME_CHUNK_SIZE);
         assert_eq!(decoder.read_len(), ENCRYPTED_SV2_FRAME_HEADER_SIZE);
+    }
+
+    /// A buffer far smaller than a frame only moves the frame onto the heap.
+    #[test]
+    fn a_codec_with_a_small_capacity_still_round_trips() {
+        for capacity in [0, 16] {
+            let mut encoder = Encoder::with_capacity(capacity);
+            let mut decoder = Decoder::with_capacity(capacity);
+            for value in 0..4 {
+                let frame =
+                    MessageFrame::<TestMessage>::from_message(TestMessage { value }, 0, 0, false)
+                        .unwrap();
+                let encoded = encoder.encode(frame).unwrap();
+                let mut frame = decode_frame(&mut decoder, encoded.as_ref(), None).unwrap();
+                assert_eq!(
+                    binary_sv2::from_bytes::<TestMessage>(frame.payload()).unwrap(),
+                    TestMessage { value }
+                );
+            }
+        }
+    }
+
+    #[cfg(feature = "noise_sv2")]
+    #[test]
+    fn a_noise_codec_with_a_small_capacity_still_round_trips() {
+        for capacity in [0, 16] {
+            let (mut sender, mut receiver) = make_transport_state_pair();
+            let mut encoder = NoiseEncoder::with_capacity(capacity);
+            let mut decoder = NoiseDecoder::with_capacity(capacity);
+            for value in 0..4 {
+                let frame =
+                    MessageFrame::<TestMessage>::from_message(TestMessage { value }, 0, 0, false)
+                        .unwrap();
+                let encrypted = encoder.encode_transport(frame, &mut sender).unwrap();
+                let (mut frame, next) =
+                    decode_noise_frame(&mut decoder, receiver, encrypted.as_ref()).unwrap();
+                receiver = next;
+                assert_eq!(
+                    binary_sv2::from_bytes::<TestMessage>(frame.payload()).unwrap(),
+                    TestMessage { value }
+                );
+            }
+        }
     }
 
     /// A peer declares the payload length in the header it sends first, so the decoder must not
