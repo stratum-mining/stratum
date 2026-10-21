@@ -1,7 +1,7 @@
 extern crate alloc;
 
 #[cfg(feature = "noise_sv2")]
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 #[cfg(feature = "noise_sv2")]
 use codec_sv2::{
@@ -106,25 +106,6 @@ fn bench_noise_encode_only(c: &mut Criterion) {
     });
 }
 
-// Benchmarks calculating the encrypted length of a payload from its header
-#[cfg(feature = "noise_sv2")]
-fn bench_encrypted_payload_length(c: &mut Criterion) {
-    use framing_sv2::header::Header;
-
-    let mut group = c.benchmark_group("noise/encrypted_payload_length");
-
-    for &size in &[64usize, 1024, 16384, 61440, 16_777_215] {
-        let mut header_bytes = vec![0u8; 6];
-        header_bytes[3..6].copy_from_slice(&(size as u32).to_le_bytes()[..3]);
-        let header = Header::from_bytes(&header_bytes).unwrap();
-        group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
-            b.iter(|| black_box(codec_sv2::encrypted_payload_length(&header)))
-        });
-    }
-
-    group.finish();
-}
-
 #[cfg(feature = "noise_sv2")]
 fn bench_noise_handshake_steps(c: &mut Criterion) {
     c.bench_function("noise/handshake/step_0", |b| {
@@ -153,8 +134,7 @@ criterion_group!(
     noise_benches,
     bench_noise_roundtrip,
     bench_noise_encode_only,
-    bench_noise_handshake_steps,
-    bench_encrypted_payload_length
+    bench_noise_handshake_steps
 );
 
 #[cfg(feature = "noise_sv2")]

@@ -39,7 +39,7 @@ extern crate alloc;
 
 use buffer_sv2::Buffer as IsBuffer;
 #[cfg(feature = "noise_sv2")]
-use framing_sv2::{header::Header, SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
+use framing_sv2::{SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
 #[cfg(feature = "noise_sv2")]
 use noise_sv2::AEAD_MAC_LEN;
 
@@ -85,14 +85,6 @@ pub const ENCRYPTED_SV2_FRAME_HEADER_SIZE: usize = SV2_FRAME_HEADER_SIZE + AEAD_
 #[cfg(feature = "noise_sv2")]
 pub const SV2_FRAME_PLAINTEXT_CHUNK_SIZE: usize = SV2_FRAME_CHUNK_SIZE - AEAD_MAC_LEN;
 
-/// Length the payload `header` declares takes once encrypted, including the MAC of every chunk.
-#[cfg(feature = "noise_sv2")]
-pub fn encrypted_payload_length(header: &Header) -> usize {
-    let len = header.payload_length();
-    let chunks = len.div_ceil(SV2_FRAME_PLAINTEXT_CHUNK_SIZE);
-    len + chunks * AEAD_MAC_LEN
-}
-
 pub(crate) const DEFAULT_POOL_BUFFER_SIZE: usize = 2_usize.pow(16) * 5;
 
 /// A [`framing_sv2::framing::SerializedFrame`] over the buffer the `with_buffer_pool` feature
@@ -112,12 +104,8 @@ mod tests {
         TransportEncryptState, SV2_FRAME_PLAINTEXT_CHUNK_SIZE,
     };
     use binary_sv2::{Deserialize, Serialize, B064K};
-    use framing_sv2::{framing::MessageFrame, header::Header, SV2_FRAME_HEADER_SIZE};
-    use noise_sv2::{
-        Responder, AEAD_MAC_LEN, ELLSWIFT_ENCODING_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
-    };
-    use quickcheck::Arbitrary;
-    use quickcheck_macros::quickcheck;
+    use framing_sv2::framing::MessageFrame;
+    use noise_sv2::{Responder, ELLSWIFT_ENCODING_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE};
 
     const MSG_TYPE: u8 = 0xff;
 
@@ -259,33 +247,5 @@ mod tests {
                 Err(e) => panic!("failed to decode a handshake frame: {e:?}"),
             }
         }
-    }
-
-    #[derive(Debug, Clone)]
-    struct ValidU24(u32);
-
-    impl Arbitrary for ValidU24 {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            ValidU24(u32::arbitrary(g) % (framing_sv2::SV2_FRAME_MAX_PAYLOAD_SIZE as u32 + 1))
-        }
-    }
-
-    /// The encrypted length grows by one MAC per chunk, not one MAC overall.
-    #[quickcheck]
-    fn prop_encrypted_payload_length_counts_one_mac_per_chunk(payload_length: ValidU24) {
-        let mut bytes = [0u8; SV2_FRAME_HEADER_SIZE];
-        bytes[2] = 0x01;
-        bytes[3..].copy_from_slice(&payload_length.0.to_le_bytes()[..3]);
-        let header = Header::from_bytes(&bytes).unwrap();
-
-        let payload_per_chunk = SV2_FRAME_PLAINTEXT_CHUNK_SIZE;
-        let chunks = (payload_length.0 as usize).div_ceil(payload_per_chunk);
-
-        assert_eq!(
-            crate::encrypted_payload_length(&header),
-            payload_length.0 as usize + chunks * AEAD_MAC_LEN,
-            "mismatch for a {}-byte payload spanning {chunks} chunks",
-            payload_length.0
-        );
     }
 }

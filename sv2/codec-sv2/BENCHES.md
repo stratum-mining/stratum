@@ -52,8 +52,6 @@ Requires `noise_sv2` feature.
 - **`noise/encode_only`** — Noise encode in isolation with a persistent transport session
 - **`noise/handshake/step_0`** — Initiator generates the first EllSwift key-exchange message
 - **`noise/handshake/step_1`** — Responder processes step-0 and generates its response
-- **`noise/encrypted_payload_length`** — `encrypted_payload_length()` across payload sizes: the
-  encrypted size of a declared payload, one MAC per chunk
 
 ### 4. Serialization (`serialization.rs`)
 

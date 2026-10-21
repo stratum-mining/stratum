@@ -39,8 +39,10 @@ use crate::{
 #[cfg(feature = "noise_sv2")]
 use crate::{
     state::{Chunk, ExpectsHandshakeMessage},
-    TransportDecryptState, ENCRYPTED_SV2_FRAME_HEADER_SIZE,
+    TransportDecryptState, ENCRYPTED_SV2_FRAME_HEADER_SIZE, SV2_FRAME_PLAINTEXT_CHUNK_SIZE,
 };
+#[cfg(feature = "noise_sv2")]
+use noise_sv2::AEAD_MAC_LEN;
 
 /// Sv2 decoder with Noise protocol support.
 ///
@@ -55,29 +57,25 @@ pub type Decoder = WithoutNoise<Buffer>;
 
 /// Decoder for Sv2 frames with Noise protocol support.
 ///
-/// Accumulates the encrypted data into a dedicated buffer until the entire encrypted frame is
-/// received. The Noise protocol is then used to decrypt the accumulated data into another
-/// dedicated buffer, converting it back into its original serialized form. This decrypted data is
-/// then deserialized into the original Sv2 frame and message format.
+/// Accumulates the encrypted header, and then each encrypted chunk of the payload, into a
+/// dedicated buffer, and decrypts each one into another dedicated buffer as soon as it is whole.
+/// Once the last chunk is decrypted, that second buffer holds the serialized Sv2 frame.
 #[cfg(feature = "noise_sv2")]
 #[derive(Debug)]
 pub struct WithNoise<B: IsBuffer> {
     // Buffer for holding incoming encrypted Noise data to be decrypted.
     //
-    // Stores the incoming encrypted data, allowing the decoder to accumulate the necessary bytes
-    // for full decryption. Once the entire encrypted frame is received, the decoder processes the
-    // buffer to extract the underlying frame.
+    // Holds a handshake message, an encrypted header or one encrypted chunk of payload while it
+    // is being received, never more than one chunk.
     noise_buffer: B,
 
     // Buffer for holding decrypted data to be decoded.
     //
-    // Stores the decrypted data until it is ready to be processed and converted into a Sv2 frame.
+    // Holds the header and the payload decrypted so far, until the frame is whole.
     sv2_buffer: B,
 
-    // Number of encrypted bytes still missing before the current frame can progress.
-    //
-    // Set from the header once it is decrypted, and to the size of the next expected message
-    // or header otherwise; [`Self::read_len`] caps it at one chunk.
+    // Number of encrypted bytes still missing before the decoder can take its next step: the
+    // rest of the handshake message, header or chunk being received.
     missing_noise_b: usize,
 
     // Size of the window the last `read_buf` returned, `0` once it is advanced or a frame step
@@ -147,36 +145,35 @@ impl<B: IsBuffer> WithNoise<B> {
         &mut self,
     ) -> Result<Decoded<HandshakeMessage>> {
         self.window = 0;
-        if let Some(missing) = self.missing(R::EXPECTED_MESSAGE_SIZE) {
-            return Ok(Decoded::Incomplete(missing));
+        if self.missing(R::EXPECTED_MESSAGE_SIZE) {
+            return Ok(Decoded::Incomplete(self.read_len()));
         }
-        let message = self.take(R::EXPECTED_MESSAGE_SIZE);
+        let message =
+            HandshakeMessage::from_message(&self.noise_buffer.frame()[..R::EXPECTED_MESSAGE_SIZE]);
+        self.consume(R::EXPECTED_MESSAGE_SIZE);
         self.expect(ENCRYPTED_SV2_FRAME_HEADER_SIZE);
-        Ok(Decoded::Frame(HandshakeMessage::from_message(
-            &message.as_ref()[..R::EXPECTED_MESSAGE_SIZE],
-        )))
+        Ok(Decoded::Frame(message))
     }
 
-    fn missing(&mut self, expected: usize) -> Option<usize> {
-        match expected.saturating_sub(IsBuffer::len(&self.noise_buffer)) {
-            0 => None,
-            missing => {
-                self.missing_noise_b = missing;
-                Some(self.read_len())
-            }
+    // Records how many of the `expected` encrypted bytes are not buffered yet, and returns
+    // whether any are.
+    fn missing(&mut self, expected: usize) -> bool {
+        self.expect(expected);
+        self.missing_noise_b > 0
+    }
+
+    // Drops the first `expected` encrypted bytes, keeping any buffered past them for the next step.
+    fn consume(&mut self, expected: usize) {
+        if IsBuffer::len(&self.noise_buffer) == expected {
+            self.noise_buffer.truncate(0);
+            return;
         }
-    }
-
-    fn take(&mut self, expected: usize) -> B::Slice {
         let bytes = self.noise_buffer.get_data_owned();
         let carried = &bytes.as_ref()[expected..];
-        if !carried.is_empty() {
-            self.noise_buffer
-                .reserve(carried.len())
-                .copy_from_slice(carried);
-            self.noise_buffer.commit(carried.len());
-        }
-        bytes
+        self.noise_buffer
+            .reserve(carried.len())
+            .copy_from_slice(carried);
+        self.noise_buffer.commit(carried.len());
     }
 
     fn expect(&mut self, size: usize) {
@@ -192,7 +189,9 @@ impl<B: IsBuffer> WithNoise<B> {
     /// accept on the next read, which is always [`Self::read_len`] and never more than one
     /// chunk, not the number of bytes left in the frame.
     ///
-    /// Bytes buffered past the end of the frame are kept as the start of the next one.
+    /// Each chunk of the payload is decrypted as soon as it is buffered, so a chunk that fails to
+    /// authenticate errors out before the rest of the frame is read. Bytes buffered past the end
+    /// of the frame are kept as the start of the next one.
     ///
     /// An `Err` consumes the state. After a failed decryption the cipher's nonce no longer
     /// follows the bytes the peer keeps sending: a retransmission of the ciphertext that just
@@ -223,31 +222,69 @@ impl<B: IsBuffer> WithNoise<B> {
     }
 
     // Decodes a transport-mode frame, decrypting through `decrypt`.
+    //
+    // A failed round drops the partly decoded frame and goes back to waiting for a header.
     #[inline]
     fn next_transport(
         &mut self,
         decrypt: impl FnMut(&mut Chunk<'_, B>) -> Result<()>,
     ) -> Result<Decoded<SerializedFrame<B::Slice>>> {
         self.window = 0;
-        let expected = if IsBuffer::len(&self.sv2_buffer) < SV2_FRAME_HEADER_SIZE {
-            ENCRYPTED_SV2_FRAME_HEADER_SIZE
-        } else {
-            crate::encrypted_payload_length(&Header::from_bytes(self.sv2_buffer.frame())?)
-        };
-        if let Some(missing) = self.missing(expected) {
-            return Ok(Decoded::Incomplete(missing));
+        let result = self.try_next_transport(decrypt);
+
+        if result.is_err() {
+            self.sv2_buffer.truncate(0);
+            self.noise_buffer.truncate(0);
+            self.expect(ENCRYPTED_SV2_FRAME_HEADER_SIZE);
         }
-        self.decode_noise_frame(expected, decrypt)
+
+        result
+    }
+
+    // Decrypts the header, then each chunk of payload, onto the end of `sv2_buffer` for as long as
+    // the next one is buffered, and returns the frame once nothing of it is left to decrypt.
+    #[inline]
+    fn try_next_transport(
+        &mut self,
+        mut decrypt: impl FnMut(&mut Chunk<'_, B>) -> Result<()>,
+    ) -> Result<Decoded<SerializedFrame<B::Slice>>> {
+        loop {
+            let decrypted = IsBuffer::len(&self.sv2_buffer);
+            let expected = if decrypted < SV2_FRAME_HEADER_SIZE {
+                ENCRYPTED_SV2_FRAME_HEADER_SIZE
+            } else {
+                let header = Header::from_bytes(self.sv2_buffer.frame())?;
+                let left = header.payload_length() - (decrypted - SV2_FRAME_HEADER_SIZE);
+                if left == 0 {
+                    break;
+                }
+                left.min(SV2_FRAME_PLAINTEXT_CHUNK_SIZE) + AEAD_MAC_LEN
+            };
+            if self.missing(expected) {
+                return Ok(Decoded::Incomplete(self.read_len()));
+            }
+            self.sv2_buffer
+                .reserve(expected)
+                .copy_from_slice(&self.noise_buffer.frame()[..expected]);
+            self.sv2_buffer.commit(expected);
+            self.consume(expected);
+            decrypt(&mut Chunk::new(&mut self.sv2_buffer, decrypted))?;
+        }
+        self.expect(ENCRYPTED_SV2_FRAME_HEADER_SIZE);
+        let src = self.sv2_buffer.get_data_owned();
+        Ok(Decoded::Frame(SerializedFrame::<B::Slice>::from_bytes(
+            src,
+        )?))
     }
 
     /// Returns the number of bytes to read next for the current Noise-encrypted frame.
     ///
-    /// This is how many bytes are still missing from the frame, capped at one chunk
-    /// ([`framing_sv2::SV2_FRAME_CHUNK_SIZE`]), which is the unit the payload is encrypted in. A
-    /// peer declares the payload length in a header it sends before any of that payload, so
-    /// buffering the whole declared length up front would let it reserve megabytes with a
-    /// 22-byte write; the frame is instead read a chunk at a time, and the buffer grows with the
-    /// data that actually arrives.
+    /// This is how many bytes are still missing from the handshake message, encrypted header or
+    /// encrypted chunk being received, so it is never more than one chunk
+    /// ([`framing_sv2::SV2_FRAME_CHUNK_SIZE`]), the unit the payload is encrypted in. A peer
+    /// declares the payload length in a header it sends before any of that payload, so buffering
+    /// the whole declared length up front would let it reserve megabytes with a 22-byte write;
+    /// the frame is instead read and decrypted a chunk at a time.
     ///
     /// The returned length dynamically updates as data is received and processed.
     pub fn read_len(&self) -> usize {
@@ -287,92 +324,6 @@ impl<B: IsBuffer> WithNoise<B> {
         self.window = 0;
         self.missing_noise_b = self.missing_noise_b.saturating_sub(n);
         Ok(())
-    }
-
-    // Decodes a Noise-encrypted Sv2 frame, handling both the message header and payload
-    // decryption.
-    //
-    // Decrypts the header if it has not been decrypted yet. Once the whole encrypted payload is
-    // buffered, decrypts it chunk by chunk into `sv2_buffer` and returns the frame.
-    //
-    // On success, the decoded frame is returned. Otherwise, an error indicating the number of
-    // missing bytes required to complete the encoded frame, an error on a badly formatted message
-    // header, or a decryption failure error is returned. If there are still bytes missing to
-    // complete the frame, the function will return `Decoded::Incomplete` with the number of
-    // additional bytes required to fully decrypt the frame. Once all bytes are available, the
-    // decryption process completes and the frame can be successfully decoded.
-    #[inline]
-    fn decode_noise_frame(
-        &mut self,
-        expected: usize,
-        decrypt: impl FnMut(&mut Chunk<'_, B>) -> Result<()>,
-    ) -> Result<Decoded<SerializedFrame<B::Slice>>> {
-        let result = self.try_decode_noise_frame(expected, decrypt);
-
-        if result.is_err() {
-            self.sv2_buffer.get_data_owned();
-            self.noise_buffer.get_data_owned();
-            self.expect(ENCRYPTED_SV2_FRAME_HEADER_SIZE);
-        }
-
-        result
-    }
-
-    #[inline]
-    fn try_decode_noise_frame(
-        &mut self,
-        expected: usize,
-        mut decrypt: impl FnMut(&mut Chunk<'_, B>) -> Result<()>,
-    ) -> Result<Decoded<SerializedFrame<B::Slice>>> {
-        if IsBuffer::len(&self.sv2_buffer) < SV2_FRAME_HEADER_SIZE {
-            // HERE THE SV2 HEADER IS READY TO BE DECRYPTED
-            let src = self.take(expected);
-            self.sv2_buffer
-                .reserve(expected)
-                .copy_from_slice(&src.as_ref()[..expected]);
-            self.sv2_buffer.commit(expected);
-            decrypt(&mut Chunk::new(&mut self.sv2_buffer, 0))?;
-            let header = Header::from_bytes(self.sv2_buffer.frame())?;
-            let payload = crate::encrypted_payload_length(&header);
-            if payload > 0 {
-                self.expect(payload);
-                return Ok(Decoded::Incomplete(self.read_len()));
-            }
-            // A frame that declares no payload is already whole, so return it in this same round
-            // rather than handing the caller a zero-length read window to come back through.
-            self.decrypt_payload(0, decrypt)
-        } else {
-            self.decrypt_payload(expected, decrypt)
-        }
-    }
-
-    // Decrypts `expected` bytes of payload, chunk by chunk, onto the header already decrypted in
-    // `sv2_buffer`, and returns the frame the two make up.
-    #[inline]
-    fn decrypt_payload(
-        &mut self,
-        expected: usize,
-        mut decrypt: impl FnMut(&mut Chunk<'_, B>) -> Result<()>,
-    ) -> Result<Decoded<SerializedFrame<B::Slice>>> {
-        let encrypted_payload = self.take(expected);
-        self.expect(ENCRYPTED_SV2_FRAME_HEADER_SIZE);
-        let encrypted_payload = &encrypted_payload.as_ref()[..expected];
-        let mut start = 0;
-        // The header is already decrypted, so each chunk starts past what the buffer holds.
-        while start < expected {
-            let end = (start + SV2_FRAME_CHUNK_SIZE).min(expected);
-            let chunk_start = IsBuffer::len(&self.sv2_buffer);
-            self.sv2_buffer
-                .reserve(end - start)
-                .copy_from_slice(&encrypted_payload[start..end]);
-            self.sv2_buffer.commit(end - start);
-            decrypt(&mut Chunk::new(&mut self.sv2_buffer, chunk_start))?;
-            start = end;
-        }
-        let src = self.sv2_buffer.get_data_owned();
-        Ok(Decoded::Frame(SerializedFrame::<B::Slice>::from_bytes(
-            src,
-        )?))
     }
 }
 
@@ -862,9 +813,7 @@ mod prop_tests {
         );
         assert_eq!(decoder.read_len(), 0);
 
-        let Ok(Decrypted::Incomplete(0, receiver)) = decoder.next_transport_frame(receiver) else {
-            panic!("expected an empty read window");
-        };
+        // The second frame is already buffered whole, so it comes back without a read.
         let Ok(Decrypted::Frame(mut frame, _)) = decoder.next_transport_frame(receiver) else {
             panic!("expected the second frame");
         };
@@ -1035,6 +984,51 @@ mod prop_tests {
         decoder.read_buf().fill(0);
         decoder.advance(decoder.read_len()).unwrap();
         let _ = decoder.next_transport_frame(receiver);
+    }
+
+    /// Each chunk is decrypted as soon as it is buffered, so a chunk that fails to authenticate
+    /// errors out before the rest of the frame is read, and no more than one encrypted chunk is
+    /// ever held.
+    #[cfg(feature = "noise_sv2")]
+    #[test]
+    fn a_failed_chunk_errors_before_the_rest_of_the_frame_is_read() {
+        use crate::ENCRYPTED_SV2_FRAME_HEADER_SIZE;
+
+        const PAYLOAD: usize = 3 * SV2_FRAME_CHUNK_SIZE;
+
+        let mut plain = vec![0u8; Header::SIZE + PAYLOAD];
+        plain[2] = 1;
+        plain[3..Header::SIZE].copy_from_slice(&(PAYLOAD as u32).to_le_bytes()[..3]);
+
+        let (mut sender, mut receiver) = make_transport_state_pair();
+        let mut encoder = NoiseEncoder::new();
+        let frame = SerializedFrame::<Vec<u8>>::from_bytes(plain).unwrap();
+        let encrypted = encoder.encode_transport(frame, &mut sender).unwrap();
+        let encrypted_bytes: &[u8] = encrypted.as_ref();
+        let mut encrypted = encrypted_bytes.to_vec();
+
+        let first_chunk = ENCRYPTED_SV2_FRAME_HEADER_SIZE;
+        encrypted[first_chunk + 8] ^= 0x01;
+
+        let mut decoder = NoiseDecoder::new();
+        let mut offset = 0;
+        loop {
+            match decoder.next_transport_frame(receiver) {
+                Ok(Decrypted::Frame(..)) => panic!("the tampered frame should not decode"),
+                Ok(Decrypted::Incomplete(_, state)) => {
+                    receiver = state;
+                    let w = decoder.read_buf();
+                    let n = w.len();
+                    w.copy_from_slice(&encrypted[offset..offset + n]);
+                    decoder.advance(n).unwrap();
+                    offset += n;
+                    assert!(IsBuffer::len(&decoder.noise_buffer) <= SV2_FRAME_CHUNK_SIZE);
+                }
+                Err(_) => break,
+            }
+        }
+        assert_eq!(offset, first_chunk + SV2_FRAME_CHUNK_SIZE);
+        assert_eq!(decoder.read_len(), ENCRYPTED_SV2_FRAME_HEADER_SIZE);
     }
 
     /// A peer declares the payload length in the header it sends first, so the decoder must not
