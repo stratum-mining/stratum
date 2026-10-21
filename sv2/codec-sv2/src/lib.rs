@@ -266,7 +266,7 @@ mod tests {
 
     impl Arbitrary for ValidU24 {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            ValidU24(u32::arbitrary(g) % 16_777_216)
+            ValidU24(u32::arbitrary(g) % (framing_sv2::SV2_FRAME_MAX_PAYLOAD_SIZE as u32 + 1))
         }
     }
 
