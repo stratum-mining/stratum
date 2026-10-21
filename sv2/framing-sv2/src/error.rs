@@ -20,6 +20,15 @@ pub enum Error {
         actual: usize,
     },
 
+    /// The message serialized to a different number of bytes than the
+    /// [`crate::header::Header`] declares, i.e. than its `GetSize` reported.
+    PayloadLengthMismatch {
+        /// Payload length the header declares.
+        declared: usize,
+        /// Number of bytes the message serialized to.
+        written: usize,
+    },
+
     /// The buffer is too short to hold a [`crate::header::Header`].
     UnexpectedHeaderLength(usize),
 
@@ -39,6 +48,12 @@ impl fmt::Display for Error {
                 write!(
                     f,
                     "Destination buffer is `{actual}` bytes long, the encoded frame takes `{expected}`"
+                )
+            }
+            PayloadLengthMismatch { declared, written } => {
+                write!(
+                    f,
+                    "Message serialized to `{written}` bytes, its `Header` declares `{declared}`"
                 )
             }
             UnexpectedHeaderLength(actual_size) => {
