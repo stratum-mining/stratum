@@ -169,15 +169,7 @@ impl<B: AsMut<[u8]> + AsRef<[u8]>> SerializedFrame<B> {
     #[inline]
     pub fn from_bytes(bytes: B) -> Result<Self, SizeHint> {
         let header = Self::parse_header(bytes.as_ref())?;
-        Ok(Self::from_parts(header, bytes))
-    }
-
-    /// Builds a [`SerializedFrame`] from a [`Header`] already parsed out of `bytes`, so that a
-    /// caller that had to parse one to decide the bytes were complete does not parse it twice.
-    #[inline]
-    pub fn from_parts(header: Header, bytes: B) -> Self {
-        debug_assert_eq!(Header::SIZE + header.payload_length(), bytes.as_ref().len());
-        Self { header, bytes }
+        Ok(Self { header, bytes })
     }
 
     /// Returns the [`Header`] of the frame.

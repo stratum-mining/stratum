@@ -441,12 +441,12 @@ impl<B: IsBuffer> WithoutNoise<B> {
         let src = self.buffer.frame();
 
         match SerializedFrame::<B::Slice>::parse_header(src) {
-            Ok(header) => {
+            Ok(_) => {
                 self.missing_b = Header::SIZE;
                 let src = self.buffer.get_data_owned();
-                Ok(Decoded::Frame(SerializedFrame::<B::Slice>::from_parts(
-                    header, src,
-                )))
+                Ok(Decoded::Frame(SerializedFrame::<B::Slice>::from_bytes(
+                    src,
+                )?))
             }
             Err(SizeHint::Missing(missing)) => {
                 self.missing_b = missing;
