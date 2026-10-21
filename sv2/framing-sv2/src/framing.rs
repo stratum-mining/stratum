@@ -62,8 +62,8 @@ pub trait EncodableFrame {
     fn encoded_length(&self) -> usize;
 
     /// Writes the frame into `dst`, erroring out unless `dst` is exactly [`Self::encoded_length`]
-    /// long. A longer `dst` is refused rather than left with whatever it held past the frame,
-    /// which a caller that sends the whole buffer would send along.
+    /// long and the frame fills all of it. Any byte left unwritten would still hold whatever the
+    /// buffer held before, which a caller that sends the whole buffer would send along.
     fn encode_into(self, dst: &mut [u8]) -> Result<(), Error>;
 }
 
@@ -81,7 +81,14 @@ impl<T: Serialize + GetSize> EncodableFrame for MessageFrame<T> {
             });
         }
         self.header.write_into(dst)?;
-        to_writer(self.message, &mut dst[Header::SIZE..]).map_err(Error::BinarySv2Error)?;
+        let written =
+            to_writer(self.message, &mut dst[Header::SIZE..]).map_err(Error::BinarySv2Error)?;
+        if written != self.header.payload_length() {
+            return Err(Error::PayloadLengthMismatch {
+                declared: self.header.payload_length(),
+                written,
+            });
+        }
         Ok(())
     }
 }
@@ -356,6 +363,21 @@ mod tests {
         let frame = MessageFrame::<HugeMsg>::from_message(HugeMsg(U24_MAX), 0x01, 0x0000, false)
             .expect("the largest length the U24 holds is accepted");
         assert_eq!(frame.header().payload_length(), U24_MAX);
+    }
+
+    /// `HugeMsg` reports its size without serializing anything, so the payload the header
+    /// declares would be left holding whatever the destination held before.
+    #[test]
+    fn message_frame_encode_into_rejects_a_message_that_writes_less_than_it_declares() {
+        let frame = MessageFrame::<HugeMsg>::from_message(HugeMsg(4), 0x01, 0x0000, false).unwrap();
+        let mut dst = vec![0xaa; frame.encoded_length()];
+        assert_eq!(
+            frame.encode_into(&mut dst),
+            Err(Error::PayloadLengthMismatch {
+                declared: 4,
+                written: 0,
+            })
+        );
     }
 
     #[test]
