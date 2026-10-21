@@ -32,6 +32,23 @@ use framing_sv2::SV2_FRAME_HEADER_SIZE;
 use crate::Buffer;
 use buffer_sv2::Buffer as IsBuffer;
 
+// The largest `msg_length` the 24-bit header field holds.
+const MAX_PAYLOAD_LEN: usize = 0xff_ffff;
+
+// Checks the length an `EncodableFrame` reports before anything is reserved for it: the trait is
+// public, so a downstream impl can report less than a header or more than a header can declare.
+fn check_encoded_length(len: usize) -> core::result::Result<(), framing_sv2::Error> {
+    if len < SV2_FRAME_HEADER_SIZE {
+        return Err(framing_sv2::Error::UnexpectedHeaderLength(len));
+    }
+    if len - SV2_FRAME_HEADER_SIZE > MAX_PAYLOAD_LEN {
+        return Err(framing_sv2::Error::PayloadTooLong(
+            len - SV2_FRAME_HEADER_SIZE,
+        ));
+    }
+    Ok(())
+}
+
 /// Standard Sv2 encoder with Noise protocol support.
 ///
 /// Used for encoding Sv2 frames encrypted via the Noise protocol.
@@ -87,7 +104,8 @@ impl<B: IsBuffer> WithNoise<B> {
     /// returning the (`Slice`) (buffer) ready for transmission.
     ///
     /// Errors with [`framing_sv2::Error::UnexpectedHeaderLength`] on a frame whose
-    /// `encoded_length` is too short to hold a header.
+    /// `encoded_length` is too short to hold a header, and with
+    /// [`framing_sv2::Error::PayloadTooLong`] on one whose payload a header cannot declare.
     #[inline]
     pub fn encode_transport<F: EncodableFrame>(
         &mut self,
@@ -122,9 +140,7 @@ impl<B: IsBuffer> WithNoise<B> {
         mut encrypt: impl FnMut(&mut Chunk<'_, B>) -> Result<()>,
     ) -> Result<()> {
         let len = frame.encoded_length();
-        if len < SV2_FRAME_HEADER_SIZE {
-            return Err(framing_sv2::Error::UnexpectedHeaderLength(len).into());
-        }
+        check_encoded_length(len)?;
         // ENCODE THE SV2 FRAME
         frame.encode_into(self.sv2_buffer.reserve(len))?;
         self.sv2_buffer.commit(len);
@@ -193,13 +209,12 @@ impl<B: IsBuffer> WithoutNoise<B> {
     /// Serializes `item` into a byte stream. The resulting bytes are stored in the internal
     /// `buffer`, preparing the frame for transmission. On success, the method returns a reference
     /// to the serialized bytes stored in the internal buffer. Otherwise, errors on a
-    /// serialization failure, or with [`framing_sv2::Error::UnexpectedHeaderLength`] on a frame
-    /// whose `encoded_length` is too short to hold a header.
+    /// serialization failure, with [`framing_sv2::Error::UnexpectedHeaderLength`] on a frame
+    /// whose `encoded_length` is too short to hold a header, or with
+    /// [`framing_sv2::Error::PayloadTooLong`] on one whose payload a header cannot declare.
     pub fn encode<F: EncodableFrame>(&mut self, item: F) -> crate::Result<B::Slice> {
         let len = item.encoded_length();
-        if len < SV2_FRAME_HEADER_SIZE {
-            return Err(framing_sv2::Error::UnexpectedHeaderLength(len).into());
-        }
+        check_encoded_length(len)?;
         item.encode_into(self.buffer.reserve(len))?;
         self.buffer.commit(len);
 
@@ -304,6 +319,57 @@ mod tests {
                 .unwrap_or_else(|| panic!("a {len}-byte frame should be rejected"));
             assert_eq!(err, framing_sv2::Error::UnexpectedHeaderLength(len).into());
         }
+
+        let bytes = vec![0, 0, 1, 0, 0, 0];
+        assert!(encoder.encode_transport(Raw(bytes), &mut sender).is_ok());
+    }
+
+    // Reports a length without holding the bytes, and must be rejected before it is written.
+    struct ClaimsLength(usize);
+
+    impl EncodableFrame for ClaimsLength {
+        fn encoded_length(&self) -> usize {
+            self.0
+        }
+
+        fn encode_into(self, _dst: &mut [u8]) -> core::result::Result<(), framing_sv2::Error> {
+            unreachable!("a frame longer than a header can declare must not be written")
+        }
+    }
+
+    #[test]
+    fn the_plain_encoder_rejects_a_frame_longer_than_a_header_can_declare() {
+        let mut encoder = Encoder::new();
+
+        let len = SV2_FRAME_HEADER_SIZE + MAX_PAYLOAD_LEN + 1;
+        assert_eq!(
+            encoder.encode(ClaimsLength(len)).err(),
+            Some(framing_sv2::Error::PayloadTooLong(MAX_PAYLOAD_LEN + 1).into())
+        );
+        assert_eq!(
+            encoder.encode(ClaimsLength(usize::MAX)).err(),
+            Some(framing_sv2::Error::PayloadTooLong(usize::MAX - SV2_FRAME_HEADER_SIZE).into())
+        );
+
+        let bytes = vec![0, 0, 1, 0, 0, 0];
+        let encoded = encoder.encode(Raw(bytes.clone())).unwrap();
+        let encoded: &[u8] = encoded.as_ref();
+        assert_eq!(encoded, &bytes[..]);
+    }
+
+    #[cfg(feature = "noise_sv2")]
+    #[test]
+    fn the_noise_encoder_rejects_a_frame_longer_than_a_header_can_declare() {
+        let (mut sender, _) = crate::test_utils::make_transport_state_pair();
+        let mut encoder = NoiseEncoder::new();
+
+        let len = SV2_FRAME_HEADER_SIZE + MAX_PAYLOAD_LEN + 1;
+        assert_eq!(
+            encoder
+                .encode_transport(ClaimsLength(len), &mut sender)
+                .err(),
+            Some(framing_sv2::Error::PayloadTooLong(MAX_PAYLOAD_LEN + 1).into())
+        );
 
         let bytes = vec![0, 0, 1, 0, 0, 0];
         assert!(encoder.encode_transport(Raw(bytes), &mut sender).is_ok());
