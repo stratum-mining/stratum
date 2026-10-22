@@ -51,8 +51,8 @@ mod tests {
 
     #[test]
     fn test_tlv_iter() {
-        let tlv1 = Tlv::new(0x0002, 0x01, b"worker1".to_vec());
-        let tlv2 = Tlv::new(0x0003, 0x01, b"data".to_vec());
+        let tlv1 = Tlv::new(0x0002, 0x01, b"worker1".to_vec()).unwrap();
+        let tlv2 = Tlv::new(0x0003, 0x01, b"data".to_vec()).unwrap();
 
         let mut buffer = Vec::new();
         buffer.extend_from_slice(&tlv1.encode().unwrap());
@@ -75,7 +75,7 @@ mod tests {
     #[test]
     fn test_tlv_iter_error_stops_iteration() {
         // Create a buffer with one valid TLV and then corrupt data
-        let tlv1 = Tlv::new(0x0002, 0x01, b"worker1".to_vec());
+        let tlv1 = Tlv::new(0x0002, 0x01, b"worker1".to_vec()).unwrap();
         let mut buffer = tlv1.encode().unwrap();
 
         // Add incomplete TLV header (only 3 bytes)

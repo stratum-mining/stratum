@@ -74,6 +74,6 @@ impl TlvField for UserIdentity {
             Self::EXTENSION_TYPE,
             Self::FIELD_TYPE,
             self.as_bytes().to_vec(),
-        ))
+        )?)
     }
 }

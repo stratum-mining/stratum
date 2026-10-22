@@ -95,7 +95,7 @@ impl<'a> TlvList<'a> {
     /// use parsers_sv2::{TlvList, Tlv, Mining};
     ///
     /// let message = Mining::SubmitSharesExtended(/* ... */);
-    /// let tlv = Tlv::new(0x0002, 0x01, b"Worker_001".to_vec());
+    /// let tlv = Tlv::new(0x0002, 0x01, b"Worker_001".to_vec()).unwrap();
     /// let tlv_list = TlvList::from_slice(&[tlv]);
     /// let frame_bytes = tlv_list.build_frame_bytes_with_tlvs(message).unwrap();
     /// ```
@@ -140,8 +140,8 @@ mod tests {
     #[test]
     fn test_tlv_list_from_bytes() {
         // Create buffer with two TLVs
-        let tlv1 = Tlv::new(0x0002, 0x01, b"worker1".to_vec());
-        let tlv2 = Tlv::new(0x0003, 0x01, b"data".to_vec());
+        let tlv1 = Tlv::new(0x0002, 0x01, b"worker1".to_vec()).unwrap();
+        let tlv2 = Tlv::new(0x0003, 0x01, b"data".to_vec()).unwrap();
 
         let mut buffer = Vec::new();
         buffer.extend_from_slice(&tlv1.encode().unwrap());
@@ -157,8 +157,8 @@ mod tests {
 
     #[test]
     fn test_tlv_list_from_slice() {
-        let tlv1 = Tlv::new(0x0002, 0x01, b"worker1".to_vec());
-        let tlv2 = Tlv::new(0x0003, 0x01, b"data".to_vec());
+        let tlv1 = Tlv::new(0x0002, 0x01, b"worker1".to_vec()).unwrap();
+        let tlv2 = Tlv::new(0x0003, 0x01, b"data".to_vec()).unwrap();
 
         let list = TlvList::from_slice(&[tlv1.clone(), tlv2.clone()]).unwrap();
         let tlvs = list.to_vec();
@@ -170,8 +170,8 @@ mod tests {
 
     #[test]
     fn test_tlv_list_iter() {
-        let tlv1 = Tlv::new(0x0002, 0x01, b"worker1".to_vec());
-        let tlv2 = Tlv::new(0x0003, 0x01, b"data".to_vec());
+        let tlv1 = Tlv::new(0x0002, 0x01, b"worker1".to_vec()).unwrap();
+        let tlv2 = Tlv::new(0x0003, 0x01, b"data".to_vec()).unwrap();
 
         let mut buffer = Vec::new();
         buffer.extend_from_slice(&tlv1.encode().unwrap());
@@ -187,9 +187,9 @@ mod tests {
 
     #[test]
     fn test_tlv_list_for_extensions() {
-        let tlv1 = Tlv::new(0x0002, 0x01, b"worker1".to_vec());
-        let tlv2 = Tlv::new(0x0003, 0x01, b"data".to_vec());
-        let tlv3 = Tlv::new(0x0002, 0x02, b"other".to_vec());
+        let tlv1 = Tlv::new(0x0002, 0x01, b"worker1".to_vec()).unwrap();
+        let tlv2 = Tlv::new(0x0003, 0x01, b"data".to_vec()).unwrap();
+        let tlv3 = Tlv::new(0x0002, 0x02, b"other".to_vec()).unwrap();
 
         let mut buffer = Vec::new();
         buffer.extend_from_slice(&tlv1.encode().unwrap());
@@ -207,8 +207,8 @@ mod tests {
 
     #[test]
     fn test_tlv_list_find() {
-        let tlv1 = Tlv::new(0x0002, 0x01, b"worker1".to_vec());
-        let tlv2 = Tlv::new(0x0003, 0x01, b"data".to_vec());
+        let tlv1 = Tlv::new(0x0002, 0x01, b"worker1".to_vec()).unwrap();
+        let tlv2 = Tlv::new(0x0003, 0x01, b"data".to_vec()).unwrap();
 
         let mut buffer = Vec::new();
         buffer.extend_from_slice(&tlv1.encode().unwrap());

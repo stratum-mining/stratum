@@ -17,6 +17,19 @@ pub enum TlvError {
     ///
     /// Contains the underlying binary_sv2::Error.
     DecodingError(binary_sv2::Error),
+
+    /// The value is longer than the 2-byte TLV length field can declare.
+    ///
+    /// Contains the value length.
+    ValueTooLong(usize),
+
+    /// The TLV's `length` field does not match the length of its value.
+    LengthMismatch {
+        /// Length the `length` field declares.
+        declared: u16,
+        /// Actual length of the value.
+        actual: usize,
+    },
 }
 
 impl fmt::Display for TlvError {
@@ -29,6 +42,17 @@ impl fmt::Display for TlvError {
             ),
             TlvError::EncodingError(err) => write!(f, "Failed to encode TLV data: {:?}", err),
             TlvError::DecodingError(err) => write!(f, "Failed to decode TLV data: {:?}", err),
+            TlvError::ValueTooLong(len) => write!(
+                f,
+                "TLV value is {} bytes long, the length field holds at most {}",
+                len,
+                u16::MAX
+            ),
+            TlvError::LengthMismatch { declared, actual } => write!(
+                f,
+                "TLV length field declares {} bytes, the value is {} bytes long",
+                declared, actual
+            ),
         }
     }
 }
