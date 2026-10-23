@@ -29,6 +29,7 @@ use crate::{
     merkle_root::merkle_root_from_path,
     outputs::deserialize_template_outputs,
     server::jobs::{error::*, extended::ExtendedJob, standard::StandardJob},
+    MAX_SCRIPT_SIG_SIZE,
 };
 use binary_sv2::{B0255Owned, Sv2OptionOwned};
 use bitcoin::{
@@ -41,10 +42,6 @@ use bitcoin::{
 use mining_sv2::{NewExtendedMiningJobOwned, NewMiningJobOwned, SetCustomMiningJobOwned};
 use std::convert::TryInto;
 use template_distribution_sv2::NewTemplateOwned;
-
-/// Maximum size, in bytes, of a coinbase transaction `scriptSig`, as mandated by Bitcoin
-/// consensus rules.
-pub const MAX_SCRIPT_SIG_SIZE: usize = 100;
 
 /// Maximum number of bytes that [`NewTemplateOwned::coinbase_prefix`] is allowed to contribute to
 /// the coinbase `scriptSig`, as mandated by the Sv2 Template Distribution Protocol spec.

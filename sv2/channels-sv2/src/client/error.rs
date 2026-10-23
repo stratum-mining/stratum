@@ -35,6 +35,9 @@ pub enum ExtendedChannelError {
     /// An immediately-active job carried an `ntime_start` below the `ntime_start` of the chain tip
     /// it is mined against; the job is discarded and the channel left unchanged.
     JobNtimeStartBelowChainTip,
+    /// The assembled coinbase `scriptSig` would exceed the size mandated by Bitcoin consensus
+    /// rules (see [`MAX_SCRIPT_SIG_SIZE`](crate::MAX_SCRIPT_SIG_SIZE)).
+    ScriptSigSizeTooLarge,
 }
 
 /// Errors that can occur within a **standard channel** context.
