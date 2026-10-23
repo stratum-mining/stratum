@@ -39,6 +39,59 @@ mod test_f32 {
     }
 
     #[test]
+    fn rejects_invalid_values_only_when_serializing() {
+        for bits in [
+            0x8000_0000, // negative zero
+            0xbf80_0000, // -1
+            0x8000_0001, // negative subnormal
+            0xff7f_ffff, // most negative finite value
+            0x7f80_0000, // positive infinity
+            0xff80_0000, // negative infinity
+            0x7fc0_0000, // quiet NaN
+            0x7f80_0001, // signaling NaN
+            0xffc0_0001, // negative NaN with payload
+        ] {
+            let value = f32::from_bits(bits);
+            let mut dst = [0xaa; 4];
+            assert_eq!(to_writer(value, &mut dst), Err(Error::InvalidF32(bits)));
+            assert_eq!(dst, [0xaa; 4]);
+            assert_eq!(
+                to_bytes(Test {
+                    a: 9,
+                    b: 67_u32.try_into().unwrap(),
+                    c: value
+                }),
+                Err(Error::InvalidF32(bits))
+            );
+
+            let mut bytes = value.to_le_bytes();
+            let decoded: f32 = from_bytes(&mut bytes).unwrap();
+            assert_eq!(decoded.to_bits(), bits);
+
+            let mut message = [9, 67, 0, 0, 0, 0, 0, 0];
+            message[4..].copy_from_slice(&bytes);
+            let decoded: Test = from_bytes(&mut message).unwrap();
+            assert_eq!(decoded.c.to_bits(), bits);
+        }
+    }
+
+    #[test]
+    fn preserves_valid_encodings_and_buffer_bounds() {
+        for value in [0.0, f32::from_bits(1), f32::MIN_POSITIVE, 1.0, f32::MAX] {
+            let mut dst = [0xaa; 5];
+            assert_eq!(to_writer(value, &mut dst), Ok(4));
+            assert_eq!(&dst[..4], &value.to_le_bytes());
+            assert_eq!(dst[4], 0xaa);
+            let decoded: f32 = from_bytes(&mut dst[..4]).unwrap();
+            assert_eq!(decoded.to_bits(), value.to_bits());
+        }
+        let mut short = [0xaa; 3];
+        assert_eq!(to_writer(1.0_f32, &mut short), Err(Error::WriteError(4, 3)));
+        assert_eq!(short, [0xaa; 3]);
+        assert!(from_bytes::<f32>(&mut short).is_err());
+    }
+
+    #[test]
     fn test_struct() {
         let expected = Test {
             c: 0.345,

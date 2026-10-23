@@ -44,13 +44,13 @@ fuzz_target!(|input: FuzzInput| {
             test_roundtrip!(NewExtendedMiningJob, data)
         }
         FuzzInput::OpenStandardMiningChannel(data) => {
-            test_roundtrip!(OpenStandardMiningChannel, data)
+            test_roundtrip!(OpenStandardMiningChannel, data, nominal_hash_rate)
         }
         FuzzInput::OpenStandardMiningChannelSuccess(data) => {
             test_roundtrip!(OpenStandardMiningChannelSuccess, data)
         }
         FuzzInput::OpenExtendedMiningChannel(data) => {
-            test_roundtrip!(OpenExtendedMiningChannel, data)
+            test_roundtrip!(OpenExtendedMiningChannel, data, nominal_hash_rate)
         }
         FuzzInput::OpenExtendedMiningChannelSuccess(data) => {
             test_roundtrip!(OpenExtendedMiningChannelSuccess, data)
@@ -92,7 +92,7 @@ fuzz_target!(|input: FuzzInput| {
             test_roundtrip!(SubmitSharesError, data)
         }
         FuzzInput::UpdateChannel(data) => {
-            test_roundtrip!(UpdateChannel, data)
+            test_roundtrip!(UpdateChannel, data, nominal_hash_rate)
         }
         FuzzInput::UpdateChannelError(data) => {
             test_roundtrip!(UpdateChannelError, data)

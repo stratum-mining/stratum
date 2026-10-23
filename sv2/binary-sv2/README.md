@@ -34,6 +34,12 @@ The crate supports the following mappings between Rust and SV2 types
 comes from the frame header, so it is handled by the framing layer (`framing-sv2`) rather than by
 this crate.
 
+F32 serialization accepts positive zero and finite positive values, including subnormals.
+NaN, infinities, and values with the sign bit set (including negative zero) return
+`Error::InvalidF32`, which contains the rejected value's raw IEEE 754 bits. Deserialization
+preserves all F32 bit patterns; applications must validate received values according to the
+protocol before using them.
+
 
 ## Features
 
