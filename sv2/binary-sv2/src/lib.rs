@@ -198,6 +198,10 @@ pub enum Error {
     /// Indicates an invalid `u24` representation.
     InvalidU24(u32),
 
+    /// An F32 cannot be serialized because it is nonfinite or has its sign bit set.
+    /// Contains the IEEE 754 bits of the rejected value, including negative zero and NaN payloads.
+    InvalidF32(u32),
+
     /// Generic conversion error related to primitive types.
     PrimitiveConversionError,
 
@@ -246,6 +250,7 @@ impl core::fmt::Debug for Error {
                 .field(actual)
                 .finish(),
             Error::InvalidU24(value) => f.debug_tuple("InvalidU24").field(value).finish(),
+            Error::InvalidF32(bits) => f.debug_tuple("InvalidF32").field(bits).finish(),
             Error::PrimitiveConversionError => f.write_str("PrimitiveConversionError"),
             Error::DecodableConversionError => f.write_str("DecodableConversionError"),
             Error::UnInitializedDecoder => f.write_str("UnInitializedDecoder"),

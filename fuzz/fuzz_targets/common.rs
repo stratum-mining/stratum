@@ -21,6 +21,21 @@ use serde_json::Value;
 /// ```
 #[macro_export]
 macro_rules! test_roundtrip {
+    ($msg_type:ty, $data:expr, $float_field:ident) => {{
+        let mut input = $data.clone();
+        if let Ok(parsed) = <$msg_type>::from_bytes(&mut input) {
+            let value = parsed.$float_field;
+            if !value.is_finite() || value.is_sign_negative() {
+                let mut encoded = vec![0u8; parsed.get_size()];
+                assert_eq!(
+                    parsed.to_bytes(&mut encoded),
+                    Err(binary_sv2::Error::InvalidF32(value.to_bits()))
+                );
+            } else {
+                test_roundtrip!($msg_type, $data);
+            }
+        }
+    }};
     ($msg_type:ty, $data:expr) => {{
         // Step 1: Try to parse the input bytes.
         // Invalid inputs are expected in fuzzing, so we silently ignore failures.
@@ -105,7 +120,15 @@ macro_rules! test_datatype_roundtrip {
             // Allocate the exact canonical size of the float representation.
             let mut encoded = vec![0u8; parsed.get_size()];
 
-            // A successfully parsed float must serialize without failure.
+            // Decoding preserves all bits, while serialization rejects invalid protocol values.
+            if !parsed.is_finite() || parsed.is_sign_negative() {
+                assert_eq!(
+                    parsed.to_bytes(&mut encoded),
+                    Err(binary_sv2::Error::InvalidF32(parsed.to_bits()))
+                );
+                return;
+            }
+
             parsed
                 .to_bytes(&mut encoded)
                 .expect("Encoding failed after a successful parse");
@@ -114,7 +137,7 @@ macro_rules! test_datatype_roundtrip {
             let reparsed = f32::from_bytes(&mut encoded)
                 .expect("The bytes generated from a valid datatype should be parseable");
 
-            // Compare raw bits to enforce strict roundtrip stability, including NaN payloads.
+            // Compare raw bits to enforce strict roundtrip stability.
             assert_eq!(
                 parsed.to_bits(),
                 reparsed.to_bits(),
