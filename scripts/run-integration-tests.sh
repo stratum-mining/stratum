@@ -128,6 +128,19 @@ fi
 
 # Add the patch section at the end of the file. The path is absolute so that it
 # does not depend on where the workspace root sits inside sv2-apps.
+# Companion PRs pin stratum-core to a contributor's fork, which Cargo treats as
+# a different source from upstream. Patch each declared Git source as well.
+STRATUM_CORE_SOURCES=$(cargo metadata --format-version 1 --no-deps | python3 -c '
+import json, sys
+sources = set()
+for package in json.load(sys.stdin)["packages"]:
+    for dependency in package["dependencies"]:
+        source = dependency.get("source") or ""
+        if dependency["name"] == "stratum-core" and source.startswith("git+"):
+            sources.add(source[4:].split("?", 1)[0].split("#", 1)[0])
+print("\n".join(sorted(sources)))
+')
+
 cat >> "$WORKSPACE_MANIFEST" << EOF
 # Override dependencies with local paths
 [patch.crates-io]
@@ -135,6 +148,14 @@ stratum-core = {path = "$STRATUM_CORE_DIR"}
 [patch."https://github.com/stratum-mining/stratum"]
 stratum-core = {path = "$STRATUM_CORE_DIR"}
 EOF
+
+while IFS= read -r source; do
+    case "$source" in
+        ""|https://github.com/stratum-mining/stratum) continue ;;
+    esac
+    printf '[patch."%s"]\nstratum-core = {path = "%s"}\n' \
+        "$source" "$STRATUM_CORE_DIR" >> "$WORKSPACE_MANIFEST"
+done <<< "$STRATUM_CORE_SOURCES"
 
 # Force a refresh of Cargo.lock so the patched stratum-core is not ignored after
 # a crate version change. When stratum-core's version changes, the lockfile may still
