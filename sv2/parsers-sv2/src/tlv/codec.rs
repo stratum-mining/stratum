@@ -59,13 +59,16 @@ impl Tlv {
     /// * `extension_type` - The extension identifier
     /// * `field_type` - The field type within the extension
     /// * `value` - The raw value bytes
-    pub fn new(extension_type: u16, field_type: u8, value: Vec<u8>) -> Self {
-        let length = value.len() as u16;
-        Self {
+    ///
+    /// Errors with [`TlvError::ValueTooLong`] if `value` is longer than the 2-byte length field
+    /// can declare.
+    pub fn new(extension_type: u16, field_type: u8, value: Vec<u8>) -> Result<Self, TlvError> {
+        let length = u16::try_from(value.len()).map_err(|_| TlvError::ValueTooLong(value.len()))?;
+        Ok(Self {
             r#type: Type::new(extension_type, field_type),
             length,
             value,
-        }
+        })
     }
 
     /// Decodes a TLV from a byte buffer.
@@ -104,7 +107,22 @@ impl Tlv {
     /// Encodes this TLV into bytes.
     ///
     /// Returns the complete TLV bytes (Type + Length + Value).
+    ///
+    /// The fields are public, so the `length` field may not describe the value. Errors with
+    /// [`TlvError::ValueTooLong`] if the value is longer than the length field can declare, and
+    /// with [`TlvError::LengthMismatch`] if `length` differs from the value's length: a receiver
+    /// would otherwise read the value's tail as further TLVs.
     pub fn encode(&self) -> Result<Vec<u8>, TlvError> {
+        if self.value.len() > u16::MAX as usize {
+            return Err(TlvError::ValueTooLong(self.value.len()));
+        }
+        if !self.is_valid() {
+            return Err(TlvError::LengthMismatch {
+                declared: self.length,
+                actual: self.value.len(),
+            });
+        }
+
         let mut bytes = Vec::with_capacity(TLV_HEADER_SIZE + self.value.len());
 
         // Encode Type (3 bytes)
@@ -180,7 +198,7 @@ mod tests {
     #[test]
     fn test_tlv_struct_encode_decode() {
         let value = b"Worker_001".to_vec();
-        let tlv = Tlv::new(0x0002, 0x01, value.clone());
+        let tlv = Tlv::new(0x0002, 0x01, value.clone()).unwrap();
 
         assert_eq!(tlv.r#type.extension_type, 0x0002);
         assert_eq!(tlv.r#type.field_type, 0x01);
@@ -196,7 +214,7 @@ mod tests {
 
     #[test]
     fn test_tlv_encode_format() {
-        let tlv = Tlv::new(0x0002, 0x01, b"test".to_vec());
+        let tlv = Tlv::new(0x0002, 0x01, b"test".to_vec()).unwrap();
         let encoded = tlv.encode().unwrap();
 
         // Check encoding format (little-endian)
@@ -227,11 +245,57 @@ mod tests {
 
     #[test]
     fn test_tlv_is_valid() {
-        let valid_tlv = Tlv::new(0x0002, 0x01, b"test".to_vec());
+        let valid_tlv = Tlv::new(0x0002, 0x01, b"test".to_vec()).unwrap();
         assert!(valid_tlv.is_valid());
 
         let mut invalid_tlv = valid_tlv.clone();
         invalid_tlv.length = 99; // Mismatch with actual value length
         assert!(!invalid_tlv.is_valid());
+    }
+
+    #[test]
+    fn test_tlv_new_accepts_the_longest_value_the_length_field_holds() {
+        let value = vec![0xab; u16::MAX as usize];
+        let tlv = Tlv::new(0x0002, 0x01, value.clone()).unwrap();
+        assert_eq!(tlv.length, u16::MAX);
+
+        let encoded = tlv.encode().unwrap();
+        assert_eq!(encoded.len(), TLV_HEADER_SIZE + u16::MAX as usize);
+        assert_eq!(&encoded[3..5], &u16::MAX.to_le_bytes());
+        assert_eq!(Tlv::decode(&encoded).unwrap(), tlv);
+    }
+
+    #[test]
+    fn test_tlv_new_rejects_a_value_the_length_field_cannot_hold() {
+        let len = u16::MAX as usize + 1;
+        assert_eq!(
+            Tlv::new(0x0002, 0x01, vec![0; len]),
+            Err(TlvError::ValueTooLong(len))
+        );
+    }
+
+    #[test]
+    fn test_tlv_encode_rejects_a_value_the_length_field_cannot_hold() {
+        let len = u16::MAX as usize + 1;
+        // Built by hand, since `Tlv::new` refuses this value.
+        let tlv = Tlv {
+            r#type: Type::new(0x0002, 0x01),
+            length: 0,
+            value: vec![0; len],
+        };
+        assert_eq!(tlv.encode(), Err(TlvError::ValueTooLong(len)));
+    }
+
+    #[test]
+    fn test_tlv_encode_rejects_a_length_that_does_not_match_the_value() {
+        let mut tlv = Tlv::new(0x0002, 0x01, b"test".to_vec()).unwrap();
+        tlv.length = 2;
+        assert_eq!(
+            tlv.encode(),
+            Err(TlvError::LengthMismatch {
+                declared: 2,
+                actual: 4,
+            })
+        );
     }
 }
