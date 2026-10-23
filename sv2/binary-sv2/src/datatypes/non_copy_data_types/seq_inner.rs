@@ -45,7 +45,41 @@ use crate::{
     datatypes::{Sv2DataType, *},
     Error,
 };
-use core::{marker::PhantomData, ops::Index, slice};
+use core::{fmt, marker::PhantomData, ops::Index, slice};
+
+const MAX_DEBUG_ITEMS: usize = 16;
+
+struct DebugItems<'a, T>(&'a [T]);
+
+impl<T: fmt::Debug> fmt::Debug for DebugItems<'_, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("[")?;
+
+        for (index, item) in self.0.iter().take(MAX_DEBUG_ITEMS).enumerate() {
+            if index > 0 {
+                f.write_str(", ")?;
+            }
+            fmt::Debug::fmt(item, f)?;
+        }
+
+        if self.0.len() > MAX_DEBUG_ITEMS {
+            f.write_str(", ...")?;
+        }
+
+        f.write_str("]")
+    }
+}
+
+fn fmt_sequence_debug<T: fmt::Debug>(
+    name: &str,
+    items: &[T],
+    f: &mut fmt::Formatter<'_>,
+) -> fmt::Result {
+    f.debug_struct(name)
+        .field("len", &items.len())
+        .field("items", &DebugItems(items))
+        .finish()
+}
 
 impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
     Seq0255<'a, Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>>
@@ -86,11 +120,23 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
 /// [`Seq0255`] represents a sequence with a maximum length of 255 elements.
 /// This structure uses a generic type `T` and a lifetime parameter `'a`.
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Seq0255<'a, T>(Vec<T>, PhantomData<&'a T>);
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Seq0255Owned<T>(Vec<T>);
+
+impl<T: fmt::Debug> fmt::Debug for Seq0255<'_, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_sequence_debug("Seq0255", &self.0, f)
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for Seq0255Owned<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_sequence_debug("Seq0255Owned", &self.0, f)
+    }
+}
 
 impl<'a, T> Index<usize> for Seq0255<'a, T> {
     type Output = T;
@@ -216,11 +262,23 @@ impl<T: GetSize> GetSize for Seq0255Owned<T> {
 
 /// [`Seq064K`] represents a sequence with a maximum length of 65535 elements.
 /// This structure uses a generic type `T` and a lifetime parameter `'a`.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Seq064K<'a, T>(Vec<T>, PhantomData<&'a T>);
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Seq064KOwned<T>(Vec<T>);
+
+impl<T: fmt::Debug> fmt::Debug for Seq064K<'_, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_sequence_debug("Seq064K", &self.0, f)
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for Seq064KOwned<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_sequence_debug("Seq064KOwned", &self.0, f)
+    }
+}
 
 impl<'a, T> Index<usize> for Seq064K<'a, T> {
     type Output = T;
@@ -807,7 +865,10 @@ impl<T: GetSize> GetSize for Sv2OptionOwned<T> {
 
 #[cfg(test)]
 mod test {
-    use crate::{decodable::FieldMarker, Decodable, Seq064K, U256};
+    use crate::{
+        decodable::FieldMarker, Decodable, Seq0255, Seq0255Owned, Seq064K, Seq064KOwned, U256,
+    };
+    use alloc::format;
 
     #[test]
     fn sv2_option_as_ref_borrows_the_inner_value() {
@@ -861,5 +922,29 @@ mod test {
 
         let markers = <Seq064K<'static, u16> as Decodable<'static>>::get_structure(&data).unwrap();
         assert!(matches!(markers[..], [FieldMarker::Raw(size)] if size == data.len()));
+    }
+
+    #[test]
+    fn sequence_debug_output_is_bounded() {
+        let short_values: alloc::vec::Vec<u16> = (0..u8::MAX).map(u16::from).collect();
+        let long_values: alloc::vec::Vec<u16> = (0..u16::MAX).collect();
+
+        let sequences = [
+            format!("{:?}", Seq0255::new(short_values.clone()).unwrap()),
+            format!("{:?}", Seq0255Owned::new(short_values).unwrap()),
+            format!("{:?}", Seq064K::new(long_values.clone()).unwrap()),
+            format!("{:?}", Seq064KOwned::new(long_values).unwrap()),
+        ];
+
+        for rendered in sequences {
+            assert!(rendered.contains("len:"), "{rendered}");
+            assert!(rendered.contains("items: [0, 1"), "{rendered}");
+            assert!(rendered.ends_with(", ...] }"), "{rendered}");
+            assert!(
+                rendered.len() < 256,
+                "debug output was too large: {}",
+                rendered.len()
+            );
+        }
     }
 }
