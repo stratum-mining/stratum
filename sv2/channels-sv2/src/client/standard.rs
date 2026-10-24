@@ -157,9 +157,9 @@ impl StandardChannel {
     ///
     /// A first tip only initializes the channel, and setting the current tip again changes
     /// nothing. Replacing the tip with a different one is a chain-tip transition: future jobs are
-    /// cleared, the active and past jobs go stale rather than stay validatable against a header
-    /// the miner was never assigned, and seen shares are flushed if `prev_hash` changed (a
-    /// repeated `prev_hash` keeps them, see [`ShareAccounting::flush_seen_shares`]).
+    /// cleared, and the active and past jobs go stale rather than stay validatable against a
+    /// header the miner was never assigned. Seen shares are kept, see
+    /// [`ShareAccounting::is_share_seen`].
     pub fn set_chain_tip(&mut self, chain_tip: ChainTip) {
         match &self.chain_tip {
             None => self.chain_tip = Some(chain_tip),
@@ -169,13 +169,8 @@ impl StandardChannel {
     }
 
     // Moves the channel onto `chain_tip`: future jobs are dropped, the active and past jobs go
-    // stale, retired extranonce prefixes are pruned and seen shares are flushed if `prev_hash`
-    // changed.
+    // stale and retired extranonce prefixes are pruned.
     fn update_chain_tip(&mut self, chain_tip: ChainTip) {
-        let is_new_prev_hash = self
-            .chain_tip
-            .as_ref()
-            .is_some_and(|previous| previous.prev_hash() != chain_tip.prev_hash());
         self.chain_tip = Some(chain_tip);
 
         // all other future jobs are now useless
@@ -198,11 +193,6 @@ impl StandardChannel {
         // the jobs that just went stale can no longer accept shares, so any retired extranonce
         // prefix they were the last reference to is now releasable
         self.prune_retired_extranonce_prefixes();
-
-        // hashes are retained while prev_hash is unchanged, see ShareAccounting::flush_seen_shares
-        if is_new_prev_hash {
-            self.share_accounting.flush_seen_shares();
-        }
     }
 
     /// Sets the extranonce prefix for the channel.
@@ -550,8 +540,7 @@ impl StandardChannel {
     /// - Clears all future jobs.
     /// - Marks the previously active job and all past jobs as stale (they are no longer valid for
     ///   share propagation).
-    /// - Clears past jobs, and the set of seen shares if `prev_hash` changed (a repeated
-    ///   `prev_hash` keeps them, see [`ShareAccounting::flush_seen_shares`]).
+    /// - Clears past jobs. Seen shares are kept, see [`ShareAccounting::is_share_seen`].
     /// - Updates chain tip information. Returns error if no matching future job found, leaving
     ///   channel state untouched.
     pub fn on_set_new_prev_hash(
@@ -595,15 +584,6 @@ impl StandardChannel {
         // the jobs that just went stale can no longer accept shares, so any retired extranonce
         // prefix they were the last reference to is now releasable
         self.prune_retired_extranonce_prefixes();
-
-        // hashes are retained while prev_hash is unchanged, see ShareAccounting::flush_seen_shares
-        if self
-            .chain_tip
-            .as_ref()
-            .is_some_and(|chain_tip| chain_tip.prev_hash() != set_new_prev_hash.prev_hash)
-        {
-            self.share_accounting.flush_seen_shares();
-        }
 
         self.chain_tip = Some(set_new_prev_hash.into());
 
@@ -1867,6 +1847,108 @@ mod tests {
         assert_eq!(channel.get_stale_jobs_count(), 1);
         assert!(channel.get_stale_job(1).is_some());
         assert_eq!(channel.get_past_jobs_count(), 0);
+    }
+
+    #[test]
+    fn test_repeated_prev_hash_keeps_seen_shares() {
+        // Job IDs are not committed into the block header, so a job under a prev_hash the
+        // channel has already had, whether the upstream repeats the tip or returns to it after
+        // moving away (A→B→A), commits to the same headers as the earlier job with the same
+        // merkle root. The validated-share hashes must survive both, or the same proof is
+        // validated (and forwarded) again under the new job_id.
+        let channel_id = 1;
+        let extranonce_prefix = [
+            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
+            0, 0, 0, 0, 0, 0, 1,
+        ]
+        .to_vec();
+
+        let mut channel = StandardChannel::new(
+            channel_id,
+            "user_identity".to_string(),
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
+            Target::from_le_bytes([0xff; 32]),
+            1.0,
+            None,
+        )
+        .unwrap();
+
+        let future_job = |job_id: u32| NewMiningJob {
+            channel_id,
+            job_id,
+            merkle_root: [
+                189, 200, 25, 246, 119, 73, 34, 42, 209, 112, 237, 50, 169, 71, 163, 192, 24, 84,
+                56, 86, 147, 71, 243, 44, 18, 107, 167, 169, 169, 66, 186, 98,
+            ]
+            .into(),
+            version: 536870912,
+            ntime_start: Sv2Option::new(None),
+        };
+
+        // network target: 000000000000d7c0... (hard, so no accidental BlockFound)
+        let prev_hash = [
+            200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144, 205,
+            88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
+        ];
+        let mut other_prev_hash = prev_hash;
+        other_prev_hash[0] ^= 1;
+        let set_new_prev_hash = |job_id: u32, prev_hash: [u8; 32]| SetNewPrevHashMp {
+            channel_id,
+            job_id,
+            prev_hash: prev_hash.into(),
+            nbits: 453040064,
+            ntime_start: 1745596970,
+        };
+
+        let share = |sequence_number: u32, job_id: u32| SubmitSharesStandardOwned {
+            channel_id,
+            sequence_number,
+            job_id,
+            nonce: 0,
+            ntime: 1745596971,
+            version: 536870912,
+        };
+
+        channel.on_new_mining_job(future_job(1)).unwrap();
+        channel
+            .on_set_new_prev_hash(set_new_prev_hash(1, prev_hash))
+            .unwrap();
+        assert!(matches!(
+            channel.validate_share(share(0, 1)),
+            Ok(ShareValidationResult::Valid(_))
+        ));
+
+        // the upstream repeats the tip under a new job_id: same header space, new job
+        channel.on_new_mining_job(future_job(2)).unwrap();
+        channel
+            .on_set_new_prev_hash(set_new_prev_hash(2, prev_hash))
+            .unwrap();
+        assert!(matches!(
+            channel.validate_share(share(1, 2)),
+            Err(ShareValidationError::DuplicateShare(_))
+        ));
+
+        // the tip moves to another prev_hash, where the same nonce makes a different header
+        channel.on_new_mining_job(future_job(3)).unwrap();
+        channel
+            .on_set_new_prev_hash(set_new_prev_hash(3, other_prev_hash))
+            .unwrap();
+        assert!(matches!(
+            channel.validate_share(share(2, 3)),
+            Ok(ShareValidationResult::Valid(_))
+        ));
+
+        // and returns to the first one with the same job again: the proof validated under the
+        // first tip is still a duplicate
+        channel.on_new_mining_job(future_job(4)).unwrap();
+        channel
+            .on_set_new_prev_hash(set_new_prev_hash(4, prev_hash))
+            .unwrap();
+        assert!(matches!(
+            channel.validate_share(share(3, 4)),
+            Err(ShareValidationError::DuplicateShare(_))
+        ));
+        assert_eq!(channel.get_share_accounting().get_validated_shares(), 2);
     }
 
     #[test]

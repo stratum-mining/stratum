@@ -98,10 +98,9 @@ pub enum ShareValidationError {
 ///
 /// # Duplicate detection is bounded, and its overflow is an accepted replay window
 ///
-/// `seen_shares` holds at most [`MAX_SEEN_SHARES`] validated hashes per `prev_hash`, evicting
-/// oldest-first. After that many validated shares under one still-current `prev_hash`, a replay
-/// of an evicted share passes [`is_share_seen`](Self::is_share_seen) again and is validated (and
-/// forwarded) a second time. This is deliberate: clients do not fail hard at the bound the way
+/// `seen_shares` holds at most [`MAX_SEEN_SHARES`] validated hashes, evicting oldest-first.
+/// After that many validated shares, a replay of an evicted share passes
+/// [`is_share_seen`](Self::is_share_seen) again and is validated (and forwarded) a second time. This is deliberate: clients do not fail hard at the bound the way
 /// server channels do, because
 ///
 /// - the target is upstream-controlled, so no bound derived from an expected share rate can
@@ -242,19 +241,6 @@ impl ShareAccounting {
         }
     }
 
-    /// Clears the set of seen share hashes.
-    ///
-    /// Must be called whenever the chain tip's `prev_hash` changes, and only then. Validated
-    /// hashes are retained for as long as `prev_hash` is unchanged: job IDs are not committed
-    /// into the block header, so a job replaced under the same `prev_hash` commits to the same
-    /// header space as its predecessor, and flushing then would let a proof that was already
-    /// validated (and forwarded) be validated again under the new job ID. This is also what
-    /// makes the seen-shares cap per-`prev_hash`: the queue only ever holds the shares validated
-    /// while one `prev_hash` was current.
-    pub fn flush_seen_shares(&mut self) {
-        self.seen_shares.clear();
-    }
-
     /// Returns the sequence number of the last share received.
     pub fn get_last_share_sequence_number(&self) -> u32 {
         self.last_share_sequence_number
@@ -313,7 +299,12 @@ impl ShareAccounting {
     /// Checks if the given share hash has already been seen (duplicate detection).
     ///
     /// The underlying queue holds at most [`MAX_SEEN_SHARES`] hashes (oldest evicted first) and
-    /// is flushed whenever the chain tip's `prev_hash` changes.
+    /// is kept across chain tip changes. Job IDs are not committed into the block header, so a
+    /// job under a `prev_hash` the tip has already had, whether it stayed (a repeated
+    /// `SetNewPrevHash`) or came back to it (A→B→A), can commit to the same header space as an
+    /// earlier one, and forgetting its hashes would let a proof that was already validated (and
+    /// forwarded) be validated again under the new job ID. Header hashes commit to `prev_hash`,
+    /// so hashes from different tips never compare equal.
     pub fn is_share_seen(&self, share_hash: Hash) -> bool {
         self.seen_shares.contains(&share_hash)
     }
@@ -446,9 +437,5 @@ mod tests {
         for i in overflow..cap + overflow {
             assert!(accounting.is_share_seen(hash(i)));
         }
-
-        // a chain-tip transition clears both the set and the eviction order
-        accounting.flush_seen_shares();
-        assert_eq!(accounting.seen_shares.len(), 0);
     }
 }
