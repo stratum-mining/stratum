@@ -295,6 +295,7 @@ fn update_extension_type(extension_type: u16, channel_msg: bool) -> u16 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::SV2_FRAME_MAX_PAYLOAD_SIZE;
     use alloc::vec;
     use binary_sv2::{encodable::EncodableField, B064KOwned, Serialize};
     use quickcheck::{Arbitrary, Gen};
@@ -345,16 +346,16 @@ mod tests {
 
     #[test]
     fn from_message_rejects_a_size_that_does_not_fit_in_a_u24() {
-        const U24_MAX: usize = 16_777_215;
+        const MAX: usize = SV2_FRAME_MAX_PAYLOAD_SIZE;
 
         assert_eq!(
-            MessageFrame::<HugeMsg>::from_message(HugeMsg(U24_MAX + 1), 0x01, 0x0000, false).err(),
-            Some(Error::PayloadTooLong(U24_MAX + 1))
+            MessageFrame::<HugeMsg>::from_message(HugeMsg(MAX + 1), 0x01, 0x0000, false).err(),
+            Some(Error::PayloadTooLong(MAX + 1))
         );
 
-        let frame = MessageFrame::<HugeMsg>::from_message(HugeMsg(U24_MAX), 0x01, 0x0000, false)
+        let frame = MessageFrame::<HugeMsg>::from_message(HugeMsg(MAX), 0x01, 0x0000, false)
             .expect("the largest length the U24 holds is accepted");
-        assert_eq!(frame.header().payload_length(), U24_MAX);
+        assert_eq!(frame.header().payload_length(), MAX);
     }
 
     /// `HugeMsg` reports its size without serializing anything, so the payload the header
@@ -406,7 +407,7 @@ mod tests {
 
     impl Arbitrary for ValidU24 {
         fn arbitrary(g: &mut Gen) -> Self {
-            ValidU24(u32::arbitrary(g) % 16_777_216)
+            ValidU24(u32::arbitrary(g) % (SV2_FRAME_MAX_PAYLOAD_SIZE as u32 + 1))
         }
     }
 
@@ -433,16 +434,16 @@ mod tests {
         let frame =
             MessageFrame::<TestMessage>::from_message(msg.clone(), msg_type, extension_type, false);
 
-        if msg.get_size() < 16_777_216 {
+        if msg.get_size() <= SV2_FRAME_MAX_PAYLOAD_SIZE {
             assert!(
                 frame.is_ok(),
-                "Frame creation should succeed for message size {} < U24_MAX",
+                "Frame creation should succeed for message size {} <= SV2_FRAME_MAX_PAYLOAD_SIZE",
                 msg.get_size()
             );
         } else {
             assert!(
                 frame.is_err(),
-                "Frame creation should fail for message size {} >= U24_MAX",
+                "Frame creation should fail for message size {} > SV2_FRAME_MAX_PAYLOAD_SIZE",
                 msg.get_size()
             );
         }
@@ -623,7 +624,7 @@ mod tests {
         let extension_type = 0x0ABCu16;
 
         // Only test with messages that fit in U24
-        if msg.get_size() >= 16_777_216 {
+        if msg.get_size() > SV2_FRAME_MAX_PAYLOAD_SIZE {
             return;
         }
 

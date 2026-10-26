@@ -133,6 +133,7 @@ impl Header {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::SV2_FRAME_MAX_PAYLOAD_SIZE;
     use alloc::vec;
     use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros::quickcheck;
@@ -167,7 +168,7 @@ mod tests {
 
     impl Arbitrary for ValidU24 {
         fn arbitrary(g: &mut Gen) -> Self {
-            ValidU24(u32::arbitrary(g) % 16_777_216)
+            ValidU24(u32::arbitrary(g) % (SV2_FRAME_MAX_PAYLOAD_SIZE as u32 + 1))
         }
     }
 
