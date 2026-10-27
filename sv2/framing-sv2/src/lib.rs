@@ -65,5 +65,9 @@ pub use error::Error;
 /// Size of the SV2 frame header in bytes.
 pub const SV2_FRAME_HEADER_SIZE: usize = 6;
 
+/// Maximum size of an SV2 frame payload in bytes, the largest value the 24-bit `msg_length`
+/// header field holds.
+pub const SV2_FRAME_MAX_PAYLOAD_SIZE: usize = 0xff_ffff;
+
 /// Maximum size of an SV2 frame chunk in bytes.
 pub const SV2_FRAME_CHUNK_SIZE: usize = 65535;

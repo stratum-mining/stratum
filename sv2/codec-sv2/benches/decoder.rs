@@ -30,7 +30,7 @@ fn bench_plain_decoder(c: &mut Criterion) {
                         black_box(frame);
                         break;
                     }
-                    Ok(Decoded::Incomplete(_)) => {
+                    Ok(Decoded::Incomplete) => {
                         let w = dec.read_buf();
                         let n = w.len();
                         w.copy_from_slice(&enc_buf[offset..offset + n]);

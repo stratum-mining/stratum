@@ -131,7 +131,7 @@ pub fn acquire_frame(
     loop {
         match dec.next_frame() {
             Ok(codec_sv2::Decoded::Frame(frame)) => return frame,
-            Ok(codec_sv2::Decoded::Incomplete(_)) => {
+            Ok(codec_sv2::Decoded::Incomplete) => {
                 let w = dec.read_buf();
                 let n = w.len();
                 w.copy_from_slice(&enc_buf[offset..offset + n]);

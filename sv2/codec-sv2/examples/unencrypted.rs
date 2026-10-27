@@ -137,7 +137,7 @@ fn receiver_side(mut stream_receiver: TcpStream, decoder: &mut Decoder) -> Seria
             Ok(Decoded::Frame(decoded_frame)) => {
                 return decoded_frame;
             }
-            Ok(Decoded::Incomplete(_)) => {}
+            Ok(Decoded::Incomplete) => {}
             Err(_) => panic!("Failed to decode the frame"),
         }
     }
