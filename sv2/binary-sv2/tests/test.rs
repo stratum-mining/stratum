@@ -52,6 +52,78 @@ mod test_f32 {
 
         assert_eq!(deserialized, expected);
     }
+
+    #[test]
+    fn serialization_rejects_invalid_values() {
+        let invalid = [
+            f32::NAN,
+            f32::from_bits(0x7f80_0001),
+            f32::INFINITY,
+            f32::NEG_INFINITY,
+            -0.0,
+            -1.0,
+        ];
+
+        for value in invalid {
+            let bits = value.to_bits();
+            assert_eq!(
+                to_bytes(value),
+                Err(Error::InvalidF32(bits)),
+                "serializing {value:?} must fail"
+            );
+
+            let mut dst = [0_u8; 4];
+            assert_eq!(
+                value.to_slice(&mut dst),
+                Err(Error::InvalidF32(bits)),
+                "to_slice must reject {value:?}"
+            );
+
+            let message = Test {
+                a: 0,
+                b: 0_u32.try_into().unwrap(),
+                c: value,
+            };
+            assert_eq!(
+                to_bytes(message),
+                Err(Error::InvalidF32(bits)),
+                "message serialization must reject {value:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn decoding_is_permissive_and_valid_values_roundtrip() {
+        let invalid = [
+            f32::NAN,
+            f32::from_bits(0x7f80_0001),
+            f32::INFINITY,
+            f32::NEG_INFINITY,
+            -0.0,
+            -1.0,
+        ];
+
+        for value in invalid {
+            let mut bytes = value.to_le_bytes();
+            let decoded = from_bytes::<f32>(&mut bytes).unwrap();
+            assert_eq!(
+                decoded.to_bits(),
+                value.to_bits(),
+                "decoding must preserve the wire bits of {value:?}"
+            );
+        }
+
+        let valid = [0.0, f32::MIN_POSITIVE, f32::from_bits(1), 1.0, f32::MAX];
+
+        for value in valid {
+            let bytes = to_bytes(value).unwrap();
+            assert_eq!(bytes, value.to_le_bytes().to_vec());
+
+            let mut bytes = bytes;
+            let decoded = from_bytes::<f32>(&mut bytes).unwrap();
+            assert_eq!(decoded.to_bits(), value.to_bits());
+        }
+    }
 }
 
 mod test_b0255 {

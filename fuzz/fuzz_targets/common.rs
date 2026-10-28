@@ -5,7 +5,8 @@ use serde_json::Value;
 ///
 /// Raw-bytes mode (2 args) parses the raw input bytes and, on success, asserts that
 /// re-encoding is stable, `Display` output survives the roundtrip, and a well-formed
-/// unknown TLV suffix is ignored.
+/// unknown TLV suffix is ignored. Messages that decode but contain an invalid `F32`
+/// are accepted, because decoding is permissive and such messages cannot be re-encoded.
 ///
 /// Generator mode (3 args) runs raw-bytes mode on the input, then turns the same input
 /// into wire-valid bytes through the generator. Those bytes must parse, pass the same
@@ -13,18 +14,22 @@ use serde_json::Value;
 /// validation is performed.
 #[macro_export]
 macro_rules! test_roundtrip {
-    // ---- checks shared by every mode, evaluates to the encoding of `$parsed` ----
-    (@check $msg_type:ty, $parsed:ident) => {{
-        let mut encoded_1 = vec![0u8; $parsed.get_size()];
-        let written = $parsed
-            .clone()
-            .to_bytes(&mut encoded_1)
-            .expect("Encoding failed after a successful parse");
-        assert_eq!(
-            written,
-            $parsed.get_size(),
-            "Encoded length must match get_size()"
-        );
+    // ---- encoding shared by every mode ----
+    // Evaluates to the canonical encoding of `$parsed`, or the serialization error.
+    (@encode $parsed:ident) => {{
+        let mut encoded = vec![0u8; $parsed.get_size()];
+        $parsed.clone().to_bytes(&mut encoded).map(|written| {
+            assert_eq!(
+                written,
+                $parsed.get_size(),
+                "Encoded length must match get_size()"
+            );
+            encoded
+        })
+    }};
+    // ---- checks shared by every mode, operate on the encoding of `$parsed` ----
+    (@check $msg_type:ty, $parsed:ident, $encoded:ident) => {{
+        let encoded_1 = $encoded;
 
         let mut encoded_1_clone = encoded_1.clone();
         let reparsed = <$msg_type>::from_bytes(&mut encoded_1_clone)
@@ -77,7 +82,20 @@ macro_rules! test_roundtrip {
         // Invalid inputs are expected in fuzzing, so ignore failures.
         let mut input = $data.clone();
         if let Ok(parsed) = <$msg_type>::from_bytes(&mut input) {
-            $crate::test_roundtrip!(@check $msg_type, parsed);
+            match $crate::test_roundtrip!(@encode parsed) {
+                Ok(encoded) => {
+                    $crate::test_roundtrip!(@check $msg_type, parsed, encoded);
+                }
+                // Decoding is intentionally permissive, so a message carrying an
+                // invalid F32 parses but cannot be re-encoded. Raw mode accepts
+                // that outcome; any other encoding failure is a bug.
+                Err(binary_sv2::Error::InvalidF32(_)) => {}
+                Err(error) => panic!(
+                    "{}: encoding failed after a successful parse: {:?}",
+                    stringify!($msg_type),
+                    error
+                ),
+            }
         }
     }};
     // ---- generator mode: wire-valid bytes only ----
@@ -91,7 +109,15 @@ macro_rules! test_roundtrip {
                 stringify!($msg_type),
                 ": generator produced unparseable bytes"
             ));
-            let encoded = $crate::test_roundtrip!(@check $msg_type, parsed);
+            let encoded = match $crate::test_roundtrip!(@encode parsed) {
+                Ok(encoded) => encoded,
+                Err(error) => panic!(
+                    "{}: generator produced a message that cannot be serialized: {:?}",
+                    stringify!($msg_type),
+                    error
+                ),
+            };
+            let encoded = $crate::test_roundtrip!(@check $msg_type, parsed, encoded);
             assert_eq!(
                 encoded,
                 generated,
@@ -211,28 +237,38 @@ macro_rules! test_datatype_roundtrip {
             // Allocate the exact canonical size of the float representation.
             let mut encoded = vec![0u8; parsed.get_size()];
 
-            // A successfully parsed float must serialize without failure.
-            parsed
-                .to_bytes(&mut encoded)
-                .expect("Encoding failed after a successful parse");
+            if !parsed.is_finite() || parsed.is_sign_negative() {
+                // Decoding is permissive, but serializing an invalid F32 must fail
+                // with the bits of the rejected value.
+                assert_eq!(
+                    parsed.to_bytes(&mut encoded),
+                    Err(binary_sv2::Error::InvalidF32(parsed.to_bits())),
+                    "Invalid F32 must be rejected during serialization"
+                );
+            } else {
+                // A successfully parsed float must serialize without failure.
+                parsed
+                    .to_bytes(&mut encoded)
+                    .expect("Encoding failed after a successful parse");
 
-            // Serialized bytes must be parseable back into a float.
-            let reparsed = f32::from_bytes(&mut encoded)
-                .expect("The bytes generated from a valid datatype should be parseable");
+                // Serialized bytes must be parseable back into a float.
+                let reparsed = f32::from_bytes(&mut encoded)
+                    .expect("The bytes generated from a valid datatype should be parseable");
 
-            // Compare raw bits to enforce strict roundtrip stability, including NaN payloads.
-            assert_eq!(
-                parsed.to_bits(),
-                reparsed.to_bits(),
-                "Float roundtrip is not bit-stable"
-            );
+                // Compare raw bits to enforce exact roundtrip stability.
+                assert_eq!(
+                    parsed.to_bits(),
+                    reparsed.to_bits(),
+                    "Float roundtrip is not bit-stable"
+                );
 
-            // Ensure serialization is canonical: re-encoding must match the consumed input.
-            assert_eq!(
-                encoded,
-                input[..encoded.len()],
-                "Serialization is not stable"
-            );
+                // Ensure serialization is canonical: re-encoding must match the consumed input.
+                assert_eq!(
+                    encoded,
+                    input[..encoded.len()],
+                    "Serialization is not stable"
+                );
+            }
         }
     }};
 
