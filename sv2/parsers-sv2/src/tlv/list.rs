@@ -67,6 +67,21 @@ impl<'a> TlvList<'a> {
             .collect()
     }
 
+    /// Collects TLVs that match the negotiated extension types.
+    ///
+    /// Unlike [`Self::for_extensions`], this method returns decode errors instead of
+    /// silently ignoring them. Use this when malformed TLV data should reject the
+    /// containing message.
+    pub fn try_for_extensions(&self, negotiated: &[u16]) -> Result<Vec<Tlv>, TlvError> {
+        self.iter()
+            .filter_map(|result| match result {
+                Ok(tlv) if negotiated.contains(&tlv.r#type.extension_type) => Some(Ok(tlv)),
+                Ok(_) => None,
+                Err(error) => Some(Err(error)),
+            })
+            .collect()
+    }
+
     /// Finds the first TLV matching the specified extension and field type.
     ///
     /// Returns `None` if no matching TLV is found or if decode errors are encountered.
@@ -203,6 +218,17 @@ mod tests {
         assert_eq!(tlvs.len(), 2);
         assert_eq!(tlvs[0], tlv1);
         assert_eq!(tlvs[1], tlv3);
+    }
+
+    #[test]
+    fn test_tlv_list_try_for_extensions_propagates_decode_errors() {
+        let malformed = [0x02, 0x00, 0x01, 0x0a, 0x00, 0x00];
+        let list = TlvList::from_bytes(&malformed);
+
+        assert_eq!(
+            list.try_for_extensions(&[0x0002]),
+            Err(TlvError::BufferTooShort(6, 15))
+        );
     }
 
     #[test]
