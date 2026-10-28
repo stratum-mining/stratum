@@ -44,6 +44,7 @@ pub trait HandleJobDeclarationMessagesFromServerOwnedSync {
         header: Header,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
+        crate::validate_payload_length(header, payload).map_err(Self::Error::parse_error)?;
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
         if negotiated_extensions.is_empty() {
             let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
@@ -181,6 +182,7 @@ pub trait HandleJobDeclarationMessagesFromServerOwnedAsync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         async move {
+            crate::validate_payload_length(header, payload).map_err(Self::Error::parse_error)?;
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
             if negotiated_extensions.is_empty() {
                 let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
@@ -327,6 +329,7 @@ pub trait HandleJobDeclarationMessagesFromClientOwnedSync {
         header: Header,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
+        crate::validate_payload_length(header, payload).map_err(Self::Error::parse_error)?;
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
         if negotiated_extensions.is_empty() {
             let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
@@ -460,6 +463,7 @@ pub trait HandleJobDeclarationMessagesFromClientOwnedAsync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         async move {
+            crate::validate_payload_length(header, payload).map_err(Self::Error::parse_error)?;
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
             if negotiated_extensions.is_empty() {
                 let parsed: JobDeclaration<'_> = (header.msg_type(), payload)

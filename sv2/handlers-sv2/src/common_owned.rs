@@ -39,6 +39,7 @@ pub trait HandleCommonMessagesFromServerOwnedSync {
         header: Header,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
+        crate::validate_payload_length(header, payload).map_err(Self::Error::parse_error)?;
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
         if negotiated_extensions.is_empty() {
             let parsed: CommonMessages<'_> = (header.msg_type(), payload)
@@ -159,6 +160,7 @@ pub trait HandleCommonMessagesFromServerOwnedAsync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         async move {
+            crate::validate_payload_length(header, payload).map_err(Self::Error::parse_error)?;
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
             if negotiated_extensions.is_empty() {
                 let parsed: CommonMessages<'_> = (header.msg_type(), payload)
@@ -289,6 +291,7 @@ pub trait HandleCommonMessagesFromClientOwnedSync {
         header: Header,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
+        crate::validate_payload_length(header, payload).map_err(Self::Error::parse_error)?;
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
         if negotiated_extensions.is_empty() {
             let parsed: CommonMessages<'_> = (header.msg_type(), payload)
@@ -390,6 +393,7 @@ pub trait HandleCommonMessagesFromClientOwnedAsync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         async move {
+            crate::validate_payload_length(header, payload).map_err(Self::Error::parse_error)?;
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
             if negotiated_extensions.is_empty() {
                 let parsed: CommonMessages<'_> = (header.msg_type(), payload)
