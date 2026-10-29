@@ -791,6 +791,44 @@ mod test_deep_encodable_field {
     }
 
     #[test]
+    fn deeply_nested_field_debug_formats_without_recursion() {
+        let depth = 100_000;
+        let rendered = format!("{:?}", nested(depth));
+
+        assert_eq!(
+            rendered.len(),
+            depth * "Struct([])".len() + "Primitive(U8(90))".len()
+        );
+        assert!(rendered.starts_with("Struct([Struct(["));
+        assert!(rendered.contains("[Primitive(U8(90))]"));
+        assert!(rendered.ends_with("])])"));
+    }
+
+    #[test]
+    fn debug_output_matches_derived_format() {
+        let field = EncodableField::Struct(vec![
+            EncodableField::Primitive(EncodablePrimitive::U8(1)),
+            EncodableField::Struct(vec![]),
+            EncodableField::Struct(vec![
+                EncodableField::Primitive(EncodablePrimitive::U16(2)),
+                EncodableField::Primitive(EncodablePrimitive::Bool(true)),
+            ]),
+        ]);
+
+        assert_eq!(
+            format!("{field:?}"),
+            "Struct([Primitive(U8(1)), Struct([]), Struct([Primitive(U16(2)), Primitive(Bool(true))])])"
+        );
+        assert_eq!(
+            format!(
+                "{:?}",
+                EncodableField::Primitive(EncodablePrimitive::U32(7))
+            ),
+            "Primitive(U32(7))"
+        );
+    }
+
+    #[test]
     fn encode_reports_offset_past_buffer_end() {
         let field = EncodableField::Struct(vec![
             EncodableField::Primitive(EncodablePrimitive::U8(1)),
