@@ -623,7 +623,8 @@ impl ExtendedChannel {
                         self.get_full_extranonce_size(),
                     )
                     .map_err(ExtendedChannelError::JobFactoryError)?;
-                self.job_store.add_future_job(template.template_id, new_job);
+                self.job_store
+                    .add_future_job(Some(template.template_id), new_job);
             }
             false => {
                 match self.chain_tip.clone() {
@@ -697,7 +698,8 @@ impl ExtendedChannel {
 
         match extended_job.is_future() {
             true => {
-                self.job_store.add_future_job(template_id, extended_job);
+                self.job_store
+                    .add_future_job(Some(template_id), extended_job);
             }
             false => {
                 // the job is mined against this channel's chain tip, whose ntime_start is the
@@ -762,10 +764,14 @@ impl ExtendedChannel {
             }
             true => {
                 // try to activate the future job, and also mark past jobs as stale
-                if !self.job_store.activate_future_job(
-                    set_new_prev_hash.template_id,
-                    set_new_prev_hash.ntime_start,
-                ) {
+                let job_id = self
+                    .job_store
+                    .get_future_job_id_from_template_id(set_new_prev_hash.template_id)
+                    .ok_or(ExtendedChannelError::TemplateIdNotFound)?;
+                if !self
+                    .job_store
+                    .activate_future_job(job_id, set_new_prev_hash.ntime_start)
+                {
                     return Err(ExtendedChannelError::TemplateIdNotFound);
                 }
                 // clear the job id to target mapping only after a successful activation,

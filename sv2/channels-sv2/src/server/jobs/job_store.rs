@@ -15,11 +15,10 @@ use std::collections::{HashMap, VecDeque};
 use super::Job;
 use crate::extranonce_manager::{prefix::RetiredExtranoncePrefixes, ExtranoncePrefix};
 
-/// Maximum number of future jobs a server channel retains while waiting for a
-/// template-distribution `SetNewPrevHash`.
+/// Maximum number of future jobs a server channel retains while waiting for their activation.
 ///
-/// Template Distribution peers control `template_id`, so future jobs are stored under a
-/// peer-controlled key. Bounding the map prevents a malicious or buggy peer from exhausting
+/// Template Distribution peers control how many future templates they send, so the number of
+/// future jobs is peer-driven. Bounding it prevents a malicious or buggy peer from exhausting
 /// server memory by streaming future templates while withholding `SetNewPrevHash`. On overflow,
 /// the oldest future job is evicted.
 pub(crate) const MAX_FUTURE_JOBS: usize = 16;
@@ -44,7 +43,8 @@ pub(crate) const MAX_PAST_JOBS: usize = 16;
 /// Internal implementation for tracking mining job states in SV2 server channels.
 ///
 /// Maintains collections for future, active, past, and stale jobs, and tracks template-to-job ID
-/// mappings for future job activation.
+/// mappings for the activation of future jobs that came from a template. A future job without a
+/// template is reached by its job ID only.
 ///
 /// Job IDs come from whichever factory built the job, the channel's own or its group channel's,
 /// so an ID can repeat within one channel. A job installed under the ID of a stale job replaces
@@ -55,9 +55,9 @@ pub(crate) const MAX_PAST_JOBS: usize = 16;
 #[derive(Debug)]
 pub(crate) struct JobStore<T: Job> {
     future_template_to_job_id: HashMap<u64, u32>,
-    // Future template IDs ordered by receipt, oldest at the front and newest at the back.
+    // Future job IDs ordered by receipt, oldest at the front and newest at the back.
     // Replaced IDs move to the back; overflow evicts from the front.
-    future_template_order: VecDeque<u64>,
+    future_job_order: VecDeque<u32>,
     // Future jobs are indexed with job_id (u32)
     future_jobs: HashMap<u32, T>,
     active_job: Option<T>,
@@ -86,7 +86,7 @@ impl<T: Job> JobStore<T> {
         debug_assert!(max_past_jobs > 0, "max_past_jobs must be nonzero");
         Self {
             future_template_to_job_id: HashMap::new(),
-            future_template_order: VecDeque::new(),
+            future_job_order: VecDeque::new(),
             future_jobs: HashMap::new(),
             active_job: None,
             past_jobs: HashMap::new(),
@@ -105,51 +105,50 @@ impl<T: Job> Default for JobStore<T> {
 }
 
 impl<T: Job> JobStore<T> {
-    /// Adds a future job associated with a template ID.
+    /// Adds a future job, mapped from `template_id` when it came from a template.
     ///
     /// If the template ID was already mapped to a future job, that job is dropped, since it could
-    /// never be activated again (activation resolves jobs through this mapping). A future job
-    /// stored under the new job's ID by another template is dropped too, along with that
-    /// template's mapping.
+    /// never be activated again (template activation resolves jobs through this mapping). A
+    /// future job stored under the new job's ID is dropped too, along with its template mapping,
+    /// if any.
     ///
     /// At most `MAX_FUTURE_JOBS` future jobs are kept: storing a new one beyond that limit evicts
-    /// the oldest, since template IDs are peer-controlled and must not grow memory unboundedly.
+    /// the oldest, since the number of future templates is peer-controlled and must not grow
+    /// memory unboundedly.
     ///
     /// Returns the new job's ID.
-    pub fn add_future_job(&mut self, template_id: u64, new_job: T) -> u32 {
+    pub fn add_future_job(&mut self, template_id: Option<u64>, new_job: T) -> u32 {
         let mut dropped_job = false;
 
         let new_job_id = new_job.get_job_id();
-        if let Some(old_job_id) = self
-            .future_template_to_job_id
-            .insert(template_id, new_job_id)
-        {
-            self.future_jobs.remove(&old_job_id);
-            dropped_job = true;
+        if let Some(template_id) = template_id {
+            if let Some(old_job_id) = self
+                .future_template_to_job_id
+                .insert(template_id, new_job_id)
+            {
+                self.future_jobs.remove(&old_job_id);
+                dropped_job = true;
+            }
         }
-        // another template's job stored under the same job ID is replaced as well; that template
-        // could only resolve to the new job now, so it leaves the mapping and the eviction order,
-        // or evicting it would drop the new job and popping it would skip an eviction
+        // a job stored under the same job ID is replaced as well; its template, if any, could
+        // only resolve to the new job now, so it leaves the mapping
         if self.future_jobs.insert(new_job_id, new_job).is_some() {
             self.future_template_to_job_id
-                .retain(|id, job_id| *id == template_id || *job_id != new_job_id);
-            self.future_template_order
-                .retain(|id| self.future_template_to_job_id.contains_key(id));
+                .retain(|id, job_id| Some(*id) == template_id || *job_id != new_job_id);
             dropped_job = true;
         }
 
-        // a replaced template_id moves to the back of the eviction order
-        self.future_template_order.retain(|id| *id != template_id);
-        self.future_template_order.push_back(template_id);
+        // dropped jobs leave the eviction order; a replaced job ID moves to its back
+        self.future_job_order
+            .retain(|id| *id != new_job_id && self.future_jobs.contains_key(id));
+        self.future_job_order.push_back(new_job_id);
 
         if self.future_jobs.len() > MAX_FUTURE_JOBS {
-            if let Some(evicted_template_id) = self.future_template_order.pop_front() {
-                if let Some(evicted_job_id) =
-                    self.future_template_to_job_id.remove(&evicted_template_id)
-                {
-                    self.future_jobs.remove(&evicted_job_id);
-                    dropped_job = true;
-                }
+            if let Some(evicted_job_id) = self.future_job_order.pop_front() {
+                self.future_jobs.remove(&evicted_job_id);
+                self.future_template_to_job_id
+                    .retain(|_, job_id| *job_id != evicted_job_id);
+                dropped_job = true;
             }
         }
 
@@ -243,18 +242,18 @@ impl<T: Job> JobStore<T> {
         self.active_job = Some(job);
     }
 
-    /// Activates a future job given by template ID and header timestamp, dropping the previously
-    /// active job (if any) instead of keeping it as stale.
-    /// Returns `true` if successful, `false` if not found.
+    /// Activates the future job `job_id` under the header timestamp `prev_hash_ntime_start`,
+    /// dropping the previously active job (if any) instead of keeping it as stale.
+    /// Returns `true` if successful, `false` if there is no such future job.
     ///
     /// For channels that never validate shares (group channels), which keep no past or stale
     /// job history. A failed activation leaves channel state untouched.
     pub fn activate_future_job_replacing_active(
         &mut self,
-        template_id: u64,
+        job_id: u32,
         prev_hash_ntime_start: u32,
     ) -> bool {
-        let activated = self.activate_future_job(template_id, prev_hash_ntime_start);
+        let activated = self.activate_future_job(job_id, prev_hash_ntime_start);
         if activated {
             // group channels keep no job history: the job displaced by this activation went
             // stale above and is dropped here
@@ -263,19 +262,17 @@ impl<T: Job> JobStore<T> {
         activated
     }
 
-    /// Activates a future job given by template ID and header timestamp.
-    /// Returns `true` if successful, `false` if not found.
-    pub fn activate_future_job(&mut self, template_id: u64, prev_hash_ntime_start: u32) -> bool {
-        let mut future_job =
-            if let Some(job_id) = self.future_template_to_job_id.remove(&template_id) {
-                if let Some(job) = self.future_jobs.remove(&job_id) {
-                    job
-                } else {
-                    return false;
-                }
-            } else {
-                return false;
-            };
+    /// Activates the future job `job_id` under the header timestamp `prev_hash_ntime_start`.
+    /// Returns `true` if successful, `false` if there is no such future job.
+    ///
+    /// A job that came from a template is resolved by the caller through
+    /// [`Self::get_future_job_id_from_template_id`]; every other future job is only reachable by
+    /// its job ID. All other future jobs are dropped, since their activation can no longer be
+    /// referenced by a `SetNewPrevHash` after this one.
+    pub fn activate_future_job(&mut self, job_id: u32, prev_hash_ntime_start: u32) -> bool {
+        let Some(mut future_job) = self.future_jobs.remove(&job_id) else {
+            return false;
+        };
 
         // Move currently active job to past jobs (so it can be marked as stale). The
         // retirement is uncapped: past jobs drain into stale jobs below, so the displaced job
@@ -289,7 +286,7 @@ impl<T: Job> JobStore<T> {
         self.active_job = Some(future_job);
         self.future_jobs.clear();
         self.future_template_to_job_id.clear();
-        self.future_template_order.clear();
+        self.future_job_order.clear();
 
         self.mark_past_jobs_as_stale();
         // the activated job may reuse the ID of a job that just went stale; an ID names either
@@ -414,7 +411,7 @@ mod tests {
         let flood_size = 10_000u64;
         for template_id in 0..flood_size {
             store.add_future_job(
-                template_id,
+                Some(template_id),
                 DummyJob {
                     job_id: template_id as u32,
                 },
@@ -525,12 +522,12 @@ mod tests {
 
         let future_job_id = 100;
         store.add_future_job(
-            1,
+            Some(1),
             DummyJob {
                 job_id: future_job_id,
             },
         );
-        assert!(store.activate_future_job(1, 0));
+        assert!(store.activate_future_job(future_job_id, 0));
 
         // the displaced active job and every past job must land in the stale set: dropping
         // any of them would misclassify its late shares as InvalidJobId instead of Stale
@@ -554,7 +551,7 @@ mod tests {
 
         // a future job created under the old prefix, which is then rotated out
         store.add_future_job(
-            1,
+            Some(1),
             PrefixedJob {
                 job_id: 100,
                 prefix: old_prefix.as_bytes().to_vec(),
@@ -572,7 +569,7 @@ mod tests {
             });
         }
 
-        assert!(store.activate_future_job(1, 0));
+        assert!(store.activate_future_job(100, 0));
 
         // the activated job is the only remaining reference to the retired prefix; its slot
         // must stay reserved while the job keeps accepting shares under those bytes
@@ -588,7 +585,7 @@ mod tests {
 
         // a future job created under the old prefix keeps the retired prefix alive
         store.add_future_job(
-            1,
+            Some(1),
             PrefixedJob {
                 job_id: 1,
                 prefix: old_prefix.as_bytes().to_vec(),
@@ -601,7 +598,7 @@ mod tests {
         // the retired prefix, so its slot must be released without waiting for a chain
         // transition
         store.add_future_job(
-            1,
+            Some(1),
             PrefixedJob {
                 job_id: 2,
                 prefix: vec![2u8],
@@ -614,8 +611,8 @@ mod tests {
     fn reused_template_id_evicts_superseded_future_job() {
         let mut store = JobStore::new(MAX_PAST_JOBS);
 
-        let old_job_id = store.add_future_job(1, DummyJob { job_id: 10 });
-        let new_job_id = store.add_future_job(1, DummyJob { job_id: 11 });
+        let old_job_id = store.add_future_job(Some(1), DummyJob { job_id: 10 });
+        let new_job_id = store.add_future_job(Some(1), DummyJob { job_id: 11 });
 
         // the superseded job could never be activated again, so it must not be retained
         assert!(store.get_future_job(old_job_id).is_none());
@@ -634,7 +631,7 @@ mod tests {
         let old_prefix = allocator.allocate_extended(0).unwrap();
 
         store.add_future_job(
-            1,
+            Some(1),
             PrefixedJob {
                 job_id: 1,
                 prefix: old_prefix.as_bytes().to_vec(),
@@ -646,7 +643,7 @@ mod tests {
         // a job for another template under the same job ID replaces the last job referencing
         // the retired prefix, so its slot must be released right away
         store.add_future_job(
-            2,
+            Some(2),
             PrefixedJob {
                 job_id: 1,
                 prefix: vec![2u8],
@@ -661,15 +658,15 @@ mod tests {
     fn reused_job_id_keeps_eviction_on_the_surviving_templates() {
         let mut store = JobStore::new(MAX_PAST_JOBS);
 
-        store.add_future_job(1, DummyJob { job_id: 1 });
-        store.add_future_job(2, DummyJob { job_id: 2 });
+        store.add_future_job(Some(1), DummyJob { job_id: 1 });
+        store.add_future_job(Some(2), DummyJob { job_id: 2 });
         // template 3 takes over job ID 1 from template 1
-        store.add_future_job(3, DummyJob { job_id: 1 });
+        store.add_future_job(Some(3), DummyJob { job_id: 1 });
 
         // fill the store up to the cap, then push one more template in
         for template_id in 4..=MAX_FUTURE_JOBS as u64 + 2 {
             store.add_future_job(
-                template_id,
+                Some(template_id),
                 DummyJob {
                     job_id: template_id as u32 + 100,
                 },
@@ -683,7 +680,36 @@ mod tests {
         assert_eq!(store.get_future_job_id_from_template_id(3), Some(1));
         assert!(store.get_future_job(1).is_some());
         assert_eq!(store.future_jobs.len(), MAX_FUTURE_JOBS);
-        assert_eq!(store.future_template_order.len(), MAX_FUTURE_JOBS);
+        assert_eq!(store.future_job_order.len(), MAX_FUTURE_JOBS);
+    }
+
+    #[test]
+    fn a_future_job_without_a_template_is_reached_by_job_id_only() {
+        let mut store = JobStore::new(MAX_PAST_JOBS);
+
+        store.add_future_job(Some(1), DummyJob { job_id: 1 });
+        store.add_future_job(None, DummyJob { job_id: 2 });
+        assert!(store.get_future_job(2).is_some());
+        assert_eq!(store.get_future_job_id_from_template_id(1), Some(1));
+
+        // activating a job by ID drops every other future job, mapped or not
+        assert!(store.activate_future_job(2, 0));
+        assert_eq!(store.get_active_job().map(|job| job.get_job_id()), Some(2));
+        assert!(store.get_future_job(1).is_none());
+        assert!(store.get_future_job_id_from_template_id(1).is_none());
+        assert!(!store.activate_future_job(1, 0));
+
+        // a job without a template evicts and is evicted like any other; the one that replaces
+        // it under its ID drops it from the eviction order as well
+        store.add_future_job(None, DummyJob { job_id: 3 });
+        store.add_future_job(Some(4), DummyJob { job_id: 3 });
+        for job_id in 10..10 + MAX_FUTURE_JOBS as u32 {
+            store.add_future_job(None, DummyJob { job_id });
+        }
+        assert!(store.get_future_job(3).is_none());
+        assert!(store.get_future_job_id_from_template_id(4).is_none());
+        assert_eq!(store.future_jobs.len(), MAX_FUTURE_JOBS);
+        assert_eq!(store.future_job_order.len(), MAX_FUTURE_JOBS);
     }
 
     #[test]
@@ -736,8 +762,8 @@ mod tests {
         assert!(store.get_stale_job(1).is_none());
 
         // the displaced job goes stale under the very ID the activated job carries
-        store.add_future_job(7, DummyJob { job_id: 1 });
-        assert!(store.activate_future_job(7, 0));
+        store.add_future_job(Some(7), DummyJob { job_id: 1 });
+        assert!(store.activate_future_job(1, 0));
         assert_eq!(store.get_active_job().unwrap().get_job_id(), 1);
         assert!(store.get_stale_job(1).is_none());
         assert!(store.stale_jobs.is_empty());

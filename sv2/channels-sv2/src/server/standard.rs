@@ -584,7 +584,8 @@ impl StandardChannel {
                         coinbase_reward_outputs,
                     )
                     .map_err(StandardChannelError::JobFactoryError)?;
-                self.job_store.add_future_job(template.template_id, new_job);
+                self.job_store
+                    .add_future_job(Some(template.template_id), new_job);
             }
             false => {
                 match self.chain_tip.clone() {
@@ -641,7 +642,7 @@ impl StandardChannel {
         match standard_job.is_future() {
             true => {
                 self.job_store
-                    .add_future_job(standard_job.get_template().template_id, standard_job);
+                    .add_future_job(Some(standard_job.get_template().template_id), standard_job);
             }
             false => {
                 // the job is mined against this channel's chain tip, whose ntime_start is the
@@ -714,10 +715,14 @@ impl StandardChannel {
             }
             // try to activate the future job, and also mark past jobs as stale
             true => {
-                if !self.job_store.activate_future_job(
-                    set_new_prev_hash.template_id,
-                    set_new_prev_hash.ntime_start,
-                ) {
+                let job_id = self
+                    .job_store
+                    .get_future_job_id_from_template_id(set_new_prev_hash.template_id)
+                    .ok_or(StandardChannelError::TemplateIdNotFound)?;
+                if !self
+                    .job_store
+                    .activate_future_job(job_id, set_new_prev_hash.ntime_start)
+                {
                     return Err(StandardChannelError::TemplateIdNotFound);
                 }
 

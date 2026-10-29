@@ -306,7 +306,8 @@ impl GroupChannel {
                         self.full_extranonce_size,
                     )
                     .map_err(GroupChannelError::JobFactoryError)?;
-                self.job_store.add_future_job(template.template_id, new_job);
+                self.job_store
+                    .add_future_job(Some(template.template_id), new_job);
             }
             false => {
                 match self.chain_tip.clone() {
@@ -369,14 +370,17 @@ impl GroupChannel {
                 self.job_store.clear_active_job();
             }
             true => {
-                // activation is a no-op when no future job matches the template id, so the
-                // chain tip must only advance once we know a job was actually activated.
+                // the chain tip must only advance once we know a job was actually activated.
                 // group channels never validate shares, so the displaced active job is
                 // dropped instead of being retired into past/stale history
-                if !self.job_store.activate_future_job_replacing_active(
-                    set_new_prev_hash.template_id,
-                    set_new_prev_hash.ntime_start,
-                ) {
+                let job_id = self
+                    .job_store
+                    .get_future_job_id_from_template_id(set_new_prev_hash.template_id)
+                    .ok_or(GroupChannelError::TemplateIdNotFound)?;
+                if !self
+                    .job_store
+                    .activate_future_job_replacing_active(job_id, set_new_prev_hash.ntime_start)
+                {
                     return Err(GroupChannelError::TemplateIdNotFound);
                 }
             }
