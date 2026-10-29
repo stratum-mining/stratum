@@ -114,23 +114,22 @@ impl SetupConnection<'_> {
             Protocol::MiningProtocol => {
                 // Evaluates protocol requirements based on flag bits.
                 //
-                // Checks if the current protocol meets the required flags for work selection and
-                // version rolling by reversing the bits of `available_flags` and
-                // `required_flags`. It extracts the 30th and 29th bits to determine
-                // if work selection and version rolling are needed.
+                // Checks whether `required_flags` satisfies the work selection and version
+                // rolling requirements set in `available_flags`. Each requirement is read from
+                // its own bit (`REQUIRES_WORK_SELECTION` is bit 1, `REQUIRES_VERSION_ROLLING`
+                // is bit 2), so other bits such as `REQUIRES_STANDARD_JOBS` do not affect the
+                // result.
                 //
                 // Returns `true` if:
                 // - The work selection requirement is satisfied or not needed.
                 // - The version rolling requirement is satisfied or not needed.
                 //
                 // Otherwise, returns `false`.
-                let available = available_flags.reverse_bits();
-                let required_flags = required_flags.reverse_bits();
-                let requires_work_selection_passed = required_flags >> 30 > 0;
-                let requires_version_rolling_passed = required_flags >> 29 > 0;
+                let requires_work_selection_passed = has_work_selection(required_flags);
+                let requires_version_rolling_passed = has_version_rolling(required_flags);
 
-                let requires_work_selection_self = available >> 30 > 0;
-                let requires_version_rolling_self = available >> 29 > 0;
+                let requires_work_selection_self = has_work_selection(available_flags);
+                let requires_version_rolling_self = has_version_rolling(available_flags);
 
                 let work_selection =
                     !requires_work_selection_self || requires_work_selection_passed;
@@ -450,6 +449,46 @@ mod test {
             protocol,
             available_flags,
             required_flags
+        ));
+    }
+
+    #[test]
+    fn test_check_flags_mining_reads_single_bits() {
+        let protocol = crate::Protocol::MiningProtocol;
+        let standard_job = 0b_0000_0000_0000_0000_0000_0000_0000_0001;
+        let work_selection = 0b_0000_0000_0000_0000_0000_0000_0000_0010;
+        let version_rolling = 0b_0000_0000_0000_0000_0000_0000_0000_0100;
+
+        // REQUIRES_STANDARD_JOBS alone sets no work selection or version rolling requirement.
+        assert!(SetupConnection::check_flags(protocol, standard_job, 0));
+        assert!(SetupConnection::check_flags(protocol, 0, standard_job));
+
+        // Work selection required but not offered.
+        assert!(!SetupConnection::check_flags(protocol, work_selection, 0));
+        assert!(!SetupConnection::check_flags(
+            protocol,
+            work_selection,
+            standard_job
+        ));
+        assert!(!SetupConnection::check_flags(
+            protocol,
+            work_selection,
+            version_rolling
+        ));
+
+        // Version rolling required but not offered.
+        assert!(!SetupConnection::check_flags(protocol, version_rolling, 0));
+        assert!(!SetupConnection::check_flags(
+            protocol,
+            version_rolling,
+            work_selection
+        ));
+
+        // Both required and both offered.
+        assert!(SetupConnection::check_flags(
+            protocol,
+            work_selection | version_rolling,
+            work_selection | version_rolling
         ));
     }
 
