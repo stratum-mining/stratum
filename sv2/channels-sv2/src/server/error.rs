@@ -30,6 +30,9 @@ pub enum ExtendedChannelError {
     JobFactoryError(JobFactoryError),
     ChainTipNotSet,
     TemplateIdNotFound,
+    /// No future job carries the `job_id` handed to
+    /// [`ExtendedChannel::activate_future_job`](super::extended::ExtendedChannel::activate_future_job);
+    /// the channel is left unchanged.
     JobIdNotFound,
     ExtranoncePrefixTooLarge,
     ScriptSigSizeTooLarge,
@@ -48,6 +51,10 @@ pub enum GroupChannelError {
     FullExtranonceSizeMismatch,
     ChainTipNotSet,
     TemplateIdNotFound,
+    /// No future job carries the `job_id` handed to
+    /// [`GroupChannel::activate_future_job`](super::group::GroupChannel::activate_future_job);
+    /// the group channel is left unchanged.
+    JobIdNotFound,
     JobFactoryError(JobFactoryError),
     ScriptSigSizeTooLarge,
 }
@@ -77,6 +84,10 @@ pub enum StandardChannelError {
     /// channel is left unchanged.
     InvalidTarget,
     TemplateIdNotFound,
+    /// No future job carries the `job_id` handed to
+    /// [`StandardChannel::activate_future_job`](super::standard::StandardChannel::activate_future_job);
+    /// the channel is left unchanged.
+    JobIdNotFound,
     ExtranoncePrefixTooLarge,
     JobFactoryError(JobFactoryError),
     ChainTipNotSet,

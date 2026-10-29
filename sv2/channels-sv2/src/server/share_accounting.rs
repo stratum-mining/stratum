@@ -28,8 +28,11 @@ use std::collections::{HashMap, HashSet};
 ///
 /// The [`ShareValidationResult::BlockFound`] variant carries:
 /// - `share_hash`: The hash of the share that solved the block.
-/// - `template_id`: The template ID associated with the job (as `Option<u64>`), or `None` for custom jobs.
-/// - `coinbase`: The serialized coinbase transaction for the block (as `Vec<u8>`).
+/// - `template_id`: The template ID associated with the job (as `Option<u64>`), or `None` for custom and prebuilt jobs.
+/// - `coinbase`: The serialized coinbase transaction for the block (as `Vec<u8>`). For a prebuilt
+///   job this is `coinbase_tx_prefix || extranonce || coinbase_tx_suffix` as handed over, without
+///   the BIP141 data a SegWit block needs; see
+///   [`PrebuiltJob`](crate::server::jobs::PrebuiltJob).
 #[derive(Debug)]
 pub enum ShareValidationResult {
     /// The share is valid and accepted.
@@ -37,8 +40,10 @@ pub enum ShareValidationResult {
     /// The share solves a block.
     /// Contains:
     /// - `share_hash`: The hash of the share that solved the block.
-    /// - `template_id`: The template ID associated with the job, or `None` for custom jobs.
-    /// - `coinbase`: The serialized coinbase transaction for the block.
+    /// - `template_id`: The template ID associated with the job, or `None` for custom and prebuilt jobs.
+    /// - `coinbase`: The serialized coinbase transaction for the block. For a prebuilt job this is
+    ///   `coinbase_tx_prefix || extranonce || coinbase_tx_suffix` as handed over, without the
+    ///   BIP141 data a SegWit block needs; see [`PrebuiltJob`](crate::server::jobs::PrebuiltJob).
     BlockFound(Hash, Option<u64>, Vec<u8>),
 }
 

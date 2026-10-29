@@ -41,7 +41,8 @@ use template_distribution_sv2::NewTemplateOwned;
 ///
 /// For a job built from a template, the coinbase bytes are the serialized coinbase the job
 /// factory assembled, split at the extranonce, so they carry the BIP141 data (marker, flag and
-/// witness) a found block needs.
+/// witness) a found block needs. For a [`PrebuiltJob`](super::PrebuiltJob), they are the bytes
+/// handed over, as given.
 #[derive(Debug, Clone)]
 pub struct StandardJob {
     origin: JobOrigin,
@@ -109,6 +110,10 @@ impl StandardJob {
     /// extended job's coinbase prefix and suffix around `extranonce_prefix`, and it carries the
     /// extended job's coinbase outputs and found-block coinbase bytes as they are.
     ///
+    /// Also the way a standard channel builds its own job out of an
+    /// [`PrebuiltJob`](super::PrebuiltJob), so that the job served directly is the one a
+    /// group would broadcast for the same bytes.
+    ///
     /// An extended job originating from `SetCustomMiningJob` belongs to a single extended
     /// channel, never to a group channel, so passing one here is refused with
     /// [`StandardJobError::InvalidJobOrigin`].
@@ -118,7 +123,7 @@ impl StandardJob {
         extranonce_prefix: Vec<u8>,
     ) -> Result<Self, StandardJobError> {
         let origin = match extended_job.get_origin() {
-            JobOrigin::NewTemplate(_) => extended_job.get_origin().clone(),
+            JobOrigin::NewTemplate(_) | JobOrigin::Prebuilt => extended_job.get_origin().clone(),
             JobOrigin::SetCustomMiningJob(_) => return Err(StandardJobError::InvalidJobOrigin),
         };
 

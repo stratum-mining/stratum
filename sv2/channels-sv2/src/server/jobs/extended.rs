@@ -9,7 +9,7 @@ use mining_sv2::{NewExtendedMiningJobOwned, SetCustomMiningJobOwned};
 use template_distribution_sv2::NewTemplateOwned;
 
 /// Abstraction of an extended mining job with:
-/// - the `NewTemplate` OR `SetCustomMiningJob` message that originated it
+/// - the [`JobOrigin`] it was built from
 /// - the extranonce prefix associated with the channel at the time of job creation
 /// - all coinbase outputs (spendable + unspendable) associated with the job
 /// - the `NewExtendedMiningJob` message to be sent across the wire
@@ -22,6 +22,10 @@ use template_distribution_sv2::NewTemplateOwned;
 /// `NewExtendedMiningJob` message to be sent across the wire DO NOT contain bip141 data.
 /// That makes it easy to calculate the coinbase `txid` (instead of `wtxid`) for merkle root
 /// calculation.
+///
+/// A [`PrebuiltJob`](super::PrebuiltJob) is the exception: the crate did not build its
+/// coinbase, so both are its bytes as given, see
+/// [`from_prebuilt_job`](Self::from_prebuilt_job).
 #[derive(Debug, Clone)]
 pub struct ExtendedJob {
     origin: JobOrigin,
@@ -98,12 +102,34 @@ impl ExtendedJob {
         }
     }
 
+    /// Creates a new extended job from a [`PrebuiltJob`](super::PrebuiltJob).
+    ///
+    /// `job_message` carries the prebuilt bytes as given. They are also what the coinbase
+    /// of a found block is assembled from, so
+    /// [`get_coinbase_tx_prefix_with_bip141`](Self::get_coinbase_tx_prefix_with_bip141) and
+    /// [`get_coinbase_tx_suffix_with_bip141`](Self::get_coinbase_tx_suffix_with_bip141) return
+    /// them unchanged: the crate adds no BIP141 data to bytes it did not build. The coinbase
+    /// outputs are left empty, as the bytes are not parsed.
+    pub fn from_prebuilt_job(
+        extranonce_prefix: Vec<u8>,
+        job_message: NewExtendedMiningJobOwned,
+    ) -> Self {
+        Self {
+            origin: JobOrigin::Prebuilt,
+            extranonce_prefix,
+            coinbase_outputs: vec![],
+            coinbase_tx_prefix_with_bip141: job_message.coinbase_tx_prefix.to_owned_bytes(),
+            coinbase_tx_suffix_with_bip141: job_message.coinbase_tx_suffix.to_owned_bytes(),
+            job_message,
+        }
+    }
+
     /// Returns the job ID for this job.
     pub fn get_job_id(&self) -> u32 {
         self.job_message.job_id
     }
 
-    /// Returns the origin message for this job (template or custom job).
+    /// Returns the origin of this job.
     pub fn get_origin(&self) -> &JobOrigin {
         &self.origin
     }
@@ -129,7 +155,8 @@ impl ExtendedJob {
     pub fn get_extranonce_prefix(&self) -> &[u8] {
         &self.extranonce_prefix
     }
-    /// Returns all coinbase outputs for this job.
+    /// Returns all coinbase outputs for this job. Empty for a prebuilt job, whose bytes are not
+    /// parsed.
     pub fn get_coinbase_outputs(&self) -> &[TxOut] {
         &self.coinbase_outputs
     }
@@ -154,10 +181,15 @@ impl ExtendedJob {
         self.job_message.version_rolling_allowed
     }
 
+    /// Returns the coinbase bytes before the extranonce from which the coinbase of a found block
+    /// is assembled: with BIP141 data for a job the crate built, the prebuilt bytes as given
+    /// otherwise (see [`from_prebuilt_job`](Self::from_prebuilt_job)).
     pub fn get_coinbase_tx_prefix_with_bip141(&self) -> Vec<u8> {
         self.coinbase_tx_prefix_with_bip141.clone()
     }
 
+    /// Returns the coinbase bytes after the extranonce, see
+    /// [`get_coinbase_tx_prefix_with_bip141`](Self::get_coinbase_tx_prefix_with_bip141).
     pub fn get_coinbase_tx_suffix_with_bip141(&self) -> Vec<u8> {
         self.coinbase_tx_suffix_with_bip141.clone()
     }
