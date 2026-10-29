@@ -1107,23 +1107,11 @@ impl ExtendedChannel {
             coinbase.extend(full_extranonce.clone());
             coinbase.extend(job.get_coinbase_tx_suffix_with_bip141());
 
-            match job.get_origin() {
-                JobOrigin::NewTemplate(template) => {
-                    let template_id = template.template_id;
-                    return Ok(ShareValidationResult::BlockFound(
-                        share_hash.to_raw_hash(),
-                        Some(template_id),
-                        coinbase,
-                    ));
-                }
-                JobOrigin::SetCustomMiningJob(_set_custom_mining_job) => {
-                    return Ok(ShareValidationResult::BlockFound(
-                        share_hash.to_raw_hash(),
-                        None,
-                        coinbase,
-                    ));
-                }
-            }
+            return Ok(ShareValidationResult::BlockFound(
+                share_hash.to_raw_hash(),
+                job.get_origin().template_id(),
+                coinbase,
+            ));
         }
 
         // check if the share hash meets the job target

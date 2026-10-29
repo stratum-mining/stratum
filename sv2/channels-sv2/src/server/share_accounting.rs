@@ -65,8 +65,6 @@ pub enum ShareValidationError {
     DuplicateShare(&'static str),
     /// The share extranonce size is different from the channel's rollable extranonce size.
     BadExtranonceSize(&'static str),
-    /// The coinbase transaction was invalid or malformed.
-    InvalidCoinbase,
     /// No chain tip is set for the channel (required for share validation).
     NoChainTip,
     /// The accepted-share dedup cache is full (see [`crate::seen_shares_budget`]).

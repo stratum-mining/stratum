@@ -27,10 +27,22 @@ pub mod standard;
 use mining_sv2::SetCustomMiningJobOwned;
 use template_distribution_sv2::NewTemplateOwned;
 
+/// The message a server job was built from.
 #[derive(Clone, Debug, PartialEq)]
 pub enum JobOrigin {
     NewTemplate(NewTemplateOwned),
     SetCustomMiningJob(SetCustomMiningJobOwned),
+}
+
+impl JobOrigin {
+    /// Returns the `template_id` of the template the job was built from, if it was built from
+    /// one.
+    pub fn template_id(&self) -> Option<u64> {
+        match self {
+            JobOrigin::NewTemplate(template) => Some(template.template_id),
+            JobOrigin::SetCustomMiningJob(_) => None,
+        }
+    }
 }
 
 /// Trait for mining job types in SV2 mining servers.

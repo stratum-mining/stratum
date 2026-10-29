@@ -278,6 +278,8 @@ impl JobFactory {
             template,
             extranonce_prefix,
             additional_coinbase_outputs,
+            coinbase_tx_prefix,
+            coinbase_tx_suffix,
             job_message,
         )
         .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?;

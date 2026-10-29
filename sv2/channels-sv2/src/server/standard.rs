@@ -50,15 +50,10 @@ use crate::{
     MAX_EXTRANONCE_LEN, MAX_FUTURE_BLOCK_TIME, VERSION_ROLLING_MASK,
 };
 use bitcoin::{
-    absolute::LockTime,
-    blockdata::{
-        block::{Header, Version},
-        witness::Witness,
-    },
-    consensus::Encodable,
+    blockdata::block::{Header, Version},
     hashes::sha256d::Hash,
-    transaction::{OutPoint, Transaction, TxIn, TxOut, Version as TxVersion},
-    CompactTarget, Sequence, Target,
+    transaction::TxOut,
+    CompactTarget, Target,
 };
 use mining_sv2::{
     SubmitSharesStandardOwned, ERROR_CODE_OPEN_MINING_CHANNEL_INVALID_NOMINAL_HASHRATE,
@@ -642,7 +637,7 @@ impl StandardChannel {
         match standard_job.is_future() {
             true => {
                 self.job_store
-                    .add_future_job(Some(standard_job.get_template().template_id), standard_job);
+                    .add_future_job(standard_job.get_origin().template_id(), standard_job);
             }
             false => {
                 // the job is mined against this channel's chain tip, whose ntime_start is the
@@ -931,41 +926,17 @@ impl StandardChannel {
             self.share_accounting.increment_blocks_found();
             self.share_accounting.mark_batch_acknowledged();
 
-            let op_pushbytes_pool_miner_tag = self
-                .job_factory
-                .op_pushbytes_pool_miner_tag()
-                .map_err(|_| ShareValidationError::InvalidCoinbase)?;
-
-            let mut script_sig = job.get_template().coinbase_prefix.to_owned_bytes();
-            script_sig.extend(op_pushbytes_pool_miner_tag);
-            // the opcode must describe the job's extranonce prefix, not the channel's current one:
-            // `set_extranonce_prefix` may have rotated to a different length since this job was
-            // created, and the job's `merkle_root` is committed to the job's prefix
-            script_sig.push(job.get_extranonce_prefix().len() as u8); // OP_PUSHBYTES_X (for the extranonce)
-            script_sig.extend(job.get_extranonce_prefix());
-
-            let tx_in = TxIn {
-                previous_output: OutPoint::null(),
-                script_sig: script_sig.into(),
-                sequence: Sequence(job.get_template().coinbase_tx_input_sequence),
-                witness: Witness::from(vec![vec![0; 32]]),
-            };
-
-            let coinbase = Transaction {
-                version: TxVersion::non_standard(job.get_template().coinbase_tx_version as i32),
-                lock_time: LockTime::from_consensus(job.get_template().coinbase_tx_locktime),
-                input: vec![tx_in],
-                output: job.get_coinbase_outputs().to_vec(),
-            };
-            let mut serialized_coinbase = Vec::new();
-            coinbase
-                .consensus_encode(&mut serialized_coinbase)
-                .map_err(|_| ShareValidationError::InvalidCoinbase)?;
+            // the job's prefix, not the channel's current one: `set_extranonce_prefix` may have
+            // rotated it since this job was created, and the job's `merkle_root` is committed to
+            // the job's prefix
+            let mut coinbase = job.get_coinbase_tx_prefix().to_vec();
+            coinbase.extend_from_slice(job.get_extranonce_prefix());
+            coinbase.extend_from_slice(job.get_coinbase_tx_suffix());
 
             return Ok(ShareValidationResult::BlockFound(
                 share_hash.to_raw_hash(),
-                Some(job.get_template().template_id),
-                serialized_coinbase,
+                job.get_origin().template_id(),
+                coinbase,
             ));
         }
 
@@ -1606,6 +1577,8 @@ mod tests {
         };
 
         let coinbase: Transaction = deserialize(&serialized_coinbase).unwrap();
+        // the witness reserved value the block's witness commitment depends on
+        assert_eq!(coinbase.input[0].witness.to_vec(), vec![vec![0u8; 32]]);
 
         // merkle_path is empty in this template, so the merkle root IS the coinbase txid
         let coinbase_txid: [u8; 32] = *coinbase.compute_txid().as_ref();
@@ -1726,6 +1699,8 @@ mod tests {
         };
 
         let coinbase: Transaction = deserialize(&serialized_coinbase).unwrap();
+        // the witness reserved value the block's witness commitment depends on
+        assert_eq!(coinbase.input[0].witness.to_vec(), vec![vec![0u8; 32]]);
         assert_eq!(coinbase.output, group_job_coinbase_outputs);
 
         // merkle_path is empty in this template, so the merkle root IS the coinbase txid
