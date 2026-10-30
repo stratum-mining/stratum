@@ -38,6 +38,14 @@ pub const VERSION_ROLLING_MASK: u32 = 0x1fffffe0;
 /// edge.
 pub const MAX_FUTURE_BLOCK_TIME: u32 = 2 * 60 * 60;
 
+/// Maximum size, in bytes, of a coinbase transaction `scriptSig`, as mandated by Bitcoin
+/// consensus rules.
+///
+/// It also keeps the `scriptSig` length prefix at one byte: CompactSize only switches from a
+/// 1-byte to a 3-byte encoding at 253, so the coinbase prefix/suffix split indexes can count the
+/// length prefix as a single byte.
+pub const MAX_SCRIPT_SIG_SIZE: usize = 100;
+
 /// Worst-case chain-tip lifetime, in minutes, assumed when bounding the accepted-share dedup
 /// cache (`seen_shares`).
 ///
