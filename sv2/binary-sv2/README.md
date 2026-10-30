@@ -34,6 +34,10 @@ The crate supports the following mappings between Rust and SV2 types
 comes from the frame header, so it is handled by the framing layer (`framing-sv2`) rather than by
 this crate.
 
+`F32` values are decoded without validation so applications can inspect protocol violations.
+Serialization rejects NaN, ±Infinity, and negative values (including `-0.0`) with
+`Error::InvalidF32`.
+
 
 ## Features
 
