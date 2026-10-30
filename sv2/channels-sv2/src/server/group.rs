@@ -80,6 +80,9 @@ impl GroupChannel {
     /// `version_rolling_allowed` is the version-rolling policy the group's jobs advertise; it must
     /// be the policy of the extended channels the jobs are imported into, which refuse a looser
     /// one (see [`ExtendedChannel::on_group_channel_job`](super::extended::ExtendedChannel::on_group_channel_job)).
+    /// This policy binds extended channels importing the group's jobs; standard channels in the
+    /// group always allow rolling within the general-purpose version mask, even when this
+    /// parameter is `false`.
     ///
     /// For non-JD jobs, `pool_tag_string` is added to the coinbase scriptSig as
     /// `Sv2/pool_tag_string//`.
@@ -114,6 +117,9 @@ impl GroupChannel {
     /// `version_rolling_allowed` is the version-rolling policy the group's jobs advertise; it must
     /// be the policy of the extended channels the jobs are imported into, which refuse a looser
     /// one (see [`ExtendedChannel::on_group_channel_job`](super::extended::ExtendedChannel::on_group_channel_job)).
+    /// This policy binds extended channels importing the group's jobs; standard channels in the
+    /// group always allow rolling within the general-purpose version mask, even when this
+    /// parameter is `false`.
     ///
     /// The `pool_tag_string` and `miner_tag_string` are added to the coinbase scriptSig as
     /// `Sv2/pool_tag_string/miner_tag_string/`.

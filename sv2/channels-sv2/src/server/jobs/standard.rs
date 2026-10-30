@@ -93,6 +93,11 @@ impl StandardJob {
     /// extended job's coinbase prefix and suffix around `extranonce_prefix`, and it carries the
     /// extended job's coinbase outputs as they are.
     ///
+    /// The extended job's `version_rolling_allowed` is dropped by design:
+    /// [`NewMiningJob`](mining_sv2::NewMiningJob) has no such flag, and standard jobs always allow
+    /// rolling within the general-purpose version mask. A group job's `false` cannot restrict
+    /// rolling on standard channels.
+    ///
     /// Group channel jobs always originate from a `NewTemplate`, which is also what a
     /// [`StandardJob`] is anchored to (its block-found coinbase and `template_id` are read from
     /// it). An extended job originating from `SetCustomMiningJob` belongs to a single extended
