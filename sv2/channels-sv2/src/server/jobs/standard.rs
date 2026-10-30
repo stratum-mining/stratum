@@ -5,10 +5,12 @@
 //!
 //! ## Responsibilities
 //!
-//! - **Origin Tracking**: Captures the originating `NewTemplate` message and extranonce prefix at
-//!   creation time.
+//! - **Origin Tracking**: Captures the originating message and extranonce prefix at creation
+//!   time.
 //! - **Coinbase Outputs Management**: Combines spendable and unspendable coinbase outputs from the
 //!   template and additional outputs.
+//! - **Found-block Coinbase**: Stores the coinbase bytes around the extranonce prefix, from which
+//!   the coinbase of a found block is assembled.
 //! - **Wire-format Message**: Stores the protocol wire-format `NewMiningJob` message for downstream
 //!   communication.
 //! - **Lifecycle Management**: Supports activation and state transitions of jobs, including
@@ -30,15 +32,24 @@ use mining_sv2::NewMiningJobOwned;
 use template_distribution_sv2::NewTemplateOwned;
 
 /// Abstraction of a standard mining job with:
-/// - the `NewTemplate` message that originated it
+/// - the message that originated it
 /// - the extranonce prefix associated with the channel at the time of job creation
 /// - all coinbase outputs (spendable + unspendable) associated with the job
+/// - the coinbase bytes before and after the extranonce prefix, from which the coinbase of a
+///   found block is assembled: `coinbase_tx_prefix || extranonce_prefix || coinbase_tx_suffix`
 /// - the `NewMiningJob` message to be sent across the wire
+///
+/// For a job built from a template, the coinbase bytes are the serialized coinbase the job
+/// factory assembled, split at the extranonce, so they carry the BIP141 data (marker, flag and
+/// witness) a found block needs. For a [`PrebuiltJob`](super::PrebuiltJob), they are the bytes
+/// handed over, as given.
 #[derive(Debug, Clone)]
 pub struct StandardJob {
-    template: NewTemplateOwned,
+    origin: JobOrigin,
     extranonce_prefix: Vec<u8>,
     coinbase_outputs: Vec<TxOut>,
+    coinbase_tx_prefix: Vec<u8>,
+    coinbase_tx_suffix: Vec<u8>,
     job_message: NewMiningJobOwned,
 }
 
@@ -63,11 +74,15 @@ impl StandardJob {
     /// Creates a new standard job from a template.
     ///
     /// Combines coinbase outputs from the template and any additional outputs.
+    /// `coinbase_tx_prefix` and `coinbase_tx_suffix` are the serialized coinbase, split at the
+    /// extranonce prefix.
     /// Returns an error if coinbase outputs cannot be deserialized.
     pub fn from_template(
         template: NewTemplateOwned,
         extranonce_prefix: Vec<u8>,
         additional_coinbase_outputs: Vec<TxOut>,
+        coinbase_tx_prefix: Vec<u8>,
+        coinbase_tx_suffix: Vec<u8>,
         job_message: NewMiningJobOwned,
     ) -> Result<Self, StandardJobError> {
         let template_coinbase_outputs = deserialize_template_outputs(
@@ -81,9 +96,11 @@ impl StandardJob {
         coinbase_outputs.extend(template_coinbase_outputs);
 
         Ok(Self {
-            template,
+            origin: JobOrigin::NewTemplate(template),
             extranonce_prefix,
             coinbase_outputs,
+            coinbase_tx_prefix,
+            coinbase_tx_suffix,
             job_message,
         })
     }
@@ -91,11 +108,13 @@ impl StandardJob {
     ///
     /// The standard job shares the extended job's coinbase: its merkle root is derived from the
     /// extended job's coinbase prefix and suffix around `extranonce_prefix`, and it carries the
-    /// extended job's coinbase outputs as they are.
+    /// extended job's coinbase outputs and found-block coinbase bytes as they are.
     ///
-    /// Group channel jobs always originate from a `NewTemplate`, which is also what a
-    /// [`StandardJob`] is anchored to (its block-found coinbase and `template_id` are read from
-    /// it). An extended job originating from `SetCustomMiningJob` belongs to a single extended
+    /// Also the way a standard channel builds its own job out of an
+    /// [`PrebuiltJob`](super::PrebuiltJob), so that the job served directly is the one a
+    /// group would broadcast for the same bytes.
+    ///
+    /// An extended job originating from `SetCustomMiningJob` belongs to a single extended
     /// channel, never to a group channel, so passing one here is refused with
     /// [`StandardJobError::InvalidJobOrigin`].
     pub(crate) fn from_group_extended_job(
@@ -103,8 +122,8 @@ impl StandardJob {
         channel_id: u32,
         extranonce_prefix: Vec<u8>,
     ) -> Result<Self, StandardJobError> {
-        let template = match extended_job.get_origin() {
-            JobOrigin::NewTemplate(template) => template,
+        let origin = match extended_job.get_origin() {
+            JobOrigin::NewTemplate(_) | JobOrigin::Prebuilt => extended_job.get_origin().clone(),
             JobOrigin::SetCustomMiningJob(_) => return Err(StandardJobError::InvalidJobOrigin),
         };
 
@@ -126,9 +145,11 @@ impl StandardJob {
         };
 
         Ok(Self {
-            template: template.clone(),
+            origin,
             extranonce_prefix,
             coinbase_outputs: extended_job.get_coinbase_outputs().to_vec(),
+            coinbase_tx_prefix: extended_job.get_coinbase_tx_prefix_with_bip141(),
+            coinbase_tx_suffix: extended_job.get_coinbase_tx_suffix_with_bip141(),
             job_message,
         })
     }
@@ -148,9 +169,17 @@ impl StandardJob {
     pub fn get_job_message(&self) -> &NewMiningJobOwned {
         &self.job_message
     }
-    /// Returns the originating `NewTemplate` message for this job.
-    pub fn get_template(&self) -> &NewTemplateOwned {
-        &self.template
+    /// Returns the origin message for this job.
+    pub fn get_origin(&self) -> &JobOrigin {
+        &self.origin
+    }
+    /// Returns the coinbase bytes before the extranonce prefix, see [`StandardJob`].
+    pub fn get_coinbase_tx_prefix(&self) -> &[u8] {
+        &self.coinbase_tx_prefix
+    }
+    /// Returns the coinbase bytes after the extranonce prefix, see [`StandardJob`].
+    pub fn get_coinbase_tx_suffix(&self) -> &[u8] {
+        &self.coinbase_tx_suffix
     }
     /// Returns the merkle root for this job.
     pub fn get_merkle_root(&self) -> &U256Owned {

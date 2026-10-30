@@ -17,8 +17,9 @@
 //!   for dynamic addition and removal.
 //! - **Job Factory and Store**: Manages creation and storage of jobs (future and active) using the
 //!   job factory and job store abstractions.
-//! - **Job Lifecycle Management**: Stores jobs received from new templates, including:
-//!   - Future jobs (indexed by `template_id`)
+//! - **Job Lifecycle Management**: Stores jobs built from new templates or handed over
+//!   prebuilt (see [`PrebuiltJob`]), including:
+//!   - Future jobs (indexed by `job_id`, and by `template_id` when built from a template)
 //!   - Active job (currently being mined)
 //! - **Chain Tip Management**: Tracks the latest known chain tip (block height, previous hash,
 //!   timestamp, and target) for constructing headers and activating jobs.
@@ -38,6 +39,7 @@ use crate::{
             extended::ExtendedJob,
             factory::JobFactory,
             job_store::{JobStore, MAX_PAST_JOBS},
+            PrebuiltJob,
         },
     },
 };
@@ -52,8 +54,8 @@ use tracing::warn;
 /// - the group channel's unique `group_channel_id`
 /// - the group channel's `channels` (indexed by `channel_id`)
 /// - the group channel's job factory
-/// - the group channel's future jobs (indexed by `template_id`, to be activated upon receipt of a
-///   `SetNewPrevHash` message)
+/// - the group channel's future jobs (indexed by `job_id`, and by `template_id` when built from
+///   a template; activated by `on_set_new_prev_hash` or `activate_future_job`)
 /// - the group channel's active job
 /// - the group channel's chain tip
 /// - the group channel's full extranonce size
@@ -306,7 +308,8 @@ impl GroupChannel {
                         self.full_extranonce_size,
                     )
                     .map_err(GroupChannelError::JobFactoryError)?;
-                self.job_store.add_future_job(template.template_id, new_job);
+                self.job_store
+                    .add_future_job(Some(template.template_id), new_job);
             }
             false => {
                 match self.chain_tip.clone() {
@@ -335,11 +338,90 @@ impl GroupChannel {
         Ok(())
     }
 
+    /// Stores a [`PrebuiltJob`].
+    ///
+    /// The job is broadcast to the group as the `NewExtendedMiningJob` (§5.3.16) carrying the
+    /// given bytes, with the group's version-rolling policy and no extranonce prefix (the member
+    /// channels set theirs when they import it through their `on_group_channel_job`). With
+    /// `future` set, the job is kept for activation by
+    /// [`activate_future_job`](Self::activate_future_job); otherwise it requires the chain tip,
+    /// is active under it and replaces the active job, which is dropped since group channels
+    /// never validate shares.
+    ///
+    /// Returns the job ID, which identifies the job to the miners and to
+    /// [`activate_future_job`](Self::activate_future_job);
+    /// [`GroupChannelError::ChainTipNotSet`] for an active job without a chain tip; and
+    /// [`GroupChannelError::JobFactoryError`] wrapping
+    /// [`JobFactoryError::InvalidPrebuiltCoinbase`](crate::server::jobs::error::JobFactoryError::InvalidPrebuiltCoinbase)
+    /// if the bytes around the group's extranonce slot do not deserialize as a coinbase
+    /// transaction. The group channel is left unchanged in both error cases.
+    pub fn on_prebuilt_job(
+        &mut self,
+        job: PrebuiltJob,
+        future: bool,
+    ) -> Result<u32, GroupChannelError> {
+        let chain_tip = match future {
+            true => None,
+            false => Some(
+                self.chain_tip
+                    .clone()
+                    .ok_or(GroupChannelError::ChainTipNotSet)?,
+            ),
+        };
+        let new_job = self
+            .job_factory
+            .new_extended_job_from_prebuilt_job(
+                self.group_channel_id,
+                chain_tip,
+                vec![], /* empty extranonce prefix, as it will be replaced by the channel's
+                         * extranonce prefix */
+                job,
+                self.full_extranonce_size,
+            )
+            .map_err(GroupChannelError::JobFactoryError)?;
+        let job_id = new_job.get_job_id();
+        match new_job.is_future() {
+            true => {
+                self.job_store.add_future_job(None, new_job);
+            }
+            // group channels never validate shares, so the replaced active job is dropped
+            // instead of being retained as a past job
+            false => self.job_store.replace_active_job(new_job),
+        }
+        Ok(job_id)
+    }
+
+    /// Activates the future job `job_id` under `chain_tip`, the way
+    /// [`on_set_new_prev_hash`](Self::on_set_new_prev_hash) activates the job of a template: the
+    /// group's `SetNewPrevHash` (§5.3.17) names the job by `job_id` and carries the tip. For a
+    /// [`PrebuiltJob`] this is the only way to activate
+    /// it, as no Template Distribution message refers to it.
+    ///
+    /// The previously active job and the other future jobs are dropped, since group channels
+    /// never validate shares, and the chain tip is updated. Returns
+    /// [`GroupChannelError::JobIdNotFound`] if no future job carries `job_id`, leaving the group
+    /// channel unchanged.
+    pub fn activate_future_job(
+        &mut self,
+        job_id: u32,
+        chain_tip: ChainTip,
+    ) -> Result<(), GroupChannelError> {
+        if !self
+            .job_store
+            .activate_future_job_replacing_active(job_id, chain_tip.ntime_start())
+        {
+            return Err(GroupChannelError::JobIdNotFound);
+        }
+        self.chain_tip = Some(chain_tip);
+        Ok(())
+    }
+
     /// Updates the group channel state with a new [`SetNewPrevHash`](SetNewPrevHashTdp) message
     /// (Template Distribution Protocol variant).
     ///
     /// If there is a future job matching the `template_id` specified in `SetNewPrevHash`,
-    /// this future job is "activated" and set as the active job. The previously active job is
+    /// this future job is "activated" and set as the active job, see
+    /// [`activate_future_job`](Self::activate_future_job). The previously active job is
     /// dropped: group channels never validate shares, so no past or stale job history is kept.
     ///
     /// If no future jobs are queued, the peer is not conforming to the Template Distribution
@@ -355,37 +437,27 @@ impl GroupChannel {
         &mut self,
         set_new_prev_hash: SetNewPrevHashTdp,
     ) -> Result<(), GroupChannelError> {
-        match self.job_store.has_future_jobs() {
-            false => {
-                // a chain-tip update with no queued future template means the peer broke
-                // the protocol, but the tip itself is still usable, so recover instead of
-                // wedging the channel. the active job committed to the previous chain tip,
-                // and group channels never validate shares against stored jobs, so it is
-                // dropped outright rather than retired to stale.
-                warn!(
-                    "SetNewPrevHash with no queued future template: non-conforming Template \
-                     Distribution peer, recovering the chain tip"
-                );
-                self.job_store.clear_active_job();
-            }
-            true => {
-                // activation is a no-op when no future job matches the template id, so the
-                // chain tip must only advance once we know a job was actually activated.
-                // group channels never validate shares, so the displaced active job is
-                // dropped instead of being retired into past/stale history
-                if !self.job_store.activate_future_job_replacing_active(
-                    set_new_prev_hash.template_id,
-                    set_new_prev_hash.ntime_start,
-                ) {
-                    return Err(GroupChannelError::TemplateIdNotFound);
-                }
-            }
+        if !self.job_store.has_future_jobs() {
+            // a chain-tip update with no queued future template means the peer broke
+            // the protocol, but the tip itself is still usable, so recover instead of
+            // wedging the channel. the active job committed to the previous chain tip,
+            // and group channels never validate shares against stored jobs, so it is
+            // dropped outright rather than retired to stale.
+            warn!(
+                "SetNewPrevHash with no queued future template: non-conforming Template \
+                 Distribution peer, recovering the chain tip"
+            );
+            self.job_store.clear_active_job();
+            self.chain_tip = Some(set_new_prev_hash.into());
+            return Ok(());
         }
 
-        // update the chain tip
-        self.chain_tip = Some(set_new_prev_hash.into());
-
-        Ok(())
+        // the chain tip must only advance once we know a job was actually activated
+        let job_id = self
+            .job_store
+            .get_future_job_id_from_template_id(set_new_prev_hash.template_id)
+            .ok_or(GroupChannelError::TemplateIdNotFound)?;
+        self.activate_future_job(job_id, set_new_prev_hash.into())
     }
 }
 
@@ -400,6 +472,7 @@ mod tests {
                 error::JobFactoryError,
                 factory::{MAX_COINBASE_PREFIX_SIZE, MAX_SCRIPT_SIG_SIZE},
                 job_store::MAX_FUTURE_JOBS,
+                JobOrigin, PrebuiltJob,
             },
         },
     };
@@ -1161,5 +1234,123 @@ mod tests {
                 .get_job_message()
                 .version_rolling_allowed
         );
+    }
+
+    /// The bytes of a prebuilt job: here the `NewExtendedMiningJob` a group channel
+    /// built from the template of `test_future_job_activation_flow` with a 32-byte extranonce
+    /// slot (`Sv2///` tag included), so that the pre-mined shares of the template tests apply.
+    fn prebuilt_job() -> PrebuiltJob {
+        PrebuiltJob {
+            version: 536870912,
+            coinbase_tx_prefix: vec![
+                2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 42, 82, 0, 6, 83, 118, 50, 47, 47,
+                47, 32,
+            ]
+            .try_into()
+            .unwrap(),
+            coinbase_tx_suffix: vec![
+                255, 255, 255, 255, 2, 0, 242, 5, 42, 1, 0, 0, 0, 22, 0, 20, 235, 225, 183, 220,
+                194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 0, 0, 0,
+                0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209, 222,
+                253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180, 139,
+                235, 216, 54, 151, 78, 140, 249, 0, 0, 0, 0,
+            ]
+            .try_into()
+            .unwrap(),
+            merkle_path: vec![].try_into().unwrap(),
+        }
+    }
+
+    // network target: 7fffff0000000000000000000000000000000000000000000000000000000000
+    fn prebuilt_job_chain_tip() -> ChainTip {
+        let prev_hash = [
+            251, 175, 106, 40, 35, 87, 122, 90, 58, 51, 78, 32, 202, 236, 228, 36, 154, 174, 206,
+            144, 147, 195, 21, 224, 195, 103, 214, 189, 51, 190, 24, 98,
+        ]
+        .into();
+        ChainTip::new(prev_hash, 545259519, 1745596910)
+    }
+
+    #[test]
+    fn test_prebuilt_job_future_activation_flow() {
+        let mut group_channel = GroupChannel::new(1, 32, true, None, None).unwrap();
+
+        // an active job needs a chain tip the group does not have yet
+        assert!(matches!(
+            group_channel.on_prebuilt_job(prebuilt_job(), false),
+            Err(GroupChannelError::ChainTipNotSet)
+        ));
+
+        let job_id = group_channel.on_prebuilt_job(prebuilt_job(), true).unwrap();
+        assert!(group_channel.get_active_job().is_none());
+
+        // the bytes are broadcast as given, with the group's version-rolling policy and no
+        // extranonce prefix, and nothing is parsed out of them
+        let future_job = group_channel.get_future_job(job_id).unwrap();
+        let job = prebuilt_job();
+        assert_eq!(
+            future_job.get_job_message(),
+            &NewExtendedMiningJob {
+                channel_id: 1,
+                job_id,
+                ntime_start: Sv2Option::new(None),
+                version: job.version,
+                version_rolling_allowed: true,
+                coinbase_tx_prefix: job.coinbase_tx_prefix,
+                coinbase_tx_suffix: job.coinbase_tx_suffix,
+                merkle_path: job.merkle_path,
+            }
+        );
+        assert!(future_job.get_extranonce_prefix().is_empty());
+        assert!(future_job.get_coinbase_outputs().is_empty());
+        assert_eq!(future_job.get_origin(), &JobOrigin::Prebuilt);
+
+        // an unknown job id activates nothing and leaves the group untouched
+        let chain_tip = prebuilt_job_chain_tip();
+        assert!(matches!(
+            group_channel.activate_future_job(job_id + 1, chain_tip.clone()),
+            Err(GroupChannelError::JobIdNotFound)
+        ));
+        assert!(group_channel.get_chain_tip().is_none());
+        assert!(group_channel.get_future_job(job_id).is_some());
+
+        group_channel
+            .activate_future_job(job_id, chain_tip.clone())
+            .unwrap();
+        assert_eq!(group_channel.get_chain_tip(), Some(&chain_tip));
+        assert!(group_channel.get_future_job(job_id).is_none());
+        let active_job = group_channel.get_active_job().unwrap();
+        assert_eq!(active_job.get_job_id(), job_id);
+        assert_eq!(active_job.get_ntime_start(), Some(chain_tip.ntime_start()));
+
+        // the same bytes under the current tip (a target change) replace the active job
+        let next_job_id = group_channel
+            .on_prebuilt_job(prebuilt_job(), false)
+            .unwrap();
+        assert_ne!(next_job_id, job_id);
+        let active_job = group_channel.get_active_job().unwrap();
+        assert_eq!(active_job.get_job_id(), next_job_id);
+        assert_eq!(active_job.get_ntime_start(), Some(chain_tip.ntime_start()));
+    }
+
+    #[test]
+    fn test_prebuilt_job_that_is_not_a_coinbase_is_refused() {
+        // the member channels compute merkle roots from the bytes around the group's extranonce
+        // slot, so bytes that do not deserialize as a coinbase transaction are refused before
+        // they are broadcast
+        let mut group_channel = GroupChannel::new(1, 32, true, None, None).unwrap();
+        let job = PrebuiltJob {
+            coinbase_tx_prefix: vec![1, 2, 3].try_into().unwrap(),
+            coinbase_tx_suffix: vec![4, 5].try_into().unwrap(),
+            ..prebuilt_job()
+        };
+        assert!(matches!(
+            group_channel.on_prebuilt_job(job, true),
+            Err(GroupChannelError::JobFactoryError(
+                JobFactoryError::InvalidPrebuiltCoinbase
+            ))
+        ));
+        assert!(group_channel.get_future_job(1).is_none());
     }
 }

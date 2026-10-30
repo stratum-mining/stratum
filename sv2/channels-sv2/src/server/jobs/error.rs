@@ -33,4 +33,7 @@ pub enum JobFactoryError {
     /// The assembled coinbase `scriptSig` would exceed the size mandated by Bitcoin consensus
     /// rules (see `MAX_SCRIPT_SIG_SIZE`).
     ScriptSigSizeTooLarge,
+    /// The bytes of a [`PrebuiltJob`](super::PrebuiltJob) around a zero-filled extranonce slot
+    /// do not deserialize as a coinbase transaction, so no merkle root can be computed from them.
+    InvalidPrebuiltCoinbase,
 }
