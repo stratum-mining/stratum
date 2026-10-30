@@ -41,9 +41,9 @@ pub const MAX_FUTURE_BLOCK_TIME: u32 = 2 * 60 * 60;
 /// Worst-case chain-tip lifetime, in minutes, assumed when bounding the accepted-share dedup
 /// cache (`seen_shares`).
 ///
-/// `seen_shares` only needs to hold shares for the lifetime of one chain tip (it is flushed
-/// whenever the tip's `prev_hash` changes), and 10 hours is far beyond any realistic block
-/// interval, so the resulting cap is unreachable by a well-behaved channel.
+/// The budget only needs to cover the shares accepted under one `prev_hash` (a server channel
+/// starts a new set whenever the tip's `prev_hash` changes), and 10 hours is far beyond any
+/// realistic block interval, so the resulting cap is unreachable by a well-behaved channel.
 pub const WORST_CASE_TIP_MINUTES: u64 = 600;
 
 /// Safety margin applied on top of the expected share rate when bounding the accepted-share
@@ -86,7 +86,10 @@ pub const MAX_SEEN_SHARES_CAP: usize = 1 << 20;
 /// Worst-case per-channel memory (measured, not payload-only: the backing `HashSet` rounds its
 /// capacity to a power of two at ~7/8 load and transiently doubles while rehashing): at the
 /// default-ish 6 shares/min the budget is 7 200 hashes ≈ 0.5 MB per channel; at 100 shares/min,
-/// 120 000 hashes ≈ 9 MB steady and ~15 MB peak through the last rehash. The result is clamped
+/// 120 000 hashes ≈ 9 MB steady and ~15 MB peak through the last rehash. These figures double
+/// when the set of the previous `prev_hash` is still kept aside, which a server channel does so
+/// that a tip returning to it keeps rejecting proofs already credited there (see
+/// `server::share_accounting::ShareAccounting::on_prev_hash_change`). The result is clamped
 /// into [[`MIN_SEEN_SHARES_CAP`], [`MAX_SEEN_SHARES_CAP`]] so that a degenerate expected rate
 /// can neither disable dedup nor unbound memory.
 ///
