@@ -86,7 +86,7 @@ impl<'a> TlvList<'a> {
     ///
     /// This method serializes an SV2 message and appends the TLV fields from this list,
     /// producing complete frame bytes ready for transmission. It automatically extracts
-    /// the message type and channel bit using the `IsSv2Message` trait.
+    /// the extension type, message type and channel bit using the `IsSv2Message` trait.
     ///
     /// The result can be converted to a `SerializedFrame` using
     /// `SerializedFrame::from_bytes()`.
@@ -103,8 +103,11 @@ impl<'a> TlvList<'a> {
     where
         T: Serialize + GetSize + crate::IsSv2Message,
     {
-        // Extract message metadata using IsSv2Message trait
-        let extension_type: u16 = (message.channel_bit() as u16) << 15;
+        // Extract message metadata using IsSv2Message trait. Bit 15 of the
+        // header's extension_type is the channel_msg flag, so it is taken from
+        // channel_bit() only and cleared from extension_type().
+        let extension_type =
+            (message.extension_type() & 0x7fff) | ((message.channel_bit() as u16) << 15);
         let message_type = message.message_type();
 
         // Serialize the base message
@@ -135,7 +138,28 @@ impl<'a> TlvList<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Extensions, ExtensionsNegotiation};
     use alloc::vec;
+    use binary_sv2::Seq064K;
+    use extensions_sv2::{RequestExtensions, EXTENSION_TYPE_EXTENSIONS_NEGOTIATION};
+
+    #[test]
+    fn test_build_frame_bytes_with_tlvs_preserves_extension_type() {
+        let message = Extensions::ExtensionsNegotiation(ExtensionsNegotiation::RequestExtensions(
+            RequestExtensions {
+                request_id: 0,
+                requested_extensions: Seq064K::new(vec![2]).unwrap(),
+            },
+        ));
+        let list = TlvList::from_bytes(&[] as &[u8]);
+
+        let frame = list.build_frame_bytes_with_tlvs(message).unwrap();
+
+        assert_eq!(
+            u16::from_le_bytes([frame[0], frame[1]]) & 0x7fff,
+            EXTENSION_TYPE_EXTENSIONS_NEGOTIATION
+        );
+    }
 
     #[test]
     fn test_tlv_list_from_bytes() {
