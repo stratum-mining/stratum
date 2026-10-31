@@ -38,11 +38,11 @@ In order to use this crate in a `#![no_std]` environment, use the `--no-default-
 
 This crate provides two examples demonstrating how to encode and decode Sv2 frames:
 
-1. **[Unencrypted Example](https://github.com/stratum-mining/stratum/blob/main/protocols/v2/codec-sv2/examples/unencrypted.rs)**:
+1. **[Unencrypted Example](https://github.com/stratum-mining/stratum/blob/main/sv2/codec-sv2/examples/unencrypted.rs)**:
    Encode and decode standard Sv2 frames, detailing the message serialization and transmission
    process for unencrypted communications.
 
-2. **[Encrypted Example](https://github.com/stratum-mining/stratum/blob/main/protocols/v2/codec-sv2/examples/encrypted.rs)**:
+2. **[Encrypted Example](https://github.com/stratum-mining/stratum/blob/main/sv2/codec-sv2/examples/encrypted.rs)**:
    Encode and decode Sv2 frames with Noise protocol encryption, detailing the entire encryption
    handshake and transport phase and serialization and transmission process for encrypted
    communications.
