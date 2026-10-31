@@ -254,7 +254,10 @@ impl ExtendedChannel {
         // otherwise exceed it is always valid.
         let target = target.min(max_target);
 
-        if extranonce_prefix.len() > MAX_EXTRANONCE_LEN as usize {
+        // the prefix alone is already capped by `ExtranoncePrefix`; what has to fit is the full
+        // extranonce, same as in `set_extranonce_prefix`
+        if extranonce_prefix.len() + rollable_extranonce_size as usize > MAX_EXTRANONCE_LEN as usize
+        {
             return Err(ExtendedChannelError::ExtranoncePrefixTooLarge);
         }
 
@@ -2150,10 +2153,18 @@ mod tests {
             ExtendedChannelError::ScriptSigSizeTooLarge
         ));
 
-        // one byte over the budget, via a longer extranonce prefix
+        // one byte over the budget, via a longer extranonce prefix. One extra tag byte makes the
+        // budget bind at a 31-byte full extranonce, below MAX_EXTRANONCE_LEN, so this hits the
+        // scriptSig check rather than the full-extranonce check.
+        let pool_tag_len = POOL_TAG_AT_SCRIPT_SIG_BUDGET + 1;
+        new_extended_channel_with_pool_tag(
+            pool_tag_len,
+            EXTRANONCE_PREFIX_LEN_AT_SCRIPT_SIG_BUDGET - 1,
+        )
+        .unwrap();
         let channel = new_extended_channel_with_pool_tag(
-            POOL_TAG_AT_SCRIPT_SIG_BUDGET,
-            EXTRANONCE_PREFIX_LEN_AT_SCRIPT_SIG_BUDGET + 1,
+            pool_tag_len,
+            EXTRANONCE_PREFIX_LEN_AT_SCRIPT_SIG_BUDGET,
         );
         assert!(matches!(
             channel.unwrap_err(),
@@ -2234,6 +2245,34 @@ mod tests {
             Err(ExtendedChannelError::ExtranoncePrefixTooLarge)
         ));
         assert_eq!(channel.get_extranonce_prefix(), &largest_valid_prefix);
+    }
+
+    #[test]
+    fn test_new_rejects_prefix_and_rollable_over_max_extranonce_len() {
+        let new_channel = |prefix_len: usize, rollable_extranonce_size: u16| {
+            ExtendedChannel::new(
+                1,
+                "user_identity".to_string(),
+                AllocatedExtranoncePrefix::for_test(vec![0; prefix_len])
+                    .unwrap()
+                    .into(),
+                Target::from_le_bytes([0xff; 32]),
+                1.0,
+                true,
+                rollable_extranonce_size,
+                100,
+                1.0,
+                None,
+                None,
+                None,
+            )
+        };
+
+        assert!(matches!(
+            new_channel(16, 17),
+            Err(ExtendedChannelError::ExtranoncePrefixTooLarge)
+        ));
+        assert!(new_channel(16, 16).is_ok());
     }
 
     #[test]
