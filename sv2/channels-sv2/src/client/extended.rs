@@ -1004,6 +1004,7 @@ impl ExtendedChannel {
                 block_work,
             );
             self.share_accounting.increment_blocks_found();
+            self.share_accounting.update_best_diff(share_hash_as_diff);
             return Ok(ShareValidationResult::BlockFound(share_hash.to_raw_hash()));
         }
 
@@ -1758,6 +1759,8 @@ mod tests {
             channel.get_share_accounting().get_validated_work_sum(),
             target.difficulty_float()
         );
+        // a block is the best share the channel has seen
+        assert!(channel.get_share_accounting().get_best_diff() > 0.0);
 
         // re-submitting the same valid block must be rejected as duplicate
         let res = channel.validate_share(share_valid_block);
