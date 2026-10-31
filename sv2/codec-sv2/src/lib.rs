@@ -30,8 +30,8 @@
 //!
 //! See the examples for more information:
 //!
-//! - [Unencrypted Example](https://github.com/stratum-mining/stratum/blob/main/protocols/v2/codec-sv2/examples/unencrypted.rs)
-//! - [Encrypted Example](https://github.com/stratum-mining/stratum/blob/main/protocols/v2/codec-sv2/examples/encrypted.rs)
+//! - [Unencrypted Example](https://github.com/stratum-mining/stratum/blob/main/sv2/codec-sv2/examples/unencrypted.rs)
+//! - [Encrypted Example](https://github.com/stratum-mining/stratum/blob/main/sv2/codec-sv2/examples/encrypted.rs)
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
