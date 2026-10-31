@@ -990,6 +990,7 @@ impl StandardChannel {
                 share_hash.to_raw_hash(),
             );
             self.share_accounting.increment_blocks_found();
+            self.share_accounting.update_best_diff(share_hash_as_diff);
             self.share_accounting.mark_batch_acknowledged();
 
             // the job's prefix, not the channel's current one: `set_extranonce_prefix` may have
@@ -1412,6 +1413,8 @@ mod tests {
             standard_channel.get_share_accounting().get_blocks_found(),
             1
         );
+        // a block is the best share the channel has seen
+        assert!(standard_channel.get_share_accounting().get_best_diff() > 0.0);
 
         // re-submitting the same valid block must be rejected as duplicate
         let res = standard_channel.validate_share(share_valid_block);
