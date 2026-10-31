@@ -155,7 +155,7 @@ impl fmt::Display for NewExtendedMiningJob<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "NewExtendedMiningJob(channel_id: {}, job_id: {}, ntime_start: {}, version: 0x{:08x}, version_rolling_allowed: {}, merkle_path: {}, coinbase_tx_prefix: {}, coinbase_tx_suffix: {}",
+            "NewExtendedMiningJob(channel_id: {}, job_id: {}, ntime_start: {}, version: 0x{:08x}, version_rolling_allowed: {}, merkle_path: {}, coinbase_tx_prefix: {}, coinbase_tx_suffix: {})",
             self.channel_id,
             self.job_id,
             self.ntime_start,
