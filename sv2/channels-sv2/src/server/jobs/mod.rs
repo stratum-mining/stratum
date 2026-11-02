@@ -60,9 +60,9 @@ impl JobOrigin {
 /// and
 /// [`ExtendedChannel::on_prebuilt_job`](crate::server::extended::ExtendedChannel::on_prebuilt_job).
 ///
-/// The factory only adds what the message takes from the channel: the job id, the `ntime_start`
-/// and the version-rolling policy. Nothing is added to the bytes (no pool or miner tag), parsed
-/// out of them (no coinbase outputs) or reassembled:
+/// The factory only adds what the message takes from the channel: the job id and the
+/// version-rolling policy. Nothing is added to the bytes (no pool or miner tag), parsed out of
+/// them (no coinbase outputs) or reassembled:
 ///
 /// - The extranonce slot the bytes leave between prefix and suffix is taken to be the channel's
 ///   full extranonce size. The crate verifies it only as far as the bytes still deserialize as a
@@ -78,11 +78,17 @@ impl JobOrigin {
 ///   `coinbase_tx_prefix || extranonce || coinbase_tx_suffix`, so for a SegWit coinbase the
 ///   application restores the BIP141 fields it stripped.
 ///
-/// `on_prebuilt_job` serves it either as a future job (§5.1.3), with `ntime_start` unset, to be
-/// activated by the channel's `activate_future_job` with the chain tip it is for, or as a job
-/// active under the channel's current chain tip, with the tip's `ntime_start`.
+/// `ntime_start` is the message's own field, with its meaning (§5.3.16): unset, the job is a
+/// future job (§5.1.3) that the channel's `activate_future_job` activates with the `ntime_start`
+/// of the chain tip it is for; set, the job is active under the channel's current chain tip and
+/// its shares are bounded by the given `ntime_start`, which `on_prebuilt_job` refuses below the
+/// tip's.
 #[derive(Clone, Debug)]
 pub struct PrebuiltJob {
+    /// The nTime hashing starts at, see `NewExtendedMiningJob.ntime_start`: unset for a future
+    /// job, otherwise the job's own, usually the time the job was produced and no lower than the
+    /// chain tip's `ntime_start` (§5.3.16).
+    pub ntime_start: Option<u32>,
     /// Block header version, see `NewExtendedMiningJob.version`.
     pub version: u32,
     /// Coinbase bytes before the extranonce, see `NewExtendedMiningJob.coinbase_tx_prefix`.

@@ -567,9 +567,9 @@ impl JobFactory {
     /// Creates a new Extended Job from a [`PrebuiltJob`].
     ///
     /// The job's bytes and fields are carried into the `NewExtendedMiningJob` message as given,
-    /// with this factory's job ID and version-rolling policy. Without a `ChainTip` the job is a
-    /// future job, with `ntime_start` unset; with one it is active under it, with the tip's
-    /// `ntime_start`.
+    /// `ntime_start` included, with this factory's job ID and version-rolling policy. Without an
+    /// `ntime_start` the job is a future job; with one it is active, and the channel installing
+    /// it checks the value against its chain tip.
     ///
     /// Returns [`JobFactoryError::InvalidPrebuiltCoinbase`] if the bytes around a slot of
     /// `full_extranonce_size` zero bytes do not deserialize as a coinbase transaction: the job's
@@ -577,13 +577,10 @@ impl JobFactory {
     pub fn new_extended_job_from_prebuilt_job(
         &mut self,
         channel_id: u32,
-        chain_tip: Option<ChainTip>,
         extranonce_prefix: Vec<u8>,
         job: PrebuiltJob,
         full_extranonce_size: usize,
     ) -> Result<ExtendedJob, JobFactoryError> {
-        let ntime_start = chain_tip.map(|chain_tip| chain_tip.ntime_start());
-
         // the same deserialization share validation (extended) and job creation (standard) run
         // on the bytes, so bytes that cannot serve a job are refused before any channel state
         // is touched
@@ -601,7 +598,7 @@ impl JobFactory {
         let job_message = NewExtendedMiningJobOwned {
             channel_id,
             job_id: self.job_id_factory.next(),
-            ntime_start: Sv2OptionOwned::new(ntime_start),
+            ntime_start: Sv2OptionOwned::new(job.ntime_start),
             version: job.version,
             version_rolling_allowed: self.version_rolling_allowed,
             merkle_path: job.merkle_path,
@@ -1257,6 +1254,7 @@ mod tests {
         // the NewExtendedMiningJob a group channel built from the template of
         // test_new_pool_job with a 32-byte extranonce slot, handed over as given
         let job = PrebuiltJob {
+            ntime_start: Some(100),
             version: 536870912,
             coinbase_tx_prefix: vec![
                 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1284,17 +1282,16 @@ mod tests {
             ..job.clone()
         };
         assert!(matches!(
-            job_factory.new_extended_job_from_prebuilt_job(3, None, vec![0], junk, 32),
+            job_factory.new_extended_job_from_prebuilt_job(3, vec![0], junk, 32),
             Err(JobFactoryError::InvalidPrebuiltCoinbase)
         ));
 
-        let chain_tip = ChainTip::new([0; 32].into(), 1, 100);
         let extended_job = job_factory
-            .new_extended_job_from_prebuilt_job(3, Some(chain_tip), vec![0], job.clone(), 32)
+            .new_extended_job_from_prebuilt_job(3, vec![0], job.clone(), 32)
             .unwrap();
 
-        // the bytes are carried as given: no pool tag, no outputs, no BIP141 data; the
-        // factory contributes the job id, the tip's ntime_start and its version-rolling policy
+        // the bytes and ntime_start are carried as given: no pool tag, no outputs, no BIP141
+        // data; the factory contributes the job id and its version-rolling policy
         assert_eq!(
             extended_job.get_job_message(),
             &NewExtendedMiningJob {
@@ -1323,9 +1320,13 @@ mod tests {
         );
         assert_eq!(extended_job.get_extranonce_prefix(), &[0]);
 
-        // without a chain tip the job is a future one
+        // without an ntime_start the job is a future one
+        let job = PrebuiltJob {
+            ntime_start: None,
+            ..job
+        };
         let extended_job = job_factory
-            .new_extended_job_from_prebuilt_job(3, None, vec![], job, 32)
+            .new_extended_job_from_prebuilt_job(3, vec![], job, 32)
             .unwrap();
         assert_eq!(extended_job.get_job_id(), 2);
         assert!(extended_job.is_future());
