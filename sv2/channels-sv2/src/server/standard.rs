@@ -637,6 +637,11 @@ impl StandardChannel {
     /// We use this method to update the channel state, so it can validate share from the job that
     /// was broadcasted to the group channel.
     ///
+    /// The group's `version_rolling_allowed` is dropped by design: standard jobs always allow
+    /// rolling within the general-purpose version mask, as specified by
+    /// [`NewMiningJob`](mining_sv2::NewMiningJob). A group job's `false` cannot restrict rolling
+    /// on standard channels.
+    ///
     /// A non-future job is mined against this channel's chain tip, so an `ntime_start` below the
     /// tip's (the group channel built it under an older tip than this channel's) is refused with
     /// [`StandardChannelError::JobNtimeStartBelowChainTip`], leaving the channel unchanged.

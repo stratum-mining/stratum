@@ -82,6 +82,9 @@ pub struct ExtendedChannel {
     rollable_extranonce_size: u16,
     target: Target,
     nominal_hashrate: f32,
+    /// Version-rolling capability the channel was opened with, mirroring the
+    /// `REQUIRES_VERSION_ROLLING` setup flag. Share validation follows each job's
+    /// `version_rolling_allowed`; custom jobs declared through this channel advertise this value.
     version_rolling: bool,
     // future jobs are indexed with job_id (u32)
     future_jobs: HashMap<u32, ExtendedJob>,
@@ -108,6 +111,12 @@ pub struct ExtendedChannel {
 
 impl ExtendedChannel {
     /// Constructs a new [`ExtendedChannel`].
+    ///
+    /// `version_rolling` is the capability the channel was opened with (what the embedder
+    /// requires), mirroring the `REQUIRES_VERSION_ROLLING` setup flag. It does not prohibit
+    /// rolling on received jobs: [`validate_share`](Self::validate_share) enforces each job's
+    /// `version_rolling_allowed`. Custom jobs declared through this channel advertise
+    /// `version_rolling`, since `SetCustomMiningJob` carries no version-rolling flag.
     ///
     /// `max_past_jobs` caps the past jobs retained under the current chain tip. `None` and
     /// `Some(0)` both select [`MAX_PAST_JOBS`].
@@ -187,7 +196,11 @@ impl ExtendedChannel {
         self.extranonce_prefix.upstream_prefix_len()
     }
 
-    /// Returns `true` if the channel supports version rolling as per [BIP 323](https://github.com/bitcoin/bips/blob/master/bip-0323.mediawiki).
+    /// Returns the version-rolling capability the channel was opened with, mirroring the
+    /// `REQUIRES_VERSION_ROLLING` setup flag (what the embedder requires).
+    ///
+    /// Share validation enforces each job's `version_rolling_allowed`, independently of this
+    /// value. Custom jobs declared through this channel advertise this value.
     pub fn is_version_rolling(&self) -> bool {
         self.version_rolling
     }
@@ -420,6 +433,8 @@ impl ExtendedChannel {
     /// Handles a [`NewExtendedMiningJob`](mining_sv2::NewExtendedMiningJob) message received from upstream.
     ///
     /// The message could be either directed at this channel, or at a group channel it belongs to.
+    /// Its `version_rolling_allowed` is stored as advertised, without comparison to the channel's
+    /// capability; an embedder requiring rolling must handle a stricter job itself.
     ///
     /// - If [`NewExtendedMiningJob::ntime_start`](mining_sv2::NewExtendedMiningJob::ntime_start) is empty, the job is considered a future job and
     ///   added to the future jobs list (see [`get_future_jobs`](ExtendedChannel::get_future_jobs)).
