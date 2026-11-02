@@ -36,6 +36,8 @@ If you’re looking to run Sv2 applications at the most recent changes, check ou
 - `stratum-core/` - Entrypoint for all the low-level crates in `sv2/` and `sv1/`implementations
   - `stratum-translation` - Stratum V1 ↔ Stratum V2 translation utilities
 
+For a visual representation of the dependency hierarchy of the different Rust crates, see the [DEPENDENCIES.md](DEPENDENCIES.md) file.
+
 ## Local Integration Testing
 
 To run integration tests locally:
