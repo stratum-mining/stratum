@@ -406,9 +406,22 @@ impl StandardChannel {
 
     /// Returns the current target for this channel.
     ///
-    /// Please note that this is the current target for the channel. Jobs created before the current target are associated with previously set targets, for which shares will be validated against.
+    /// Please note that this is the current target for the channel. Jobs created before the current target are associated with previously set targets, for which shares will be validated against; see [`get_job_target`](Self::get_job_target).
     pub fn get_target(&self) -> &Target {
         &self.target
+    }
+
+    /// Returns the target [`validate_share`](Self::validate_share) checks shares on the job with
+    /// `job_id` against: `Some` exactly for the active job and the retained past jobs, `None`
+    /// otherwise (unknown job id, future job not yet activated, evicted from the past jobs, or
+    /// stale after a chain tip change).
+    ///
+    /// A job keeps the channel target it was created or activated with, so after
+    /// [`set_target`](Self::set_target) the active job and the retained past jobs may be worth
+    /// different targets. This is the target an accepted share must be credited at;
+    /// [`get_target`](Self::get_target) applies to jobs created or activated from now on.
+    pub fn get_job_target(&self, job_id: u32) -> Option<&Target> {
+        self.job_id_to_target.get(&job_id)
     }
 
     /// Returns the nominal hashrate for this channel.
@@ -3974,6 +3987,141 @@ mod tests {
             standard_channel.validate_share(share),
             Ok(ShareValidationResult::Valid(_))
         ));
+    }
+
+    #[test]
+    fn test_get_job_target_is_the_target_each_job_was_created_with() {
+        // A job keeps the channel target it was created with, so after a set_target the active
+        // job and the past jobs are worth different targets: the per-job getter must report the
+        // one validate_share checks against, and nothing for a job the channel dropped.
+        let standard_channel_id = 1;
+        let extranonce_prefix = [
+            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        ]
+        .to_vec();
+        let max_target = Target::from_le_bytes([0xff; 32]);
+        let mut standard_channel = StandardChannel::new(
+            standard_channel_id,
+            "user_identity".to_string(),
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
+            max_target,
+            1.0,
+            100,
+            1.0,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let template = |template_id: u64| NewTemplate {
+            template_id,
+            future_template: false,
+            version: 536870912,
+            coinbase_tx_version: 2,
+            coinbase_prefix: vec![2, 159, 0, 0].try_into().unwrap(),
+            coinbase_tx_input_sequence: 4294967294,
+            coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
+            coinbase_tx_outputs_count: 1,
+            coinbase_tx_outputs: vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
+                222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
+                139, 235, 216, 54, 151, 78, 140, 249,
+            ]
+            .try_into()
+            .unwrap(),
+            coinbase_tx_locktime: 158,
+            merkle_path: vec![].try_into().unwrap(),
+        };
+        let pubkey_hash = [
+            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
+            8, 252,
+        ];
+        let mut script_bytes = vec![0]; // SegWit version 0
+        script_bytes.push(20); // Push 20 bytes (length of pubkey hash)
+        script_bytes.extend_from_slice(&pubkey_hash);
+        let coinbase_reward_outputs = vec![TxOut {
+            value: Amount::from_sat(SATS_AVAILABLE_IN_TEMPLATE),
+            script_pubkey: ScriptBuf::from(script_bytes),
+        }];
+
+        // network target: 000000000000d7c0... (hard, so no accidental BlockFound)
+        let n_bits = 453040064;
+        let tip_ntime = 1745596910;
+        let prev_hash: binary_sv2::U256Owned = [
+            154, 124, 239, 231, 221, 122, 160, 173, 164, 175, 87, 33, 74, 214, 191, 107, 73, 34, 0,
+            162, 227, 16, 44, 40, 33, 73, 0, 0, 0, 0, 0, 0,
+        ]
+        .into();
+        standard_channel.set_chain_tip(ChainTip::new(prev_hash, n_bits, tip_ntime));
+
+        // job 1 is created at T1, the max target: any hash meets it
+        let t1 = max_target;
+        standard_channel.set_target(t1).unwrap();
+        standard_channel
+            .on_new_template(template(1), coinbase_reward_outputs.clone())
+            .unwrap();
+        assert_eq!(standard_channel.get_active_job().unwrap().get_job_id(), 1);
+
+        // job 2 is created at T2, a target of 1: no hash meets it
+        let mut t2_bytes = [0u8; 32];
+        t2_bytes[0] = 1;
+        let t2 = Target::from_le_bytes(t2_bytes);
+        standard_channel.set_target(t2).unwrap();
+        standard_channel
+            .on_new_template(template(2), coinbase_reward_outputs.clone())
+            .unwrap();
+        assert_eq!(standard_channel.get_active_job().unwrap().get_job_id(), 2);
+
+        assert_eq!(standard_channel.get_job_target(1), Some(&t1));
+        assert_eq!(standard_channel.get_job_target(2), Some(&t2));
+        assert_eq!(standard_channel.get_job_target(3), None);
+
+        // the same share is accepted on job 1 (checked against T1) and refused on job 2
+        // (checked against T2), so validate_share uses the target the getter reports
+        let share = |job_id: u32| SubmitSharesStandardOwned {
+            channel_id: standard_channel_id,
+            sequence_number: 0,
+            job_id,
+            nonce: 0,
+            ntime: tip_ntime,
+            version: 536870912,
+        };
+        assert!(matches!(
+            standard_channel.validate_share(share(1)),
+            Ok(ShareValidationResult::Valid(_))
+        ));
+        assert!(matches!(
+            standard_channel.validate_share(share(2)),
+            Err(ShareValidationError::DoesNotMeetTarget(_))
+        ));
+
+        // the tip moves: jobs 1 and 2 go stale and are no longer worth any target
+        let mut future_template = template(3);
+        future_template.future_template = true;
+        standard_channel
+            .on_new_template(future_template, coinbase_reward_outputs)
+            .unwrap();
+        let future_job_id = standard_channel
+            .get_future_job_id_from_template_id(3)
+            .unwrap();
+        // a future job is worth no target until it is activated
+        assert_eq!(standard_channel.get_job_target(future_job_id), None);
+        let new_prev_hash: binary_sv2::U256Owned = [
+            155, 124, 239, 231, 221, 122, 160, 173, 164, 175, 87, 33, 74, 214, 191, 107, 73, 34, 0,
+            162, 227, 16, 44, 40, 33, 73, 0, 0, 0, 0, 0, 0,
+        ]
+        .into();
+        standard_channel
+            .activate_future_job(
+                future_job_id,
+                ChainTip::new(new_prev_hash, n_bits, tip_ntime),
+            )
+            .unwrap();
+        assert_eq!(standard_channel.get_job_target(1), None);
+        assert_eq!(standard_channel.get_job_target(2), None);
+        assert_eq!(standard_channel.get_job_target(future_job_id), Some(&t2));
     }
 
     /// The bytes of a prebuilt job: here the `NewExtendedMiningJob` a group channel
