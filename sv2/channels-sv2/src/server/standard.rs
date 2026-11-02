@@ -372,10 +372,12 @@ impl StandardChannel {
     ///
     /// Please note that this will NOT update the target associated with jobs that were already created.
     ///
-    /// Returns [`StandardChannelError::InvalidTarget`] if `target` is zero, leaving the channel
-    /// unchanged.
+    /// Returns [`StandardChannelError::InvalidTarget`] if `target` is zero or above the `max_target`
+    /// most recently accepted for the channel (at open, or by the last accepted
+    /// [`Self::update_channel`]), which a `SetTarget` MUST NOT exceed (Sv2 spec §5.3.21). The
+    /// channel is left unchanged.
     pub fn set_target(&mut self, target: Target) -> Result<(), StandardChannelError> {
-        if target == Target::ZERO {
+        if target == Target::ZERO || target > self.requested_max_target {
             return Err(StandardChannelError::InvalidTarget);
         }
 
@@ -3660,6 +3662,61 @@ mod tests {
         assert_eq!(channel.get_target(), &target_before);
         assert_eq!(channel.get_requested_max_target(), &max_target);
         assert_eq!(channel.get_nominal_hashrate(), nominal_hashrate);
+    }
+
+    #[test]
+    fn test_set_target_rejects_target_above_max_target() {
+        // a SetTarget target MUST NOT exceed the max_target most recently accepted for the
+        // channel, at open or by the last accepted UpdateChannel (Sv2 spec §5.3.21)
+        let max_target = Target::from_le_bytes([
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0x00,
+        ]);
+        let above_max_target = Target::from_le_bytes([0xff; 32]);
+        let mut channel = StandardChannel::new(
+            1,
+            "user_identity".to_string(),
+            ExtranoncePrefix::from_wire(vec![0, 0, 0, 1]).unwrap(),
+            max_target,
+            // large enough that the computed target sits below both ceilings used here
+            1_000_000.0,
+            100,
+            1.0,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let target_before = *channel.get_target();
+        assert!(target_before < max_target);
+        assert!(matches!(
+            channel.set_target(above_max_target),
+            Err(StandardChannelError::InvalidTarget)
+        ));
+        assert_eq!(channel.get_target(), &target_before);
+        channel.set_target(max_target).unwrap();
+        assert_eq!(channel.get_target(), &max_target);
+
+        // an accepted UpdateChannel that lowers max_target lowers the ceiling with it
+        let lower_max_target = Target::from_le_bytes([
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0x00, 0x00,
+        ]);
+        channel
+            .update_channel(1_000_000.0, Some(lower_max_target))
+            .unwrap();
+        let target_before = *channel.get_target();
+        assert!(target_before < lower_max_target);
+        assert!(matches!(
+            channel.set_target(max_target),
+            Err(StandardChannelError::InvalidTarget)
+        ));
+        assert_eq!(channel.get_target(), &target_before);
+        channel.set_target(lower_max_target).unwrap();
+        assert_eq!(channel.get_target(), &lower_max_target);
     }
 
     #[test]

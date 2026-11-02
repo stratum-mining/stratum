@@ -23,8 +23,9 @@ pub enum ExtendedChannelError {
     OpenChannelInvalidMaxTarget(&'static str),
     /// See [`Self::OpenChannelInvalidMaxTarget`]; the channel is left unchanged.
     UpdateChannelInvalidMaxTarget(&'static str),
-    /// A target handed to `set_target` is zero, see [`Self::OpenChannelInvalidMaxTarget`]; the
-    /// channel is left unchanged.
+    /// A target handed to `set_target` is zero (see [`Self::OpenChannelInvalidMaxTarget`]) or
+    /// above the `max_target` most recently accepted for the channel, which a `SetTarget` MUST
+    /// NOT exceed (Sv2 spec §5.3.21); the channel is left unchanged.
     InvalidTarget,
     RequestedMinExtranonceSizeTooLarge(&'static str),
     JobFactoryError(JobFactoryError),
@@ -80,8 +81,9 @@ pub enum StandardChannelError {
     OpenChannelInvalidMaxTarget(&'static str),
     /// See [`Self::OpenChannelInvalidMaxTarget`]; the channel is left unchanged.
     UpdateChannelInvalidMaxTarget(&'static str),
-    /// A target handed to `set_target` is zero, see [`Self::OpenChannelInvalidMaxTarget`]; the
-    /// channel is left unchanged.
+    /// A target handed to `set_target` is zero (see [`Self::OpenChannelInvalidMaxTarget`]) or
+    /// above the `max_target` most recently accepted for the channel, which a `SetTarget` MUST
+    /// NOT exceed (Sv2 spec §5.3.21); the channel is left unchanged.
     InvalidTarget,
     TemplateIdNotFound,
     /// No future job carries the `job_id` handed to
