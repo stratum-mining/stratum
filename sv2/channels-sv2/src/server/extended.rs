@@ -959,7 +959,10 @@ impl ExtendedChannel {
     ///
     /// A block is reported when the share hash meets the network target the tip's `nbits`
     /// encodes; a stricter Template Distribution `SetNewPrevHash.target` is not consulted, as
-    /// [`ChainTip`] does not carry it.
+    /// [`ChainTip`] does not carry it. Such a block may still miss the job target (a
+    /// legitimate state on networks whose target is easier than the channel's share target).
+    /// Credited work is a threshold the hash met, never the hash's own difficulty: the job
+    /// difficulty when the hash meets the job target, otherwise the network difficulty.
     pub fn validate_share(
         &mut self,
         share: SubmitSharesExtendedOwned,
@@ -1159,8 +1162,16 @@ impl ExtendedChannel {
                     ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE,
                 ));
             }
+            // credit a threshold, never the hash's own difficulty: the job difficulty when the
+            // hash meets the job target, otherwise the network difficulty (the network target
+            // may be easier than the job target, e.g. on regtest/testnet)
+            let block_work = if share_hash_target <= *job_target {
+                job_target.difficulty_float()
+            } else {
+                network_target.difficulty_float()
+            };
             self.share_accounting.update_share_accounting(
-                job_target.difficulty_float(),
+                block_work,
                 share.sequence_number,
                 share_hash.to_raw_hash(),
             );
@@ -1608,8 +1619,14 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
-        let max_target = Target::from_le_bytes([0xff; 32]);
-        let expected_share_per_minute = 1.0;
+        // a max_target harder than the network target (7fffff..) but met by the pre-mined
+        // block hash (6b356f9f..); with one share per second the derived target (7fff..ff)
+        // exceeds it, so the channel target clamps to it and the block earns the job
+        // difficulty, not the network one
+        let mut max_target_bytes = [0u8; 32];
+        max_target_bytes[31] = 0x70;
+        let max_target = Target::from_le_bytes(max_target_bytes);
+        let expected_share_per_minute = 60.0;
         let nominal_hashrate = 1.0;
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 8u16;
@@ -1631,7 +1648,7 @@ mod tests {
         )
         .unwrap();
 
-        // channel target: 04325c53ef368eb04325c53ef368eb04325c53ef368eb04325c53ef368eb0431
+        // channel target: 7000000000000000000000000000000000000000000000000000000000000000 (clamped to max_target)
 
         let template_id = 1;
         let template = NewTemplate {
@@ -1705,6 +1722,11 @@ mod tests {
             Ok(ShareValidationResult::BlockFound(_, _, _))
         ));
         assert_eq!(channel.get_share_accounting().get_blocks_found(), 1);
+        // the hash also meets the job target, so the block earns the job difficulty
+        assert_eq!(
+            channel.get_share_accounting().get_share_work_sum(),
+            max_target.difficulty_float()
+        );
 
         // re-submitting the same valid block must be rejected as duplicate
         let res = channel.validate_share(share_valid_block);
@@ -1713,6 +1735,121 @@ mod tests {
             ShareValidationError::DuplicateShare(_)
         ));
         assert_eq!(channel.get_share_accounting().get_blocks_found(), 1);
+    }
+
+    #[test]
+    fn test_share_validation_block_found_below_job_target_earns_network_difficulty() {
+        // reuses the pre-mined share from test_share_validation_block_found: its hash
+        // 6b356f9f445f4cdfab140f69ff66803f8f98a0d8bcd089dc7d2bdeeee74a5f83 meets the network
+        // target but misses this channel's target of 1, whose difficulty is far above u64::MAX
+        // and would saturate the wire-facing batch work sum if credited in full
+        let channel_id = 1;
+        let user_identity = "user_identity".to_string();
+        let extranonce_prefix = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        ]
+        .to_vec();
+        let mut tiny_target_bytes = [0u8; 32];
+        tiny_target_bytes[0] = 1;
+        let tiny_max_target = Target::from_le_bytes(tiny_target_bytes);
+        assert!(tiny_max_target.difficulty_float() > u64::MAX as f64);
+        let expected_share_per_minute = 1.0;
+        let nominal_hashrate = 1.0;
+        let version_rolling_allowed = true;
+        let rollable_extranonce_size = 8u16;
+        let share_batch_size = 100;
+
+        let mut channel = ExtendedChannel::new(
+            channel_id,
+            user_identity,
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
+            tiny_max_target,
+            nominal_hashrate,
+            version_rolling_allowed,
+            rollable_extranonce_size,
+            share_batch_size,
+            expected_share_per_minute,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let template_id = 1;
+        let template = NewTemplate {
+            template_id,
+            future_template: false,
+            version: 536870912,
+            coinbase_tx_version: 2,
+            coinbase_prefix: vec![82, 0].try_into().unwrap(),
+            coinbase_tx_input_sequence: 4294967295,
+            coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
+            coinbase_tx_outputs_count: 1,
+            coinbase_tx_outputs: vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
+                222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
+                139, 235, 216, 54, 151, 78, 140, 249,
+            ]
+            .try_into()
+            .unwrap(),
+            coinbase_tx_locktime: 0,
+            merkle_path: vec![].try_into().unwrap(),
+        };
+
+        let pubkey_hash = [
+            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
+            8, 252,
+        ];
+        let mut script_bytes = vec![0]; // SegWit version 0
+        script_bytes.push(20); // Push 20 bytes (length of pubkey hash)
+        script_bytes.extend_from_slice(&pubkey_hash);
+        let script = ScriptBuf::from(script_bytes);
+        let coinbase_reward_outputs = vec![TxOut {
+            value: Amount::from_sat(SATS_AVAILABLE_IN_TEMPLATE),
+            script_pubkey: script,
+        }];
+
+        // network target: 7fffff0000000000000000000000000000000000000000000000000000000000
+        let ntime = 1745596910;
+        let prev_hash = [
+            251, 175, 106, 40, 35, 87, 122, 90, 58, 51, 78, 32, 202, 236, 228, 36, 154, 174, 206,
+            144, 147, 195, 21, 224, 195, 103, 214, 189, 51, 190, 24, 98,
+        ]
+        .into();
+        let n_bits = 545259519;
+        let chain_tip = ChainTip::new(prev_hash, n_bits, ntime);
+        channel.set_chain_tip(chain_tip);
+
+        channel
+            .on_new_template(template, coinbase_reward_outputs)
+            .unwrap();
+
+        let share_valid_block = SubmitSharesExtended {
+            channel_id,
+            sequence_number: 0,
+            job_id: 1,
+            nonce: 0,
+            ntime: 1745596971,
+            version: 536870912,
+            extranonce: vec![1, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap(),
+        };
+
+        let res = channel.validate_share(share_valid_block);
+        let Ok(ShareValidationResult::BlockFound(share_hash, _, _)) = res else {
+            panic!("a network-valid block must still be propagated");
+        };
+
+        // the hash misses the job target, so the block earns the network difficulty
+        let raw_share_hash: [u8; 32] = *share_hash.as_ref();
+        assert!(Target::from_le_bytes(raw_share_hash) > tiny_max_target);
+        let network_difficulty =
+            Target::from_compact(bitcoin::CompactTarget::from_consensus(n_bits)).difficulty_float();
+        let accounting = channel.get_share_accounting();
+        assert_eq!(accounting.get_share_work_sum(), network_difficulty);
+        assert_eq!(
+            accounting.get_last_batch_work_sum(),
+            network_difficulty as u64
+        );
     }
 
     #[test]
