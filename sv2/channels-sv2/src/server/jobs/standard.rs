@@ -41,7 +41,8 @@ use template_distribution_sv2::NewTemplateOwned;
 ///
 /// For a job built from a template, the coinbase bytes are the serialized coinbase the job
 /// factory assembled, split at the extranonce, so they carry the BIP141 data (marker, flag and
-/// witness) a found block needs. For a [`PrebuiltJob`](super::PrebuiltJob), they are the bytes
+/// witness) a found block needs, if any: the factory only adds it when the outputs include a
+/// witness commitment. For a [`PrebuiltJob`](super::PrebuiltJob), they are the bytes
 /// handed over, as given.
 #[derive(Debug, Clone)]
 pub struct StandardJob {

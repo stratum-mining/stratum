@@ -6,7 +6,7 @@
 extern crate alloc;
 use super::{HashMap, MAX_FUTURE_JOBS, MAX_PAST_JOBS};
 use crate::{
-    bip141::try_strip_bip141,
+    bip141::{coinbase_witness, marker_flag_len, try_strip_bip141},
     chain_tip::ChainTip,
     client::{
         error::ExtendedChannelError,
@@ -25,7 +25,7 @@ use bitcoin::{
     consensus::{serialize, Decodable},
     hashes::sha256d::Hash,
     transaction::Version,
-    CompactTarget, OutPoint, Sequence, Target, Transaction, TxIn, TxOut, Witness,
+    CompactTarget, OutPoint, Sequence, Target, Transaction, TxIn, TxOut,
 };
 use mining_sv2::{
     NewExtendedMiningJobOwned, SetCustomMiningJobOwned, SetCustomMiningJobSuccess,
@@ -578,9 +578,7 @@ impl ExtendedChannel {
             previous_output: OutPoint::null(),
             script_sig: script_sig.into(),
             sequence: Sequence(set_custom_mining_job.coinbase_tx_input_n_sequence),
-            witness: Witness::from(vec![vec![0; 32]]), /* note: 32 bytes of zeros is only safe to
-                                                        * assume now, this could change in future
-                                                        * soft forks */
+            witness: coinbase_witness(&deserialized_outputs),
         };
 
         let coinbase = Transaction {
@@ -593,7 +591,7 @@ impl ExtendedChannel {
         let serialized_coinbase = serialize(&coinbase);
 
         let prefix_index = 4 // tx version
-            + 2 // segwit
+            + marker_flag_len(&coinbase.input[0].witness) // segwit marker and flag, if any
             + 1 // number of inputs
             + 32 // prev OutPoint
             + 4 // index
@@ -606,11 +604,12 @@ impl ExtendedChannel {
 
         let coinbase_tx_suffix = serialized_coinbase[suffix_index..].to_vec();
 
-        // strip bip141 bytes from coinbase_tx_prefix and coinbase_tx_suffix
+        // strip bip141 bytes from coinbase_tx_prefix and coinbase_tx_suffix; a coinbase without
+        // a witness commitment carries none, so its bytes are used as they are
         let (coinbase_tx_prefix_stripped_bip141, coinbase_tx_suffix_stripped_bip141) =
             try_strip_bip141(&coinbase_tx_prefix, &coinbase_tx_suffix)
                 .map_err(ExtendedChannelError::FailedToTryToStripBip141)?
-                .ok_or(ExtendedChannelError::FailedToStripBip141)?;
+                .unwrap_or_else(|| (coinbase_tx_prefix.clone(), coinbase_tx_suffix.clone()));
 
         let new_extended_mining_job = NewExtendedMiningJobOwned {
             channel_id: set_custom_mining_job.channel_id,
@@ -1053,10 +1052,14 @@ mod tests {
         },
     };
     use binary_sv2::Sv2OptionOwned as Sv2Option;
-    use bitcoin::Target;
+    use bitcoin::{
+        consensus::{deserialize, serialize},
+        Amount, ScriptBuf, Target, Transaction, TxOut,
+    };
     use mining_sv2::{
-        NewExtendedMiningJobOwned as NewExtendedMiningJob, SetNewPrevHashOwned as SetNewPrevHashMp,
-        SubmitSharesExtendedOwned as SubmitSharesExtended,
+        NewExtendedMiningJobOwned as NewExtendedMiningJob,
+        SetCustomMiningJobOwned as SetCustomMiningJob, SetCustomMiningJobSuccess,
+        SetNewPrevHashOwned as SetNewPrevHashMp, SubmitSharesExtendedOwned as SubmitSharesExtended,
         ERROR_CODE_SUBMIT_SHARES_INVALID_NON_ROLLABLE_VERSION_BIT,
     };
     use std::convert::TryInto;
@@ -3845,5 +3848,75 @@ mod tests {
             channel.validate_share(share(2, 0)),
             Err(ShareValidationError::Stale(_))
         ));
+    }
+
+    #[test]
+    fn test_custom_job_success_without_witness_commitment() {
+        // the outputs carry no witness commitment, so the coinbase is built without a witness
+        // and serializes without the bip141 marker and flag; the job's prefix and suffix must
+        // still split it exactly around the extranonce
+        let mut channel = ExtendedChannel::new(
+            1,
+            "user_identity".to_string(),
+            ExtranoncePrefix::from_wire(vec![1; 24]).unwrap(),
+            Target::from_le_bytes([0xff; 32]),
+            1.0,
+            true,
+            8,
+            None,
+        )
+        .unwrap();
+        channel
+            .on_chain_tip_update(ChainTip::new([0u8; 32].into(), 503543726, 1746839905))
+            .unwrap();
+
+        let mut script_bytes = vec![0]; // SegWit version 0
+        script_bytes.push(20); // Push 20 bytes (length of pubkey hash)
+        script_bytes.extend_from_slice(&[
+            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
+            8, 252,
+        ]);
+        let coinbase_outputs = vec![TxOut {
+            value: Amount::from_sat(5_000_000_000),
+            script_pubkey: ScriptBuf::from(script_bytes),
+        }];
+        let coinbase_prefix = vec![0xab; 4];
+
+        let set_custom_mining_job = SetCustomMiningJob {
+            channel_id: 1,
+            request_id: 1,
+            token: vec![0].try_into().unwrap(),
+            version: 536870912,
+            prev_hash: [0u8; 32].into(),
+            ntime_start: 1746839905,
+            nbits: 503543726,
+            coinbase_tx_version: 2,
+            coinbase_prefix: coinbase_prefix.clone().try_into().unwrap(),
+            coinbase_tx_input_n_sequence: 4294967295,
+            coinbase_tx_outputs: serialize(&coinbase_outputs).try_into().unwrap(),
+            coinbase_tx_locktime: 0,
+            merkle_path: vec![].try_into().unwrap(),
+        };
+        let set_custom_mining_job_success = SetCustomMiningJobSuccess {
+            channel_id: 1,
+            request_id: 1,
+            job_id: 1,
+        };
+        channel
+            .on_set_custom_mining_job_success(set_custom_mining_job, set_custom_mining_job_success)
+            .unwrap();
+
+        let job_message = &channel.get_active_job().unwrap().job_message;
+        let full_extranonce = vec![0xee; channel.get_full_extranonce_size()];
+        let mut serialized_coinbase = job_message.coinbase_tx_prefix.to_owned_bytes();
+        serialized_coinbase.extend(&full_extranonce);
+        serialized_coinbase.extend(job_message.coinbase_tx_suffix.as_bytes());
+        let coinbase: Transaction = deserialize(&serialized_coinbase).unwrap();
+
+        assert_eq!(
+            coinbase.input[0].script_sig.as_bytes(),
+            [coinbase_prefix, full_extranonce].concat()
+        );
+        assert_eq!(coinbase.output, coinbase_outputs);
     }
 }

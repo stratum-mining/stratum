@@ -1,8 +1,9 @@
 //! Provides functionality to strip coinbase_tx_prefix and coinbase_tx_suffix from bip141 marker,
-//! flag and witness data.
+//! flag and witness data, and to tell which witness a coinbase must carry.
 extern crate alloc;
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
+use bitcoin::{TxOut, Witness};
 
 const MARKER_OFFSET: usize = 4;
 const FLAG_OFFSET: usize = 5;
@@ -16,6 +17,10 @@ const WITNESS_LEN_LEN: usize = 1;
 const WITNESS_DATA_LEN: usize = 32;
 const LOCKTIME_LEN: usize = 4;
 const BIP141_WITNESS_LEN: usize = WITNESS_COUNT_LEN + WITNESS_LEN_LEN + WITNESS_DATA_LEN;
+/// Start of a witness commitment output script: `OP_RETURN`, a 36-byte push and the `aa21a9ed`
+/// commitment header.
+const WITNESS_COMMITMENT_HEADER: [u8; 6] = [0x6a, 0x24, 0xaa, 0x21, 0xa9, 0xed];
+const WITNESS_COMMITMENT_LEN: usize = 32;
 #[cfg(test)]
 const MIN_COINBASE_TX_SUFFIX_LEN: usize = BIP141_WITNESS_LEN + LOCKTIME_LEN;
 
@@ -38,15 +43,46 @@ pub enum StripBip141Error {
     UnexpectedInputCount,
 }
 
+/// Returns the witness of the input of a coinbase paying to `outputs`.
+///
+/// BIP141 only lets a block leave out the witness commitment when none of its transactions
+/// carries witness data, and a coinbase witness is witness data. So the coinbase carries the
+/// 32-byte witness reserved value when `outputs` include a commitment, and no witness otherwise.
+pub(crate) fn coinbase_witness(outputs: &[TxOut]) -> Witness {
+    let has_witness_commitment = outputs.iter().any(|output| {
+        let script = output.script_pubkey.as_bytes();
+        script.len() >= WITNESS_COMMITMENT_HEADER.len() + WITNESS_COMMITMENT_LEN
+            && script.starts_with(&WITNESS_COMMITMENT_HEADER)
+    });
+
+    if has_witness_commitment {
+        // 32 bytes of zeros is only safe to assume now, this could change in future soft forks
+        Witness::from(vec![vec![0; WITNESS_DATA_LEN]])
+    } else {
+        Witness::new()
+    }
+}
+
+/// Returns the size of the bip141 marker and flag in the serialization of a transaction whose
+/// only input carries `witness`: they are serialized only when there is witness data.
+pub(crate) fn marker_flag_len(witness: &Witness) -> usize {
+    if witness.is_empty() {
+        0
+    } else {
+        MARKER_FLAG_LEN
+    }
+}
+
 /// Tries to strip the bip141 marker, flag and witness data from `coinbase_tx_prefix` and
 /// `coinbase_tx_suffix` of a `NewExtendedMiningJob`.
 ///
 /// This helps calculate the coinbase `txid` (instead of `wtxid`) for merkle root calculation, and
 /// it is particularly helpful for translation to Sv1.
 ///
-/// If the coinbase transaction is already stripped of bip141, returns `Ok(None)`.
-/// If the coinbase transaction is not stripped, returns `Ok(Some((Vec<u8>, Vec<u8>)))` with the
-/// stripped `coinbase_tx_prefix` and `coinbase_tx_suffix`.
+/// Returns `Ok(None)` when the bytes carry no bip141 marker and flag, whether they were already
+/// stripped or the coinbase never had a witness (no witness commitment output): they can be used
+/// as they are. Otherwise returns `Ok(Some((Vec<u8>, Vec<u8>)))` with the stripped
+/// `coinbase_tx_prefix` and `coinbase_tx_suffix`.
 ///
 /// # Errors
 ///
