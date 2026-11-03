@@ -348,37 +348,38 @@ impl GroupChannel {
     ///
     /// The job is broadcast to the group as the `NewExtendedMiningJob` (§5.3.16) carrying the
     /// given bytes, with the group's version-rolling policy and no extranonce prefix (the member
-    /// channels set theirs when they import it through their `on_group_channel_job`). With
-    /// `future` set, the job is kept for activation by
-    /// [`activate_future_job`](Self::activate_future_job); otherwise it requires the chain tip,
+    /// channels set theirs when they import it through their `on_group_channel_job`). Without
+    /// an `ntime_start`, the job is kept for activation by
+    /// [`activate_future_job`](Self::activate_future_job); with one, it requires the chain tip,
     /// is active under it and replaces the active job, which is dropped since group channels
     /// never validate shares.
     ///
     /// Returns the job ID, which identifies the job to the miners and to
     /// [`activate_future_job`](Self::activate_future_job);
-    /// [`GroupChannelError::ChainTipNotSet`] for an active job without a chain tip; and
-    /// [`GroupChannelError::JobFactoryError`] wrapping
+    /// [`GroupChannelError::ChainTipNotSet`] for an active job without a chain tip;
+    /// [`GroupChannelError::JobNtimeStartBelowChainTip`] for an active job whose `ntime_start`
+    /// is below the tip's, which §5.3.16 forbids; and [`GroupChannelError::JobFactoryError`]
+    /// wrapping
     /// [`JobFactoryError::InvalidPrebuiltCoinbase`](crate::server::jobs::error::JobFactoryError::InvalidPrebuiltCoinbase)
     /// if the bytes around the group's extranonce slot do not deserialize as a coinbase
-    /// transaction. The group channel is left unchanged in both error cases.
-    pub fn on_prebuilt_job(
-        &mut self,
-        job: PrebuiltJob,
-        future: bool,
-    ) -> Result<u32, GroupChannelError> {
-        let chain_tip = match future {
-            true => None,
-            false => Some(
-                self.chain_tip
-                    .clone()
-                    .ok_or(GroupChannelError::ChainTipNotSet)?,
-            ),
-        };
+    /// transaction. The group channel is left unchanged in every error case.
+    pub fn on_prebuilt_job(&mut self, job: PrebuiltJob) -> Result<u32, GroupChannelError> {
+        if let Some(ntime_start) = job.ntime_start {
+            let chain_tip = self
+                .chain_tip
+                .as_ref()
+                .ok_or(GroupChannelError::ChainTipNotSet)?;
+            // the job is mined against the group's chain tip, whose ntime_start is the smallest
+            // nTime available for it; a job allowing earlier shares would have them carry a
+            // timestamp the tip declared unavailable
+            if ntime_start < chain_tip.ntime_start() {
+                return Err(GroupChannelError::JobNtimeStartBelowChainTip);
+            }
+        }
         let new_job = self
             .job_factory
             .new_extended_job_from_prebuilt_job(
                 self.group_channel_id,
-                chain_tip,
                 vec![], /* empty extranonce prefix, as it will be replaced by the channel's
                          * extranonce prefix */
                 job,
@@ -1247,6 +1248,7 @@ mod tests {
     /// slot (`Sv2///` tag included), so that the pre-mined shares of the template tests apply.
     fn prebuilt_job() -> PrebuiltJob {
         PrebuiltJob {
+            ntime_start: None,
             version: 536870912,
             coinbase_tx_prefix: vec![
                 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1283,12 +1285,17 @@ mod tests {
         let mut group_channel = GroupChannel::new(1, 32, true, None, None).unwrap();
 
         // an active job needs a chain tip the group does not have yet
+        let chain_tip = prebuilt_job_chain_tip();
+        let job_under_tip = PrebuiltJob {
+            ntime_start: Some(chain_tip.ntime_start()),
+            ..prebuilt_job()
+        };
         assert!(matches!(
-            group_channel.on_prebuilt_job(prebuilt_job(), false),
+            group_channel.on_prebuilt_job(job_under_tip.clone()),
             Err(GroupChannelError::ChainTipNotSet)
         ));
 
-        let job_id = group_channel.on_prebuilt_job(prebuilt_job(), true).unwrap();
+        let job_id = group_channel.on_prebuilt_job(prebuilt_job()).unwrap();
         assert!(group_channel.get_active_job().is_none());
 
         // the bytes are broadcast as given, with the group's version-rolling policy and no
@@ -1313,7 +1320,6 @@ mod tests {
         assert_eq!(future_job.get_origin(), &JobOrigin::Prebuilt);
 
         // an unknown job id activates nothing and leaves the group untouched
-        let chain_tip = prebuilt_job_chain_tip();
         assert!(matches!(
             group_channel.activate_future_job(job_id + 1, chain_tip.clone()),
             Err(GroupChannelError::JobIdNotFound)
@@ -1331,13 +1337,41 @@ mod tests {
         assert_eq!(active_job.get_ntime_start(), Some(chain_tip.ntime_start()));
 
         // the same bytes under the current tip (a target change) replace the active job
-        let next_job_id = group_channel
-            .on_prebuilt_job(prebuilt_job(), false)
-            .unwrap();
+        let next_job_id = group_channel.on_prebuilt_job(job_under_tip).unwrap();
         assert_ne!(next_job_id, job_id);
         let active_job = group_channel.get_active_job().unwrap();
         assert_eq!(active_job.get_job_id(), next_job_id);
         assert_eq!(active_job.get_ntime_start(), Some(chain_tip.ntime_start()));
+    }
+
+    #[test]
+    fn test_prebuilt_job_carries_its_own_ntime_start() {
+        // the application stamps the job with the time it was produced, which is above the
+        // tip's ntime_start once the tip has aged; the job is broadcast with that value, while
+        // one below the tip's is refused (§5.3.16)
+        let mut group_channel = GroupChannel::new(1, 32, true, None, None).unwrap();
+        let chain_tip = prebuilt_job_chain_tip();
+        group_channel.set_chain_tip(chain_tip.clone());
+
+        let job = PrebuiltJob {
+            ntime_start: Some(chain_tip.ntime_start() - 1),
+            ..prebuilt_job()
+        };
+        assert!(matches!(
+            group_channel.on_prebuilt_job(job),
+            Err(GroupChannelError::JobNtimeStartBelowChainTip)
+        ));
+        assert!(group_channel.get_active_job().is_none());
+
+        let job_ntime_start = chain_tip.ntime_start() + 7300;
+        let job = PrebuiltJob {
+            ntime_start: Some(job_ntime_start),
+            ..prebuilt_job()
+        };
+        let job_id = group_channel.on_prebuilt_job(job).unwrap();
+        let active_job = group_channel.get_active_job().unwrap();
+        assert_eq!(active_job.get_job_id(), job_id);
+        assert_eq!(active_job.get_ntime_start(), Some(job_ntime_start));
     }
 
     #[test]
@@ -1352,7 +1386,7 @@ mod tests {
             ..prebuilt_job()
         };
         assert!(matches!(
-            group_channel.on_prebuilt_job(job, true),
+            group_channel.on_prebuilt_job(job),
             Err(GroupChannelError::JobFactoryError(
                 JobFactoryError::InvalidPrebuiltCoinbase
             ))
