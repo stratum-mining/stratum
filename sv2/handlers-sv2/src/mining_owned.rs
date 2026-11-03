@@ -1,7 +1,9 @@
 use crate::{error::HandlerErrorType, mining::SupportedChannelTypes};
 use binary_sv2::Str0255;
 use framing_sv2::header::Header;
-use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, Mining, MiningOwned, Tlv};
+use parsers_sv2::{
+    check_channel_msg_bit, parse_message_frame_with_tlvs, AnyMessage, Mining, MiningOwned, Tlv,
+};
 
 use mining_sv2::*;
 
@@ -44,6 +46,7 @@ pub trait HandleMiningMessagesFromServerOwnedSync {
             let parsed: Mining<'_> = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
+            check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
             return self.handle_mining_message_from_server(server_id, parsed.into_owned(), None);
         }
         let (parsed, tlv_fields) =
@@ -341,6 +344,7 @@ pub trait HandleMiningMessagesFromServerOwnedAsync {
                 let parsed: Mining<'_> = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
+                check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
                 return self
                     .handle_mining_message_from_server(server_id, parsed.into_owned(), None)
                     .await;
@@ -670,6 +674,7 @@ pub trait HandleMiningMessagesFromClientOwnedSync {
             let parsed: Mining<'_> = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
+            check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
             return self.handle_mining_message_from_client(client_id, parsed.into_owned(), None);
         }
         let (parsed, tlv_fields) =
@@ -912,6 +917,7 @@ pub trait HandleMiningMessagesFromClientOwnedAsync {
                 let parsed: Mining<'_> = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
+                check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
                 return self
                     .handle_mining_message_from_client(client_id, parsed.into_owned(), None)
                     .await;

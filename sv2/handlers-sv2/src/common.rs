@@ -2,7 +2,9 @@ use common_messages_sv2::{
     ChannelEndpointChanged, Reconnect, SetupConnectionError, SetupConnectionSuccess, *,
 };
 use framing_sv2::header::Header;
-use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, CommonMessages, Tlv};
+use parsers_sv2::{
+    check_channel_msg_bit, parse_message_frame_with_tlvs, AnyMessage, CommonMessages, Tlv,
+};
 
 use crate::error::HandlerErrorType;
 
@@ -44,6 +46,7 @@ pub trait HandleCommonMessagesFromServerSync {
             let parsed: CommonMessages<'_> = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
+            check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
             return self.handle_common_message_from_server(server_id, parsed, None);
         }
         let (message, tlv_fields) =
@@ -160,6 +163,7 @@ pub trait HandleCommonMessagesFromServerAsync {
                 let parsed: CommonMessages<'_> = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
+                check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
                 return self
                     .handle_common_message_from_server(server_id, parsed, None)
                     .await;
@@ -286,6 +290,7 @@ pub trait HandleCommonMessagesFromClientSync {
             let parsed: CommonMessages<'_> = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
+            check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
             return self.handle_common_message_from_client(client_id, parsed, None);
         }
         let (parsed, tlv_fields) =
@@ -385,6 +390,7 @@ pub trait HandleCommonMessagesFromClientAsync {
                 let parsed: CommonMessages<'_> = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
+                check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
                 return self
                     .handle_common_message_from_client(client_id, parsed, None)
                     .await;

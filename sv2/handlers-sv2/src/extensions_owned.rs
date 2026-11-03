@@ -3,8 +3,8 @@ use extensions_sv2::{
 };
 use framing_sv2::header::Header;
 use parsers_sv2::{
-    parse_message_frame_with_tlvs, AnyMessage, Extensions, ExtensionsNegotiationOwned,
-    ExtensionsOwned, Tlv,
+    check_channel_msg_bit, parse_message_frame_with_tlvs, AnyMessage, Extensions,
+    ExtensionsNegotiationOwned, ExtensionsOwned, Tlv,
 };
 
 use crate::error::HandlerErrorType;
@@ -47,6 +47,7 @@ pub trait HandleExtensionsFromServerOwnedSync {
             let parsed: Extensions<'_> = (header.ext_type(), header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
+            check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
             return self.handle_extensions_message_from_server(
                 server_id,
                 parsed.into_owned(),
@@ -155,6 +156,7 @@ pub trait HandleExtensionsFromServerOwnedAsync {
                 let parsed: Extensions<'_> = (header.ext_type(), header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
+                check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
                 return self
                     .handle_extensions_message_from_server(server_id, parsed.into_owned(), None)
                     .await;
@@ -267,6 +269,7 @@ pub trait HandleExtensionsFromClientOwnedSync {
             let parsed: Extensions<'_> = (header.ext_type(), header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
+            check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
             return self.handle_extensions_message_from_client(
                 client_id,
                 parsed.into_owned(),
@@ -371,6 +374,7 @@ pub trait HandleExtensionsFromClientOwnedAsync {
                 let parsed: Extensions<'_> = (header.ext_type(), header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
+                check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
                 return self
                     .handle_extensions_message_from_client(client_id, parsed.into_owned(), None)
                     .await;

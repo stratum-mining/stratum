@@ -9,7 +9,7 @@ use mining_sv2::{
     SubmitSharesError, SubmitSharesExtended, SubmitSharesStandard, SubmitSharesSuccess,
     UpdateChannel, UpdateChannelError,
 };
-use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, Mining, Tlv};
+use parsers_sv2::{check_channel_msg_bit, parse_message_frame_with_tlvs, AnyMessage, Mining, Tlv};
 
 use mining_sv2::*;
 
@@ -59,6 +59,7 @@ pub trait HandleMiningMessagesFromServerSync {
             let parsed: Mining<'_> = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
+            check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
             return self.handle_mining_message_from_server(server_id, parsed, None);
         }
         let (parsed, tlv_fields) =
@@ -354,6 +355,7 @@ pub trait HandleMiningMessagesFromServerAsync {
                 let parsed: Mining<'_> = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
+                check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
                 return self
                     .handle_mining_message_from_server(server_id, parsed, None)
                     .await;
@@ -679,6 +681,7 @@ pub trait HandleMiningMessagesFromClientSync {
             let parsed: Mining<'_> = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
+            check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
             return self.handle_mining_message_from_client(client_id, parsed, None);
         }
         let (parsed, tlv_fields) =
@@ -919,6 +922,7 @@ pub trait HandleMiningMessagesFromClientAsync {
                 let parsed: Mining<'_> = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
+                check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
                 return self
                     .handle_mining_message_from_client(client_id, parsed, None)
                     .await;
