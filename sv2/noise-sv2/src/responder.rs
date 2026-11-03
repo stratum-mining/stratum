@@ -457,6 +457,7 @@ mod test {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn from_authority_kp_caps_cert_validity_at_u32_max() {
         use rand::{rngs::StdRng, SeedableRng};
 
