@@ -35,6 +35,7 @@ mod non_copy_data_types;
 mod copy_data_types;
 use crate::codec::decodable::FieldMarker;
 pub use copy_data_types::U24;
+pub use non_copy_data_types::escape_control_chars;
 pub(crate) use non_copy_data_types::Inner;
 pub use non_copy_data_types::{
     B016MOwned, B0255Owned, B032Owned, B064KOwned, EllSwiftPubKey, EllSwiftPubKeyOwned, Mac,

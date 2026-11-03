@@ -80,6 +80,23 @@ fn bytes_to_hex<'a>(bytes: impl IntoIterator<Item = &'a u8>) -> String {
     hex
 }
 
+/// Returns `s` with every control character escaped, so text received from a peer cannot inject
+/// line breaks or terminal escape sequences into logs.
+///
+/// Control characters are written as Rust escape sequences (`\n`, `\r`, `\t`, `\u{1b}`, ...).
+/// Every other character is kept as is.
+pub fn escape_control_chars(s: &str) -> String {
+    let mut escaped = String::with_capacity(s.len());
+    for c in s.chars() {
+        if c.is_control() {
+            escaped.extend(c.escape_debug());
+        } else {
+            escaped.push(c);
+        }
+    }
+    escaped
+}
+
 impl fmt::Display for Sv2Option<'_, u32> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let inner = self.to_owned().into_inner();
@@ -120,6 +137,15 @@ impl Str0255<'_> {
             Err(_) => format!("0x{}", bytes_to_hex(self.as_bytes())),
         }
     }
+
+    /// Like [`Self::as_utf8_or_hex`], with control characters escaped by
+    /// [`escape_control_chars`]. Use it wherever the value is displayed or logged.
+    pub fn as_escaped_utf8_or_hex(&self) -> String {
+        match core::str::from_utf8(self.as_bytes()) {
+            Ok(s) => escape_control_chars(s),
+            Err(_) => format!("0x{}", bytes_to_hex(self.as_bytes())),
+        }
+    }
 }
 
 impl Str0255Owned {
@@ -127,6 +153,15 @@ impl Str0255Owned {
     pub fn as_utf8_or_hex(&self) -> String {
         match core::str::from_utf8(self.as_bytes()) {
             Ok(s) => alloc::string::String::from(s),
+            Err(_) => format!("0x{}", bytes_to_hex(self.as_bytes())),
+        }
+    }
+
+    /// Like [`Self::as_utf8_or_hex`], with control characters escaped by
+    /// [`escape_control_chars`]. Use it wherever the value is displayed or logged.
+    pub fn as_escaped_utf8_or_hex(&self) -> String {
+        match core::str::from_utf8(self.as_bytes()) {
+            Ok(s) => escape_control_chars(s),
             Err(_) => format!("0x{}", bytes_to_hex(self.as_bytes())),
         }
     }
@@ -482,6 +517,38 @@ impl<'a> TryFrom<&'a mut String> for Str0255<'a> {
 mod test {
     use super::{inner::MAX_DISPLAY_BYTES, B0255Owned, B064KOwned, Seq064K, B016M, B0255, B064K};
     use alloc::{format, string::ToString, vec, vec::Vec};
+
+    #[test]
+    fn escape_control_chars_escapes_only_control_characters() {
+        use super::escape_control_chars;
+
+        assert_eq!(
+            escape_control_chars("worker\n2026-01-01 ERROR forged\r\t\u{1b}[31m\0\u{7f}\u{85}"),
+            "worker\\n2026-01-01 ERROR forged\\r\\t\\u{1b}[31m\\0\\u{7f}\\u{85}"
+        );
+        assert_eq!(
+            escape_control_chars("pool.ü.example:3333"),
+            "pool.ü.example:3333"
+        );
+    }
+
+    #[test]
+    fn str0255_escaped_rendering() {
+        use super::{Str0255, Str0255Owned};
+        use core::convert::TryFrom;
+
+        let text = "user\nid";
+        let s = Str0255::try_from(text).unwrap();
+        // The raw accessor keeps the value as sent; only the escaped one is safe to display.
+        assert_eq!(s.as_utf8_or_hex(), text);
+        assert_eq!(s.as_escaped_utf8_or_hex(), "user\\nid");
+        let owned: Str0255Owned = s.into_owned();
+        assert_eq!(owned.as_escaped_utf8_or_hex(), "user\\nid");
+
+        let non_utf8: &[u8] = &[0xff, 0x0a];
+        let s = Str0255::try_from(non_utf8).unwrap();
+        assert_eq!(s.as_escaped_utf8_or_hex(), "0xff0a");
+    }
 
     #[test]
     fn b064k_display_is_bounded() {
