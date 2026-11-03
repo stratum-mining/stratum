@@ -10,6 +10,7 @@ const FLAG_OFFSET: usize = 5;
 /// reserved for future layouts that may carry additional serialized sections.
 const BIP141_FLAG: u8 = 0x01;
 const MARKER_FLAG_LEN: usize = 2;
+const INPUT_COUNT_OFFSET: usize = MARKER_OFFSET + MARKER_FLAG_LEN;
 const WITNESS_COUNT_LEN: usize = 1;
 const WITNESS_LEN_LEN: usize = 1;
 const WITNESS_DATA_LEN: usize = 32;
@@ -31,6 +32,10 @@ pub enum StripBip141Error {
     /// The witness section does not frame exactly one 32-byte item, which a coinbase carrying the
     /// witness commitment must have.
     UnexpectedWitnessFraming,
+    /// The coinbase does not declare exactly one input. Each input has its own witness stack, so
+    /// with more than one the suffix would hold more witness data than the single stack stripped
+    /// here.
+    UnexpectedInputCount,
 }
 
 /// Tries to strip the bip141 marker, flag and witness data from `coinbase_tx_prefix` and
@@ -46,12 +51,16 @@ pub enum StripBip141Error {
 /// # Errors
 ///
 /// Returns [`StripBip141Error::FailedToDeserializeCoinbaseInputs`] when
-/// `coinbase_tx_prefix` is too short to contain the marker and flag.
+/// `coinbase_tx_prefix` is too short to contain the marker and flag, or, when it carries them,
+/// the input count that follows.
 ///
 /// Returns [`StripBip141Error::UnsupportedBip141Flag`] when `coinbase_tx_prefix` carries the
 /// bip141 marker with a flag other than the only currently defined value (`0x01`): other nonzero
 /// flags are reserved for future serialization layouts whose witness section cannot be assumed
 /// to have the fixed size stripped here.
+///
+/// Returns [`StripBip141Error::UnexpectedInputCount`] when `coinbase_tx_prefix` carries the
+/// bip141 marker and flag but does not declare exactly one input, as a coinbase does.
 ///
 /// Returns [`StripBip141Error::FailedToDeserializeCoinbaseLockTime`] when a transaction with a
 /// bip141 marker and flag has a suffix too short to contain the lock time (suffix &lt; 4 bytes), or
@@ -82,6 +91,14 @@ pub fn try_strip_bip141(
     // only the flag BIP141 defines today is known to carry the witness layout stripped below
     if flag != BIP141_FLAG {
         return Err(StripBip141Error::UnsupportedBip141Flag(flag));
+    }
+
+    // only the last witness stack is stripped below, which is the whole witness section only
+    // when the transaction has a single input
+    match coinbase_tx_prefix.get(INPUT_COUNT_OFFSET) {
+        None => return Err(StripBip141Error::FailedToDeserializeCoinbaseInputs),
+        Some(&1) => {}
+        Some(_) => return Err(StripBip141Error::UnexpectedInputCount),
     }
 
     // strip bip141 marker and flag bytes from coinbase_tx_prefix
@@ -122,6 +139,10 @@ mod tests {
     use alloc::vec;
 
     use super::*;
+    use bitcoin::{
+        absolute::LockTime, consensus::serialize, hashes::Hash, transaction::Version, Amount,
+        OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut, Txid, Witness,
+    };
 
     #[test]
     fn test_try_strip_bip141_sri_stripped() {
@@ -234,11 +255,17 @@ mod tests {
                 Err(StripBip141Error::FailedToDeserializeCoinbaseInputs)
             ));
         }
+
+        // with the marker and flag, the input count must follow them
+        assert!(matches!(
+            try_strip_bip141(&[0, 0, 0, 0, 0, 1], &coinbase_tx_suffix),
+            Err(StripBip141Error::FailedToDeserializeCoinbaseInputs)
+        ));
     }
 
     #[test]
     fn test_try_strip_bip141_rejects_short_locktime_suffix() {
-        let coinbase_tx_prefix = [0, 0, 0, 0, 0, 1];
+        let coinbase_tx_prefix = [0, 0, 0, 0, 0, 1, 1];
 
         for suffix_len in 0..LOCKTIME_LEN {
             let coinbase_tx_suffix = vec![0; suffix_len];
@@ -252,7 +279,7 @@ mod tests {
 
     #[test]
     fn test_try_strip_bip141_rejects_short_witness_suffix() {
-        let coinbase_tx_prefix = [0, 0, 0, 0, 0, 1];
+        let coinbase_tx_prefix = [0, 0, 0, 0, 0, 1, 1];
 
         for suffix_len in LOCKTIME_LEN..MIN_COINBASE_TX_SUFFIX_LEN {
             let coinbase_tx_suffix = vec![0; suffix_len];
@@ -266,7 +293,7 @@ mod tests {
 
     #[test]
     fn test_try_strip_bip141_accepts_minimum_lengths() {
-        let coinbase_tx_prefix = [0, 0, 0, 0, 0, 1];
+        let coinbase_tx_prefix = [0, 0, 0, 0, 0, 1, 1];
         let mut coinbase_tx_suffix = [0; MIN_COINBASE_TX_SUFFIX_LEN];
         coinbase_tx_suffix[0] = 1;
         coinbase_tx_suffix[1] = WITNESS_DATA_LEN as u8;
@@ -275,7 +302,7 @@ mod tests {
             .expect("minimum valid bip141 parts should be accepted")
             .expect("bip141 marker and flag should be stripped");
 
-        assert_eq!(result, (vec![0; 4], vec![0; 4]));
+        assert_eq!(result, (vec![0, 0, 0, 0, 1], vec![0; 4]));
     }
 
     #[test]
@@ -287,7 +314,7 @@ mod tests {
         coinbase_tx_suffix[1] = WITNESS_DATA_LEN as u8;
 
         for flag in 0x02..=0xff {
-            let coinbase_tx_prefix = [0, 0, 0, 0, 0, flag];
+            let coinbase_tx_prefix = [0, 0, 0, 0, 0, flag, 1];
 
             assert!(matches!(
                 try_strip_bip141(&coinbase_tx_prefix, &coinbase_tx_suffix),
@@ -298,7 +325,7 @@ mod tests {
 
     #[test]
     fn test_try_strip_bip141_rejects_invalid_witness_framing() {
-        let coinbase_tx_prefix = [0, 0, 0, 0, 0, 1];
+        let coinbase_tx_prefix = [0, 0, 0, 0, 0, 1, 1];
         let mut coinbase_tx_suffix = [0; MIN_COINBASE_TX_SUFFIX_LEN];
 
         // a committed coinbase witness holds exactly one stack item
@@ -315,6 +342,59 @@ mod tests {
         assert!(matches!(
             try_strip_bip141(&coinbase_tx_prefix, &coinbase_tx_suffix),
             Err(StripBip141Error::UnexpectedWitnessFraming)
+        ));
+    }
+
+    #[test]
+    fn test_try_strip_bip141_rejects_input_count_other_than_one() {
+        let mut coinbase_tx_suffix = [0; MIN_COINBASE_TX_SUFFIX_LEN];
+        coinbase_tx_suffix[0] = 1;
+        coinbase_tx_suffix[1] = WITNESS_DATA_LEN as u8;
+
+        for input_count in (0..=u8::MAX).filter(|input_count| *input_count != 1) {
+            let coinbase_tx_prefix = [0, 0, 0, 0, 0, 1, input_count];
+
+            assert!(matches!(
+                try_strip_bip141(&coinbase_tx_prefix, &coinbase_tx_suffix),
+                Err(StripBip141Error::UnexpectedInputCount)
+            ));
+        }
+    }
+
+    #[test]
+    fn test_try_strip_bip141_rejects_two_input_transaction() {
+        // both inputs carry a single 32-byte witness item, so the last witness stack alone is
+        // framed exactly like a coinbase's
+        let transaction = Transaction {
+            version: Version::TWO,
+            lock_time: LockTime::ZERO,
+            input: vec![
+                TxIn {
+                    previous_output: OutPoint::null(),
+                    script_sig: ScriptBuf::from(vec![0; 8]),
+                    sequence: Sequence::MAX,
+                    witness: Witness::from(vec![vec![0; WITNESS_DATA_LEN]]),
+                },
+                TxIn {
+                    previous_output: OutPoint::new(Txid::from_byte_array([1; 32]), 0),
+                    script_sig: ScriptBuf::new(),
+                    sequence: Sequence::MAX,
+                    witness: Witness::from(vec![vec![1; WITNESS_DATA_LEN]]),
+                },
+            ],
+            output: vec![TxOut {
+                value: Amount::ZERO,
+                script_pubkey: ScriptBuf::new(),
+            }],
+        };
+        let serialized = serialize(&transaction);
+        // split in the middle of the first input's scriptSig, where the extranonce would sit
+        let split = INPUT_COUNT_OFFSET + 1 + 36 + 1 + 4;
+        let (coinbase_tx_prefix, coinbase_tx_suffix) = serialized.split_at(split);
+
+        assert!(matches!(
+            try_strip_bip141(coinbase_tx_prefix, coinbase_tx_suffix),
+            Err(StripBip141Error::UnexpectedInputCount)
         ));
     }
 }
