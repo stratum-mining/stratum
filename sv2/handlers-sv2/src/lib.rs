@@ -10,6 +10,9 @@ mod mining_owned;
 mod template_distribution;
 mod template_distribution_owned;
 
+#[cfg(test)]
+mod tests;
+
 pub use error::HandlerErrorType;
 
 pub use common::{

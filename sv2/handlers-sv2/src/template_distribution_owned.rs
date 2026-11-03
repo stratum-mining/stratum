@@ -41,6 +41,7 @@ pub trait HandleTemplateDistributionMessagesFromServerOwnedSync {
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
         if negotiated_extensions.is_empty() {
+            crate::error::ensure_core_message::<Self::Error>(&header)?;
             let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
@@ -171,6 +172,7 @@ pub trait HandleTemplateDistributionMessagesFromServerOwnedAsync {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
             if negotiated_extensions.is_empty() {
+                crate::error::ensure_core_message::<Self::Error>(&header)?;
                 let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
@@ -308,6 +310,7 @@ pub trait HandleTemplateDistributionMessagesFromClientOwnedSync {
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
         if negotiated_extensions.is_empty() {
+            crate::error::ensure_core_message::<Self::Error>(&header)?;
             let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
@@ -432,6 +435,7 @@ pub trait HandleTemplateDistributionMessagesFromClientOwnedAsync {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
             if negotiated_extensions.is_empty() {
+                crate::error::ensure_core_message::<Self::Error>(&header)?;
                 let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
