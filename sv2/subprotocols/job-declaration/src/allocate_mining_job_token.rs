@@ -19,7 +19,7 @@ impl fmt::Display for AllocateMiningJobToken<'_> {
         write!(
             f,
             "AllocateMiningJobToken(user_identifier: {}, request_id: {})",
-            self.user_identifier.as_utf8_or_hex(),
+            self.user_identifier.as_escaped_utf8_or_hex(),
             self.request_id
         )
     }
@@ -30,7 +30,7 @@ impl fmt::Display for AllocateMiningJobTokenOwned {
         write!(
             f,
             "AllocateMiningJobToken(user_identifier: {}, request_id: {})",
-            self.user_identifier.as_utf8_or_hex(),
+            self.user_identifier.as_escaped_utf8_or_hex(),
             self.request_id
         )
     }

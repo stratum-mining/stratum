@@ -149,7 +149,7 @@ impl fmt::Display for DeclareMiningJobError<'_> {
             f,
             "DeclareMiningJobError(request_id: {}, error_code: {}, error_details: {})",
             self.request_id,
-            self.error_code.as_utf8_or_hex(),
+            self.error_code.as_escaped_utf8_or_hex(),
             self.error_details
         )
     }
@@ -161,7 +161,7 @@ impl fmt::Display for DeclareMiningJobErrorOwned {
             f,
             "DeclareMiningJobError(request_id: {}, error_code: {}, error_details: {})",
             self.request_id,
-            self.error_code.as_utf8_or_hex(),
+            self.error_code.as_escaped_utf8_or_hex(),
             self.error_details
         )
     }

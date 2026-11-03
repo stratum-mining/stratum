@@ -217,7 +217,7 @@ impl fmt::Display for SubmitSharesError<'_> {
             "SubmitSharesError(channel_id={}, sequence_number={}, error_code={})",
             self.channel_id,
             self.sequence_number,
-            self.error_code.as_utf8_or_hex()
+            self.error_code.as_escaped_utf8_or_hex()
         )
     }
 }
@@ -229,7 +229,7 @@ impl fmt::Display for SubmitSharesErrorOwned {
             "SubmitSharesError(channel_id={}, sequence_number={}, error_code={})",
             self.channel_id,
             self.sequence_number,
-            self.error_code.as_utf8_or_hex()
+            self.error_code.as_escaped_utf8_or_hex()
         )
     }
 }

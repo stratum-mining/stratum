@@ -42,7 +42,7 @@ impl fmt::Display for OpenStandardMiningChannel<'_> {
             f,
             "OpenStandardMiningChannel(request_id: {}, user_identity: {}, nominal_hash_rate: {}, max_target: {})",
             self.request_id,
-            self.user_identity.as_utf8_or_hex(),
+            self.user_identity.as_escaped_utf8_or_hex(),
             self.nominal_hash_rate,
             self.max_target
         )
@@ -55,7 +55,7 @@ impl fmt::Display for OpenStandardMiningChannelOwned {
             f,
             "OpenStandardMiningChannel(request_id: {}, user_identity: {}, nominal_hash_rate: {}, max_target: {})",
             self.request_id,
-            self.user_identity.as_utf8_or_hex(),
+            self.user_identity.as_escaped_utf8_or_hex(),
             self.nominal_hash_rate,
             self.max_target
         )
@@ -198,7 +198,7 @@ impl fmt::Display for OpenExtendedMiningChannel<'_> {
             f,
             "OpenExtendedMiningChannel(request_id: {}, user_identity: {}, nominal_hash_rate: {}, max_target: {}, min_extranonce_size: {})",
             self.request_id,
-            self.user_identity.as_utf8_or_hex(),
+            self.user_identity.as_escaped_utf8_or_hex(),
             self.nominal_hash_rate,
             self.max_target,
             self.min_extranonce_size
@@ -212,7 +212,7 @@ impl fmt::Display for OpenExtendedMiningChannelOwned {
             f,
             "OpenExtendedMiningChannel(request_id: {}, user_identity: {}, nominal_hash_rate: {}, max_target: {}, min_extranonce_size: {})",
             self.request_id,
-            self.user_identity.as_utf8_or_hex(),
+            self.user_identity.as_escaped_utf8_or_hex(),
             self.nominal_hash_rate,
             self.max_target,
             self.min_extranonce_size
@@ -315,7 +315,7 @@ impl fmt::Display for OpenMiningChannelError<'_> {
             f,
             "OpenMiningChannelError(request_id: {}, error_code: {})",
             self.request_id,
-            self.error_code.as_utf8_or_hex()
+            self.error_code.as_escaped_utf8_or_hex()
         )
     }
 }
@@ -326,7 +326,7 @@ impl fmt::Display for OpenMiningChannelErrorOwned {
             f,
             "OpenMiningChannelError(request_id: {}, error_code: {})",
             self.request_id,
-            self.error_code.as_utf8_or_hex()
+            self.error_code.as_escaped_utf8_or_hex()
         )
     }
 }
@@ -398,6 +398,19 @@ mod tests {
         let copy_len = vec.len().min(32);
         result[start..start + copy_len].copy_from_slice(&vec[..copy_len]);
         result
+    }
+
+    #[test]
+    fn display_escapes_control_characters_in_user_identity() {
+        let message = OpenStandardMiningChannel {
+            request_id: 1,
+            user_identity: Str0255::try_from("miner\n[ERROR] forged\u{1b}[2J").unwrap(),
+            nominal_hash_rate: 1.0,
+            max_target: U256::try_from(&[0xff_u8; 32][..]).unwrap(),
+        };
+        let display = alloc::format!("{message}");
+        assert!(!display.chars().any(char::is_control));
+        assert!(display.contains("miner\\n[ERROR] forged\\u{1b}[2J"));
     }
 
     // *** OPEN STANDARD MINING CHANNEL ***
