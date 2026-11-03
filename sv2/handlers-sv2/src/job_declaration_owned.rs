@@ -46,6 +46,7 @@ pub trait HandleJobDeclarationMessagesFromServerOwnedSync {
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
         if negotiated_extensions.is_empty() {
+            crate::error::ensure_core_message::<Self::Error>(&header)?;
             let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
@@ -183,6 +184,7 @@ pub trait HandleJobDeclarationMessagesFromServerOwnedAsync {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
             if negotiated_extensions.is_empty() {
+                crate::error::ensure_core_message::<Self::Error>(&header)?;
                 let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
@@ -329,6 +331,7 @@ pub trait HandleJobDeclarationMessagesFromClientOwnedSync {
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
         if negotiated_extensions.is_empty() {
+            crate::error::ensure_core_message::<Self::Error>(&header)?;
             let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
@@ -462,6 +465,7 @@ pub trait HandleJobDeclarationMessagesFromClientOwnedAsync {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
             if negotiated_extensions.is_empty() {
+                crate::error::ensure_core_message::<Self::Error>(&header)?;
                 let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
