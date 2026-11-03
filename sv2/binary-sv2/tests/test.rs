@@ -961,6 +961,30 @@ mod test_deep_field_marker {
         marker
     }
 
+    // Decodes a single raw byte wrapped in `DEPTH` struct levels.
+    struct Deep(u8);
+
+    impl<'decoder> Decodable<'decoder> for Deep {
+        fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
+            Ok(vec![nested_marker(DEPTH)])
+        }
+
+        fn from_decoded_fields(fields: Vec<DecodableField<'decoder>>) -> Result<Self, Error> {
+            let mut field = &fields[0];
+            let mut depth = 0;
+            while let DecodableField::Struct(children) = field {
+                assert_eq!(children.len(), 1);
+                field = &children[0];
+                depth += 1;
+            }
+            assert_eq!(depth, DEPTH);
+            match field {
+                DecodableField::Raw(bytes) => Ok(Deep(bytes[0])),
+                _ => Err(Error::DecodableConversionError),
+            }
+        }
+    }
+
     #[test]
     fn deeply_nested_markers_and_fields_drop_without_recursion() {
         drop(nested_marker(DEPTH));
@@ -971,6 +995,23 @@ mod test_deep_field_marker {
             field = DecodableField::Struct(vec![field]);
         }
         drop(field);
+    }
+
+    #[test]
+    fn deeply_nested_marker_sizes_without_recursion() {
+        let marker = nested_marker(DEPTH);
+
+        assert_eq!(marker.size_hint_(&[0x5a], 0), Ok(1));
+        assert_eq!(marker.size_hint_(&[0x5a], 1), Err(Error::ReadError(1, 2)));
+    }
+
+    #[test]
+    fn deeply_nested_marker_decodes_without_recursion() {
+        let mut bytes = [0x5a_u8];
+
+        let decoded = Deep::from_bytes(&mut bytes).unwrap();
+
+        assert_eq!(decoded.0, 0x5a);
     }
 
     // [u8, [u8, [], raw(2)], u8]
