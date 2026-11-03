@@ -336,7 +336,7 @@ fn route_general_response(
         (None, false, true) => Ok(methods::Server2ClientResponse::ExtranonceSubscribe(
             general.into_extranonce_subscribe(),
         )),
-        (None, false, false) => Ok(methods::Server2ClientResponse::Submit(
+        (None, true, false) => Ok(methods::Server2ClientResponse::Submit(
             general.into_submit(),
         )),
         _ => Err(Error::UnknownID(general.id)),
@@ -726,6 +726,24 @@ mod tests {
         };
         assert_eq!(response.id, 42);
         assert!(response.is_ok());
+    }
+
+    #[test]
+    fn submit_acknowledgement_is_routed_by_submit_id() {
+        let general = |id| server_to_client::GeneralResponse { id, result: true };
+
+        let response = route_general_response(general(7), None, true, false).unwrap();
+        let methods::Server2ClientResponse::Submit(response) = response else {
+            panic!("submit acknowledgement was routed as another response");
+        };
+        assert_eq!(response.id, 7);
+        assert!(response.is_ok());
+
+        // a response whose id matches no request the client sent is not a submit
+        assert!(matches!(
+            route_general_response(general(8), None, false, false),
+            Err(Error::UnknownID(8))
+        ));
     }
 
     // A minimal implementation of IsServer trait for testing
