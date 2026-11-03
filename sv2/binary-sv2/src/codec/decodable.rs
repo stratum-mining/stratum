@@ -95,6 +95,23 @@ pub enum FieldMarker {
     Raw(usize),
 }
 
+/// Drops nested structs iteratively, so structural depth cannot exhaust the stack.
+///
+/// Note that this makes [`FieldMarker`] impossible to destructure by move: consumers have to
+/// match its variants by reference.
+impl Drop for FieldMarker {
+    fn drop(&mut self) {
+        if let Self::Struct(ps) = self {
+            let mut pending = core::mem::take(ps);
+            while let Some(mut marker) = pending.pop() {
+                if let Self::Struct(inner) = &mut marker {
+                    pending.append(inner);
+                }
+            }
+        }
+    }
+}
+
 /// Trait for retrieving the [`FieldMarker`] associated with a type.
 ///
 /// Provides a standardized way to retrieve a `FieldMarker` for a type, allowing the protocol to
@@ -149,6 +166,24 @@ pub enum DecodableField<'a> {
 
     /// Undecoded bytes, handed to the owning type's `from_bytes`.
     Raw(&'a mut [u8]),
+}
+
+/// Drops nested structs iteratively, so structural depth cannot exhaust the stack.
+///
+/// Note that this makes [`DecodableField`] impossible to destructure by move: consumers have
+/// to match its variants by reference. It also means drop-check requires a [`DecodableField`]
+/// to go out of scope before the data it borrows from.
+impl Drop for DecodableField<'_> {
+    fn drop(&mut self) {
+        if let Self::Struct(ps) = self {
+            let mut pending = core::mem::take(ps);
+            while let Some(mut field) = pending.pop() {
+                if let Self::Struct(inner) = &mut field {
+                    pending.append(inner);
+                }
+            }
+        }
+    }
 }
 
 impl SizeHint for PrimitiveMarker {
@@ -250,11 +285,10 @@ impl TryFrom<Vec<FieldMarker>> for FieldMarker {
 }
 
 impl<'a> From<DecodableField<'a>> for Vec<DecodableField<'a>> {
-    fn from(v: DecodableField<'a>) -> Self {
-        match v {
-            DecodableField::Primitive(p) => vec![DecodableField::Primitive(p)],
-            DecodableField::Struct(ps) => ps,
-            DecodableField::Raw(bytes) => vec![DecodableField::Raw(bytes)],
+    fn from(mut v: DecodableField<'a>) -> Self {
+        match &mut v {
+            DecodableField::Struct(ps) => core::mem::take(ps),
+            _ => vec![v],
         }
     }
 }
