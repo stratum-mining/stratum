@@ -159,7 +159,6 @@ pub trait HandleMiningMessagesFromServerSync {
             },
             SetCustomMiningJobError(m) => match (channel_type, work_selection) {
                 (SupportedChannelTypes::Extended, true)
-                | (SupportedChannelTypes::Group, true)
                 | (SupportedChannelTypes::GroupAndExtended, true) => {
                     self.handle_set_custom_mining_job_error(server_id, m, tlv_fields)
                 }
@@ -478,7 +477,6 @@ pub trait HandleMiningMessagesFromServerAsync {
                 },
                 SetCustomMiningJobError(m) => match (channel_type, work_selection) {
                     (SupportedChannelTypes::Extended, true)
-                    | (SupportedChannelTypes::Group, true)
                     | (SupportedChannelTypes::GroupAndExtended, true) => {
                         self.handle_set_custom_mining_job_error(server_id, m, tlv_fields)
                             .await
