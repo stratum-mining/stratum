@@ -1268,7 +1268,9 @@ mod tests {
         MAX_EXTRANONCE_LEN,
     };
     use binary_sv2::{Sv2OptionOwned as Sv2Option, U256Owned as U256};
-    use bitcoin::{transaction::TxOut, Amount, ScriptBuf, Target};
+    use bitcoin::{
+        consensus::deserialize, transaction::TxOut, Amount, ScriptBuf, Target, Transaction,
+    };
     use mining_sv2::{
         NewExtendedMiningJobOwned as NewExtendedMiningJob,
         SetCustomMiningJobOwned as SetCustomMiningJob,
@@ -1758,6 +1760,99 @@ mod tests {
             ShareValidationError::DuplicateShare(_)
         ));
         assert_eq!(channel.get_share_accounting().get_blocks_found(), 1);
+    }
+
+    #[test]
+    fn test_share_validation_block_found_without_witness_commitment() {
+        // a template without a witness commitment output: BIP141 then forbids witness data in
+        // the block, so the coinbase of a found block must carry no witness
+        let channel_id = 1;
+        let extranonce_prefix = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        ]
+        .to_vec();
+        let mut channel = ExtendedChannel::new(
+            channel_id,
+            "user_identity".to_string(),
+            ExtranoncePrefix::from_wire(extranonce_prefix.clone()).unwrap(),
+            Target::from_le_bytes([0xff; 32]),
+            1.0,
+            true,
+            8,
+            100,
+            1.0,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let template = NewTemplate {
+            template_id: 1,
+            future_template: false,
+            version: 536870912,
+            coinbase_tx_version: 2,
+            coinbase_prefix: vec![82, 0].try_into().unwrap(),
+            coinbase_tx_input_sequence: 4294967295,
+            coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
+            coinbase_tx_outputs_count: 0,
+            coinbase_tx_outputs: Vec::<u8>::new().try_into().unwrap(),
+            coinbase_tx_locktime: 0,
+            merkle_path: vec![].try_into().unwrap(),
+        };
+
+        let pubkey_hash = [
+            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
+            8, 252,
+        ];
+        let mut script_bytes = vec![0]; // SegWit version 0
+        script_bytes.push(20); // Push 20 bytes (length of pubkey hash)
+        script_bytes.extend_from_slice(&pubkey_hash);
+        let coinbase_reward_outputs = vec![TxOut {
+            value: Amount::from_sat(SATS_AVAILABLE_IN_TEMPLATE),
+            script_pubkey: ScriptBuf::from(script_bytes),
+        }];
+
+        // network target: 7fffff0000000000000000000000000000000000000000000000000000000000
+        let prev_hash = [
+            251, 175, 106, 40, 35, 87, 122, 90, 58, 51, 78, 32, 202, 236, 228, 36, 154, 174, 206,
+            144, 147, 195, 21, 224, 195, 103, 214, 189, 51, 190, 24, 98,
+        ]
+        .into();
+        let chain_tip = ChainTip::new(prev_hash, 545259519, 1745596910);
+        channel.set_chain_tip(chain_tip);
+        channel
+            .on_new_template(template, coinbase_reward_outputs.clone())
+            .unwrap();
+
+        // this share has hash 1d0d70334da873a6002ef10d4f2c6d17632ba009d1ef234702187018fae5d09d
+        // which satisfies the network target
+        let rollable_extranonce = vec![1, 0, 0, 0, 0, 0, 0, 0];
+        let share_valid_block = SubmitSharesExtended {
+            channel_id,
+            sequence_number: 0,
+            job_id: 1,
+            nonce: 1,
+            ntime: 1745596971,
+            version: 536870912,
+            extranonce: rollable_extranonce.clone().try_into().unwrap(),
+        };
+
+        let Ok(ShareValidationResult::BlockFound(_, _, serialized_coinbase)) =
+            channel.validate_share(share_valid_block)
+        else {
+            panic!("expected BlockFound");
+        };
+
+        let coinbase: Transaction = deserialize(&serialized_coinbase).unwrap();
+        assert!(coinbase.input[0].witness.is_empty());
+        assert_eq!(coinbase.output, coinbase_reward_outputs);
+        let mut full_extranonce = extranonce_prefix;
+        full_extranonce.extend(rollable_extranonce);
+        assert!(coinbase.input[0]
+            .script_sig
+            .as_bytes()
+            .ends_with(&full_extranonce));
     }
 
     #[test]

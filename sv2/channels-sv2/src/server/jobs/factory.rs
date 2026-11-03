@@ -25,7 +25,7 @@
 //! incoming SV2 messages (`NewTemplate`, `SetCustomMiningJob`), ensuring protocol correctness and
 //! uniqueness of job IDs.
 use crate::{
-    bip141::try_strip_bip141,
+    bip141::{coinbase_witness, marker_flag_len, try_strip_bip141},
     chain_tip::ChainTip,
     merkle_root::merkle_root_from_path,
     outputs::deserialize_template_outputs,
@@ -34,7 +34,6 @@ use crate::{
 use binary_sv2::{B0255Owned, Sv2OptionOwned};
 use bitcoin::{
     absolute::LockTime,
-    blockdata::witness::Witness,
     consensus::{serialize, Decodable},
     transaction::{OutPoint, Transaction, TxIn, TxOut, Version},
     Amount, Sequence,
@@ -331,11 +330,12 @@ impl JobFactory {
             full_extranonce_size,
         )?;
 
-        // strip bip141 bytes from coinbase_tx_prefix and coinbase_tx_suffix
+        // strip bip141 bytes from coinbase_tx_prefix and coinbase_tx_suffix; a coinbase without
+        // a witness commitment carries none, so its bytes are used as they are
         let (coinbase_tx_prefix_stripped_bip141, coinbase_tx_suffix_stripped_bip141) =
             try_strip_bip141(&coinbase_tx_prefix, &coinbase_tx_suffix)
                 .map_err(|_| JobFactoryError::FailedToStripBip141)?
-                .ok_or(JobFactoryError::FailedToStripBip141)?;
+                .unwrap_or_else(|| (coinbase_tx_prefix.clone(), coinbase_tx_suffix.clone()));
 
         let merkle_path = template.merkle_path.clone();
 
@@ -527,11 +527,12 @@ impl JobFactory {
         let coinbase_tx_suffix =
             self.custom_coinbase_tx_suffix(set_custom_mining_job.clone(), full_extranonce_size)?;
 
-        // strip bip141 bytes from coinbase_tx_prefix and coinbase_tx_suffix
+        // strip bip141 bytes from coinbase_tx_prefix and coinbase_tx_suffix; a coinbase without
+        // a witness commitment carries none, so its bytes are used as they are
         let (coinbase_tx_prefix_stripped_bip141, coinbase_tx_suffix_stripped_bip141) =
             try_strip_bip141(&coinbase_tx_prefix, &coinbase_tx_suffix)
                 .map_err(|_| JobFactoryError::FailedToStripBip141)?
-                .ok_or(JobFactoryError::FailedToStripBip141)?;
+                .unwrap_or_else(|| (coinbase_tx_prefix.clone(), coinbase_tx_suffix.clone()));
 
         let merkle_path = set_custom_mining_job.merkle_path.clone();
 
@@ -649,9 +650,7 @@ impl JobFactory {
             previous_output: OutPoint::null(),
             script_sig: script_sig.into(),
             sequence: Sequence(m.coinbase_tx_input_n_sequence),
-            witness: Witness::from(vec![vec![0; 32]]), /* note: 32 bytes of zeros is only safe to
-                                                        * assume now, this could change in future
-                                                        * soft forks */
+            witness: coinbase_witness(&deserialized_outputs),
         };
 
         Ok(Transaction {
@@ -674,7 +673,7 @@ impl JobFactory {
         // always below the 253 byte threshold where CompactSize switches from a 1-byte to a
         // 3-byte encoding, so the script length prefix is unconditionally 1 byte
         let index = 4 // tx version
-            + 2 // segwit
+            + marker_flag_len(&coinbase.input[0].witness) // segwit marker and flag, if any
             + 1 // number of inputs
             + 32 // prev OutPoint
             + 4 // index
@@ -698,7 +697,7 @@ impl JobFactory {
         // always below the 253 byte threshold where CompactSize switches from a 1-byte to a
         // 3-byte encoding, so the script length prefix is unconditionally 1 byte
         let index = 4 // tx version
-            + 2 // segwit
+            + marker_flag_len(&coinbase.input[0].witness) // segwit marker and flag, if any
             + 1 // number of inputs
             + 32 // prev OutPoint
             + 4 // index
@@ -766,9 +765,7 @@ impl JobFactory {
             previous_output: OutPoint::null(),
             script_sig: script_sig.into(),
             sequence: Sequence(template.coinbase_tx_input_sequence),
-            witness: Witness::from(vec![vec![0; 32]]), /* note: 32 bytes of zeros is only safe to
-                                                        * assume now, this could change in future
-                                                        * soft forks */
+            witness: coinbase_witness(&outputs),
         };
 
         Ok(Transaction {
@@ -799,7 +796,7 @@ impl JobFactory {
         // always below the 253 byte threshold where CompactSize switches from a 1-byte to a
         // 3-byte encoding, so the script length prefix is unconditionally 1 byte
         let index = 4 // tx version
-            + 2 // segwit bytes
+            + marker_flag_len(&coinbase.input[0].witness) // segwit marker and flag, if any
             + 1 // number of inputs
             + 32 // prev OutPoint
             + 4 // index
@@ -833,7 +830,7 @@ impl JobFactory {
         // always below the 253 byte threshold where CompactSize switches from a 1-byte to a
         // 3-byte encoding, so the script length prefix is unconditionally 1 byte
         let coinbase_tx_suffix = serialized_coinbase[4 // tx version
-            + 2 // segwit bytes
+            + marker_flag_len(&coinbase.input[0].witness) // segwit marker and flag, if any
             + 1 // number of inputs
             + 32 // prev OutPoint
             + 4 // index
@@ -851,7 +848,7 @@ impl JobFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bitcoin::ScriptBuf;
+    use bitcoin::{consensus::deserialize, ScriptBuf};
     use mining_sv2::NewExtendedMiningJobOwned as NewExtendedMiningJob;
     use template_distribution_sv2::NewTemplateOwned as NewTemplate;
 
@@ -1246,6 +1243,44 @@ mod tests {
             job.unwrap_err(),
             JobFactoryError::ScriptSigSizeTooLarge
         ));
+    }
+
+    #[test]
+    fn test_custom_job_without_witness_commitment() {
+        // coinbase_reward_outputs() carries no witness commitment, so BIP141 forbids a coinbase
+        // witness: the bytes a found block is assembled from have none to strip
+        let mut job_factory = JobFactory::new(true, None, None);
+        let coinbase_prefix = vec![0xab; 4];
+        let full_extranonce = vec![0xee; 32];
+
+        let job = job_factory
+            .new_extended_job_from_custom_job(
+                custom_job_with_coinbase_prefix(coinbase_prefix.clone()),
+                vec![0; 32],
+                full_extranonce.len(),
+            )
+            .unwrap();
+
+        assert_eq!(
+            job.get_coinbase_tx_prefix_with_bip141(),
+            job.get_coinbase_tx_prefix_without_bip141()
+        );
+        assert_eq!(
+            job.get_coinbase_tx_suffix_with_bip141(),
+            job.get_coinbase_tx_suffix_without_bip141()
+        );
+
+        let mut serialized_coinbase = job.get_coinbase_tx_prefix_with_bip141();
+        serialized_coinbase.extend(&full_extranonce);
+        serialized_coinbase.extend(job.get_coinbase_tx_suffix_with_bip141());
+        let coinbase: Transaction = deserialize(&serialized_coinbase).unwrap();
+
+        assert!(coinbase.input[0].witness.is_empty());
+        assert_eq!(
+            coinbase.input[0].script_sig.as_bytes(),
+            [coinbase_prefix, full_extranonce].concat()
+        );
+        assert_eq!(coinbase.output, coinbase_reward_outputs());
     }
 
     #[test]

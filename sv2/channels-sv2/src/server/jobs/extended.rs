@@ -14,9 +14,10 @@ use template_distribution_sv2::NewTemplateOwned;
 /// - all coinbase outputs (spendable + unspendable) associated with the job
 /// - the `NewExtendedMiningJob` message to be sent across the wire
 ///
-/// Please note that `coinbase_tx_prefix` and `coinbase_tx_suffix` are stored in memory with bip141
-/// data (marker, flag and witness). That makes it easy to reconstruct the segwit coinbase while
-/// trying to propagate a block.
+/// Please note that `coinbase_tx_prefix` and `coinbase_tx_suffix` are stored in memory with the
+/// bip141 data (marker, flag and witness) of the coinbase, which only has them when its outputs
+/// include a witness commitment. That makes it easy to reconstruct the coinbase while trying to
+/// propagate a block.
 ///
 /// However, the `coinbase_tx_prefix` and `coinbase_tx_suffix` contained in the
 /// `NewExtendedMiningJob` message to be sent across the wire DO NOT contain bip141 data.
