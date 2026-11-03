@@ -195,7 +195,8 @@ impl Responder {
     /// Constructs a new [`Responder`] with a given public and private key pair, which represents
     /// the responder's authority credentials. It verifies that the provided public key matches the
     /// corresponding private key, ensuring the authenticity of the authority key pair. The
-    /// certificate validity duration is also set here. Fails if the key pair is mismatched.
+    /// certificate validity duration is also set here; a duration longer than `u32::MAX` seconds
+    /// is capped at `u32::MAX`. Fails if the key pair is mismatched.
     #[cfg(feature = "std")]
     pub fn from_authority_kp(
         public: &[u8; 32],
@@ -225,7 +226,8 @@ impl Responder {
         let kp = Keypair::from_secret_key(&secp, &secret);
         let pub_ = kp.x_only_public_key().0.serialize();
         if public == &pub_[..] {
-            Ok(Self::new_with_rng(kp, cert_validity.as_secs() as u32, rng))
+            let cert_validity = u32::try_from(cert_validity.as_secs()).unwrap_or(u32::MAX);
+            Ok(Self::new_with_rng(kp, cert_validity, rng))
         } else {
             Err(Error::InvalidRawPublicKey)
         }
@@ -452,6 +454,27 @@ mod test {
         let authority = Keypair::new(&secp, &mut rng);
 
         *Responder::new_with_rng(authority, 60, &mut rng)
+    }
+
+    #[test]
+    fn from_authority_kp_caps_cert_validity_at_u32_max() {
+        use rand::{rngs::StdRng, SeedableRng};
+
+        let mut rng = StdRng::seed_from_u64(4);
+        let authority = Keypair::new(&Secp256k1::new(), &mut rng);
+        let public = authority.x_only_public_key().0.serialize();
+        let private = authority.secret_key().secret_bytes();
+
+        for secs in [u64::from(u32::MAX) + 1, u64::MAX] {
+            let responder = Responder::from_authority_kp_with_rng(
+                &public,
+                &private,
+                Duration::from_secs(secs),
+                &mut rng,
+            )
+            .unwrap();
+            assert_eq!(responder.cert_validity, u32::MAX);
+        }
     }
 
     #[test]
