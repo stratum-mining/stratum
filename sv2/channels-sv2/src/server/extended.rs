@@ -1191,6 +1191,7 @@ impl ExtendedChannel {
                 share_hash.to_raw_hash(),
             );
             self.share_accounting.increment_blocks_found();
+            self.share_accounting.update_best_diff(share_hash_as_diff);
             self.share_accounting.mark_batch_acknowledged();
 
             let mut coinbase = vec![];
@@ -1742,6 +1743,8 @@ mod tests {
             channel.get_share_accounting().get_share_work_sum(),
             max_target.difficulty_float()
         );
+        // a block is the best share the channel has seen
+        assert!(channel.get_share_accounting().get_best_diff() > 0.0);
 
         // re-submitting the same valid block must be rejected as duplicate
         let res = channel.validate_share(share_valid_block);
