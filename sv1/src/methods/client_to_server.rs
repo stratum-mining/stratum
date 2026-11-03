@@ -23,7 +23,8 @@ use quickcheck_macros;
 /// _mining.authorize("username", "password")_
 ///
 /// The result from an authorize request is usually true (successful), or false.
-/// The password may be omitted if the server does not require passwords.
+/// The password may be omitted if the server does not require passwords. An omitted or `null`
+/// password is parsed as an empty `password`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Authorize {
     pub id: u64,
@@ -71,6 +72,8 @@ impl TryFrom<StandardRequest> for Authorize {
             Some(params) => {
                 let (name, password) = match &params[..] {
                     [JString(a), JString(b)] => (a.into(), b.into()),
+                    // the password is optional: an omitted or null one reads as empty
+                    [JString(a)] | [JString(a), Null] => (a.into(), String::new()),
                     _ => return Err(ParsingMethodError::wrong_args_from_value(msg.params)),
                 };
                 let id = msg.id;
@@ -101,6 +104,27 @@ fn from_to_json_rpc(auth: Authorize) -> bool {
         _ => panic!(),
     };
     auth == TryInto::<Authorize>::try_into(request).unwrap()
+}
+
+#[test]
+fn test_authorize_without_password() {
+    for params in [r#"["worker1"]"#, r#"["worker1", null]"#] {
+        let client_message = format!(r#"{{"id":3,"method":"mining.authorize","params":{params}}}"#);
+        let client_message: StandardRequest = serde_json::from_str(&client_message).unwrap();
+        let authorize = Authorize::try_from(client_message).unwrap();
+        assert_eq!(authorize.id, 3);
+        assert_eq!(authorize.name, "worker1");
+        assert_eq!(authorize.password, "");
+    }
+}
+
+#[test]
+fn test_authorize_rejects_malformed_params() {
+    for params in [r#"[]"#, r#"[null]"#, r#"[1, "x"]"#, r#"["worker1", 1]"#] {
+        let client_message = format!(r#"{{"id":3,"method":"mining.authorize","params":{params}}}"#);
+        let client_message: StandardRequest = serde_json::from_str(&client_message).unwrap();
+        assert!(Authorize::try_from(client_message).is_err(), "{params}");
+    }
 }
 
 // mining.capabilities (DRAFT) (incompatible with mining.configure)
