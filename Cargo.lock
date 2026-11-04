@@ -68,7 +68,7 @@ checksum = "32637268377fc7b10a8c6d51de3e7fba1ce5dd371a96e342b34e6078db558e7f"
 
 [[package]]
 name = "binary_sv2"
-version = "8.0.0"
+version = "8.1.0"
 dependencies = [
  "buffer_sv2",
  "derive_codec_sv2",
@@ -301,7 +301,7 @@ dependencies = [
 
 [[package]]
 name = "common_messages_sv2"
-version = "10.0.0"
+version = "10.0.1"
 dependencies = [
  "binary_sv2",
 ]
@@ -470,7 +470,7 @@ checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
 name = "extensions_sv2"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "binary_sv2",
 ]
@@ -673,7 +673,7 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "job_declaration_sv2"
-version = "11.0.0"
+version = "11.0.1"
 dependencies = [
  "binary_sv2",
 ]
@@ -727,7 +727,7 @@ checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
 
 [[package]]
 name = "mining_sv2"
-version = "13.0.0"
+version = "13.0.1"
 dependencies = [
  "binary_sv2",
  "quickcheck",
@@ -805,7 +805,7 @@ dependencies = [
 
 [[package]]
 name = "parsers_sv2"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "binary_sv2",
  "codec_sv2",
@@ -1245,7 +1245,7 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
 name = "template_distribution_sv2"
-version = "8.0.0"
+version = "8.0.1"
 dependencies = [
  "binary_sv2",
 ]
