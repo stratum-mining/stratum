@@ -177,7 +177,7 @@ impl fmt::Display for SetCustomMiningJobError<'_> {
             "SetCustomMiningJobError(channel_id={}, request_id={}, error_code={})",
             self.channel_id,
             self.request_id,
-            self.error_code.as_utf8_or_hex()
+            self.error_code.as_escaped_utf8_or_hex()
         )
     }
 }
@@ -189,7 +189,7 @@ impl fmt::Display for SetCustomMiningJobErrorOwned {
             "SetCustomMiningJobError(channel_id={}, request_id={}, error_code={})",
             self.channel_id,
             self.request_id,
-            self.error_code.as_utf8_or_hex()
+            self.error_code.as_escaped_utf8_or_hex()
         )
     }
 }

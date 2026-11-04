@@ -66,10 +66,10 @@ pub use encodable::Encodable as Serialize;
 mod codec;
 mod datatypes;
 pub use datatypes::{
-    B016MOwned, B0255Owned, B032Owned, B064KOwned, EllSwiftPubKey, EllSwiftPubKeyOwned, Mac,
-    MacOwned, PubKey, PubKeyOwned, Seq0255, Seq0255Owned, Seq064K, Seq064KOwned, Signature,
-    SignatureOwned, Str0255, Str0255Owned, Sv2DataType, Sv2Option, Sv2OptionOwned, U256Owned,
-    B016M, B0255, B032, B064K, ERROR_SAMPLE_LEN, U24, U256,
+    escape_control_chars, B016MOwned, B0255Owned, B032Owned, B064KOwned, EllSwiftPubKey,
+    EllSwiftPubKeyOwned, Mac, MacOwned, PubKey, PubKeyOwned, Seq0255, Seq0255Owned, Seq064K,
+    Seq064KOwned, Signature, SignatureOwned, Str0255, Str0255Owned, Sv2DataType, Sv2Option,
+    Sv2OptionOwned, U256Owned, B016M, B0255, B032, B064K, ERROR_SAMPLE_LEN, U24, U256,
 };
 
 pub use crate::codec::{

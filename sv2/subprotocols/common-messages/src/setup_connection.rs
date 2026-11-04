@@ -62,12 +62,12 @@ impl fmt::Display for SetupConnection<'_> {
             self.min_version,
             self.max_version,
             self.flags,
-            self.endpoint_host.as_utf8_or_hex(),
+            self.endpoint_host.as_escaped_utf8_or_hex(),
             self.endpoint_port,
-            self.vendor.as_utf8_or_hex(),
-            self.hardware_version.as_utf8_or_hex(),
-            self.firmware.as_utf8_or_hex(),
-            self.device_id.as_utf8_or_hex()
+            self.vendor.as_escaped_utf8_or_hex(),
+            self.hardware_version.as_escaped_utf8_or_hex(),
+            self.firmware.as_escaped_utf8_or_hex(),
+            self.device_id.as_escaped_utf8_or_hex()
         )
     }
 }
@@ -81,12 +81,12 @@ impl fmt::Display for SetupConnectionOwned {
             self.min_version,
             self.max_version,
             self.flags,
-            self.endpoint_host.as_utf8_or_hex(),
+            self.endpoint_host.as_escaped_utf8_or_hex(),
             self.endpoint_port,
-            self.vendor.as_utf8_or_hex(),
-            self.hardware_version.as_utf8_or_hex(),
-            self.firmware.as_utf8_or_hex(),
-            self.device_id.as_utf8_or_hex()
+            self.vendor.as_escaped_utf8_or_hex(),
+            self.hardware_version.as_escaped_utf8_or_hex(),
+            self.firmware.as_escaped_utf8_or_hex(),
+            self.device_id.as_escaped_utf8_or_hex()
         )
     }
 }
@@ -337,7 +337,7 @@ impl fmt::Display for SetupConnectionError<'_> {
             f,
             "SetupConnectionError(flags: 0x{:08x}, error_code: {})",
             self.flags,
-            self.error_code.as_utf8_or_hex()
+            self.error_code.as_escaped_utf8_or_hex()
         )
     }
 }
@@ -348,7 +348,7 @@ impl fmt::Display for SetupConnectionErrorOwned {
             f,
             "SetupConnectionError(flags: 0x{:08x}, error_code: {})",
             self.flags,
-            self.error_code.as_utf8_or_hex()
+            self.error_code.as_escaped_utf8_or_hex()
         )
     }
 }

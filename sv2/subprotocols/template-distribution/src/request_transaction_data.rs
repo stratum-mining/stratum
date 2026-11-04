@@ -124,7 +124,7 @@ impl fmt::Display for RequestTransactionDataError<'_> {
             f,
             "RequestTransactionDataError(template_id: {}, error_code: {})",
             self.template_id,
-            self.error_code.as_utf8_or_hex()
+            self.error_code.as_escaped_utf8_or_hex()
         )
     }
 }
@@ -135,7 +135,7 @@ impl fmt::Display for RequestTransactionDataErrorOwned {
             f,
             "RequestTransactionDataError(template_id: {}, error_code: {})",
             self.template_id,
-            self.error_code.as_utf8_or_hex()
+            self.error_code.as_escaped_utf8_or_hex()
         )
     }
 }

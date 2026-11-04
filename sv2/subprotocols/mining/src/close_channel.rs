@@ -22,7 +22,7 @@ impl fmt::Display for CloseChannel<'_> {
             f,
             "CloseChannel(channel_id: {}, reason_code: {})",
             self.channel_id,
-            self.reason_code.as_utf8_or_hex()
+            self.reason_code.as_escaped_utf8_or_hex()
         )
     }
 }
@@ -33,7 +33,7 @@ impl fmt::Display for CloseChannelOwned {
             f,
             "CloseChannel(channel_id: {}, reason_code: {})",
             self.channel_id,
-            self.reason_code.as_utf8_or_hex()
+            self.reason_code.as_escaped_utf8_or_hex()
         )
     }
 }

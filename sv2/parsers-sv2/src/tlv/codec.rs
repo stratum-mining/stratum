@@ -169,14 +169,7 @@ impl fmt::Display for Tlv {
 /// Helper function to convert TLV value bytes to a human-readable string.
 fn value_to_string(bytes: &[u8]) -> String {
     match core::str::from_utf8(bytes) {
-        Ok(s) => {
-            // Check if the string is printable ASCII/UTF-8
-            if s.chars().all(|c| !c.is_control() || c == '\n' || c == '\t') {
-                alloc::format!("\"{}\"", s)
-            } else {
-                bytes_to_hex(bytes)
-            }
-        }
+        Ok(s) => alloc::format!("\"{}\"", binary_sv2::escape_control_chars(s)),
         Err(_) => bytes_to_hex(bytes),
     }
 }
@@ -194,6 +187,14 @@ fn bytes_to_hex(bytes: &[u8]) -> String {
 mod tests {
     use super::*;
     use alloc::vec;
+
+    #[test]
+    fn test_tlv_display_escapes_control_characters() {
+        let tlv = Tlv::new(0x0002, 0x01, b"rig1\n\tERROR\x1b[0m".to_vec()).unwrap();
+        let display = alloc::format!("{tlv}");
+        assert!(!display.chars().any(char::is_control));
+        assert!(display.contains("value=\"rig1\\n\\tERROR\\u{1b}[0m\""));
+    }
 
     #[test]
     fn test_tlv_struct_encode_decode() {

@@ -92,7 +92,10 @@ impl UserIdentity {
 
 impl fmt::Display for UserIdentity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "UserIdentity({})", self.as_string_or_hex())
+        match self.as_str() {
+            Some(s) => write!(f, "UserIdentity({})", binary_sv2::escape_control_chars(s)),
+            None => write!(f, "UserIdentity({})", self.as_string_or_hex()),
+        }
     }
 }
 
@@ -172,5 +175,12 @@ mod tests {
         let identity = UserIdentity::new("TestWorker").unwrap();
         let display = alloc::format!("{}", identity);
         assert!(display.contains("TestWorker"));
+    }
+
+    #[test]
+    fn test_display_escapes_control_characters() {
+        let identity = UserIdentity::new("rig1\r\nrig2").unwrap();
+        let display = alloc::format!("{}", identity);
+        assert_eq!(display, "UserIdentity(rig1\\r\\nrig2)");
     }
 }

@@ -25,7 +25,7 @@ impl fmt::Display for Reconnect<'_> {
         write!(
             f,
             "Reconnect(new_host: {}, new_port: {})",
-            self.new_host.as_utf8_or_hex(),
+            self.new_host.as_escaped_utf8_or_hex(),
             self.new_port
         )
     }
@@ -36,7 +36,7 @@ impl fmt::Display for ReconnectOwned {
         write!(
             f,
             "Reconnect(new_host: {}, new_port: {})",
-            self.new_host.as_utf8_or_hex(),
+            self.new_host.as_escaped_utf8_or_hex(),
             self.new_port
         )
     }
