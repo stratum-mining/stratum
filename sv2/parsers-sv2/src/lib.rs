@@ -694,6 +694,11 @@ impl AnyMessage<'_> {
 }
 
 /// Single entry point for parsing any SV2 protocol message frame with TLV support.
+///
+/// TLV fields of negotiated extensions are returned in wire order. A frame that repeats a
+/// negotiated `(extension_type, field_type)` pair is rejected with
+/// [`TlvError::DuplicateField`], so the returned list holds at most 256 fields per negotiated
+/// extension whatever the peer sends.
 pub fn parse_message_frame_with_tlvs<'a>(
     header: Header,
     payload: &'a mut [u8],
@@ -705,14 +710,30 @@ pub fn parse_message_frame_with_tlvs<'a>(
     let message_size = AnyMessage::try_from((header, &mut *payload))?.get_size();
     let (message_bytes, tlv_bytes) = payload.split_at_mut(message_size.min(payload.len()));
     let message: AnyMessage<'a> = (header, message_bytes).try_into()?;
-    let tlvs = extract_tlv_fields(tlv_bytes, negotiated_extensions);
+    let tlvs = extract_tlv_fields(tlv_bytes, negotiated_extensions)?;
     Ok((message, tlvs))
 }
 
 /// Internal helper to extract TLV fields from the remaining payload bytes.
-fn extract_tlv_fields(tlv_bytes: &[u8], negotiated_extensions: &[u16]) -> Option<Vec<Tlv>> {
-    let tlvs = TlvList::from_bytes(tlv_bytes).for_extensions(negotiated_extensions);
-    (!tlvs.is_empty()).then_some(tlvs)
+fn extract_tlv_fields(
+    tlv_bytes: &[u8],
+    negotiated_extensions: &[u16],
+) -> Result<Option<Vec<Tlv>>, ParserError> {
+    let mut tlvs: Vec<Tlv> = Vec::new();
+    for tlv in TlvList::from_bytes(tlv_bytes).iter().filter_map(Result::ok) {
+        if !negotiated_extensions.contains(&tlv.r#type.extension_type) {
+            continue;
+        }
+        if tlvs.iter().any(|seen| seen.r#type == tlv.r#type) {
+            return Err(TlvError::DuplicateField {
+                extension_type: tlv.r#type.extension_type,
+                field_type: tlv.r#type.field_type,
+            }
+            .into());
+        }
+        tlvs.push(tlv);
+    }
+    Ok((!tlvs.is_empty()).then_some(tlvs))
 }
 
 /// A trait that every Sv2 message parser must implement.
@@ -2655,7 +2676,7 @@ impl<'a> TryFrom<AnyMessage<'a>> for MiningDeviceMessages<'a> {
 mod test {
     use crate::{
         parse_message_frame_with_tlvs, AnyMessage, Extensions, ExtensionsNegotiation,
-        JobDeclaration, Mining, Tlv,
+        JobDeclaration, Mining, ParserError, Tlv, TlvError,
     };
     use alloc::vec;
     use alloc::vec::Vec;
@@ -2836,6 +2857,39 @@ mod test {
             other => panic!("unexpected message: {other:?}"),
         }
         assert_eq!(tlvs, Some(vec![user_identity, other_field]));
+    }
+
+    #[test]
+    fn repeated_tlv_field_is_rejected() {
+        // A zero-length TLV costs 5 bytes on the wire. Repeating one fills a frame with
+        // entries that would each become a heap-allocated `Tlv` if they were all collected.
+        let repeated = Tlv::new(0x0002, 0x01, Vec::new()).unwrap();
+        let (header, mut payload) = frame_with_tlv_suffix(&encode_tlvs(&vec![repeated; 100_000]));
+
+        let result = parse_message_frame_with_tlvs(header, &mut payload, &[0x0002]);
+
+        assert!(matches!(
+            result,
+            Err(ParserError::TlvError(TlvError::DuplicateField {
+                extension_type: 0x0002,
+                field_type: 0x01,
+            }))
+        ));
+    }
+
+    #[test]
+    fn collected_tlv_fields_are_bounded_by_distinct_field_types() {
+        let distinct: Vec<Tlv> = (0..=u8::MAX)
+            .map(|field_type| Tlv::new(0x0002, field_type, Vec::new()).unwrap())
+            .collect();
+        let (header, mut payload) = frame_with_tlv_suffix(&encode_tlvs(&distinct));
+        let (_, tlvs) = parse_message_frame_with_tlvs(header, &mut payload, &[0x0002]).unwrap();
+        assert_eq!(tlvs.unwrap().len(), 256);
+
+        let mut one_more = distinct;
+        one_more.push(Tlv::new(0x0002, 0x00, Vec::new()).unwrap());
+        let (header, mut payload) = frame_with_tlv_suffix(&encode_tlvs(&one_more));
+        assert!(parse_message_frame_with_tlvs(header, &mut payload, &[0x0002]).is_err());
     }
 
     #[test]
