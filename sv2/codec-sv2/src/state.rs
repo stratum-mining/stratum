@@ -275,6 +275,49 @@ impl<B: IsBuffer> AeadBuffer for Chunk<'_, B> {
     }
 }
 
+// One piece of a frame encrypted where it already sits: the first `len` bytes of `buf` are the
+// plaintext, and the rest of `buf` is the room left behind it for the tag. AEAD encrypts the
+// plaintext in place and appends the tag into that room, so nothing is reserved or moved.
+pub(crate) struct Segment<'a> {
+    buf: &'a mut [u8],
+    len: usize,
+}
+
+impl<'a> Segment<'a> {
+    pub(crate) fn new(buf: &'a mut [u8], len: usize) -> Self {
+        debug_assert!(len <= buf.len());
+        Self { buf, len }
+    }
+}
+
+impl AsRef<[u8]> for Segment<'_> {
+    fn as_ref(&self) -> &[u8] {
+        &self.buf[..self.len]
+    }
+}
+
+impl AsMut<[u8]> for Segment<'_> {
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.buf[..self.len]
+    }
+}
+
+impl AeadBuffer for Segment<'_> {
+    fn extend_from_slice(&mut self, other: &[u8]) -> core::result::Result<(), AeadError> {
+        let end = self.len.checked_add(other.len()).ok_or(AeadError)?;
+        self.buf
+            .get_mut(self.len..end)
+            .ok_or(AeadError)?
+            .copy_from_slice(other);
+        self.len = end;
+        Ok(())
+    }
+
+    fn truncate(&mut self, len: usize) {
+        self.len = self.len.min(len);
+    }
+}
+
 /// The encrypting half of a [`Transport`].
 #[derive(Debug)]
 pub struct TransportEncryptState {
