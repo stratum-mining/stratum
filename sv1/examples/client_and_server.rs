@@ -330,6 +330,7 @@ struct Client {
     status: ClientStatus,
     last_notify: Option<server_to_client::Notify>,
     sented_authorize_request: Vec<(u64, String)>, // (id, user_name)
+    sented_submit_request: Vec<u64>,
     authorized: Vec<String>,
     receiver_incoming: Receiver<String>,
     sender_outgoing: Sender<String>,
@@ -372,6 +373,7 @@ impl Client {
                         status: ClientStatus::Init,
                         last_notify: None,
                         sented_authorize_request: vec![],
+                        sented_submit_request: vec![],
                         authorized: vec![],
                         receiver_incoming,
                         sender_outgoing,
@@ -451,6 +453,7 @@ impl Client {
             nonce,
             version_bits,
         ) {
+            self.sented_submit_request.push(id);
             Self::send_message(&self.sender_outgoing, submit);
         }
     }
@@ -602,8 +605,8 @@ impl IsClient for Client {
         }
     }
 
-    fn id_is_submit(&mut self, _server_id: Option<usize>, _: &u64) -> Result<bool, Error> {
-        Ok(false)
+    fn id_is_submit(&mut self, _server_id: Option<usize>, id: &u64) -> Result<bool, Error> {
+        Ok(self.sented_submit_request.contains(id))
     }
 
     fn authorize_user_name(
