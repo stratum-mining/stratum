@@ -5,7 +5,9 @@ use job_declaration_sv2::{
     MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
     MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PUSH_SOLUTION, *,
 };
-use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, JobDeclaration, Tlv};
+use parsers_sv2::{
+    check_channel_msg_bit, parse_message_frame_with_tlvs, AnyMessage, JobDeclaration, Tlv,
+};
 
 use crate::error::HandlerErrorType;
 
@@ -47,6 +49,7 @@ pub trait HandleJobDeclarationMessagesFromServerSync {
             let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
+            check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
             return self.handle_job_declaration_message_from_server(server_id, parsed, None);
         }
         let (parsed, tlv_fields) =
@@ -180,6 +183,7 @@ pub trait HandleJobDeclarationMessagesFromServerAsync {
                 let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
+                check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
                 return self
                     .handle_job_declaration_message_from_server(server_id, parsed, None)
                     .await;
@@ -323,6 +327,7 @@ pub trait HandleJobDeclarationMessagesFromClientSync {
             let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
+            check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
             return self.handle_job_declaration_message_from_client(client_id, parsed, None);
         }
         let (parsed, tlv_fields) =
@@ -454,6 +459,7 @@ pub trait HandleJobDeclarationMessagesFromClientAsync {
                 let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
+                check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
                 return self
                     .handle_job_declaration_message_from_client(client_id, parsed, None)
                     .await;

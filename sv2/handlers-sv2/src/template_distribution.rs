@@ -1,5 +1,7 @@
 use framing_sv2::header::Header;
-use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, TemplateDistribution, Tlv};
+use parsers_sv2::{
+    check_channel_msg_bit, parse_message_frame_with_tlvs, AnyMessage, TemplateDistribution, Tlv,
+};
 use template_distribution_sv2::*;
 use template_distribution_sv2::{
     CoinbaseOutputConstraints, NewTemplate, RequestTransactionData, RequestTransactionDataError,
@@ -46,6 +48,7 @@ pub trait HandleTemplateDistributionMessagesFromServerSync {
             let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
+            check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
             return self.handle_template_distribution_message_from_server(server_id, parsed, None);
         }
         let (parsed, tlv_fields) =
@@ -172,6 +175,7 @@ pub trait HandleTemplateDistributionMessagesFromServerAsync {
                 let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
+                check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
                 return self
                     .handle_template_distribution_message_from_server(server_id, parsed, None)
                     .await;
@@ -306,6 +310,7 @@ pub trait HandleTemplateDistributionMessagesFromClientSync {
             let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
+            check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
             return self.handle_template_distribution_message_from_client(client_id, parsed, None);
         }
         let (parsed, tlv_fields) =
@@ -426,6 +431,7 @@ pub trait HandleTemplateDistributionMessagesFromClientAsync {
                 let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
+                check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
                 return self
                     .handle_template_distribution_message_from_client(client_id, parsed, None)
                     .await;

@@ -1,6 +1,7 @@
 use framing_sv2::header::Header;
 use parsers_sv2::{
-    parse_message_frame_with_tlvs, AnyMessage, TemplateDistribution, TemplateDistributionOwned, Tlv,
+    check_channel_msg_bit, parse_message_frame_with_tlvs, AnyMessage, TemplateDistribution,
+    TemplateDistributionOwned, Tlv,
 };
 use template_distribution_sv2::*;
 
@@ -44,6 +45,7 @@ pub trait HandleTemplateDistributionMessagesFromServerOwnedSync {
             let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
+            check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
             return self.handle_template_distribution_message_from_server(
                 server_id,
                 parsed.into_owned(),
@@ -174,6 +176,7 @@ pub trait HandleTemplateDistributionMessagesFromServerOwnedAsync {
                 let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
+                check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
                 return self
                     .handle_template_distribution_message_from_server(
                         server_id,
@@ -311,6 +314,7 @@ pub trait HandleTemplateDistributionMessagesFromClientOwnedSync {
             let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
+            check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
             return self.handle_template_distribution_message_from_client(
                 client_id,
                 parsed.into_owned(),
@@ -435,6 +439,7 @@ pub trait HandleTemplateDistributionMessagesFromClientOwnedAsync {
                 let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
+                check_channel_msg_bit(&header, &parsed).map_err(Self::Error::parse_error)?;
                 return self
                     .handle_template_distribution_message_from_client(
                         client_id,

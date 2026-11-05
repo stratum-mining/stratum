@@ -706,6 +706,21 @@ pub fn parse_message_frame_with_tlvs<'a>(
     Ok((message, tlvs))
 }
 
+/// Checks that the `channel_msg` bit of a frame header matches the message in its payload.
+///
+/// Every message type has a fixed `channel_msg` bit, so a frame whose header disagrees with the
+/// message it carries is malformed: an intermediary routing on the header bit would treat it
+/// differently from the endpoint that decodes the payload.
+pub fn check_channel_msg_bit<M: IsSv2Message>(
+    header: &Header,
+    message: &M,
+) -> Result<(), ParserError> {
+    if header.channel_msg() != message.channel_bit() {
+        return Err(ParserError::UnexpectedMessage(header.msg_type()));
+    }
+    Ok(())
+}
+
 /// Internal helper to extract TLV fields from the remaining payload bytes.
 fn extract_tlv_fields(
     raw_payload: &[u8],
@@ -2282,9 +2297,11 @@ impl<'a> TryFrom<(Header, &'a mut [u8])> for AnyMessage<'a> {
 
         // Try to parse as Extensions message first (if extension_type != 0)
         if extension_type != 0 {
-            return (extension_type, message_type, payload)
+            let message = (extension_type, message_type, payload)
                 .try_into()
-                .map(Self::Extensions);
+                .map(Self::Extensions)?;
+            check_channel_msg_bit(&header, &message)?;
+            return Ok(message);
         }
 
         // Fall back to standard protocol message parsing (extension_type == 0)
@@ -2294,28 +2311,26 @@ impl<'a> TryFrom<(Header, &'a mut [u8])> for AnyMessage<'a> {
         let is_template_distribution: Result<TemplateDistributionTypes, ParserError> =
             message_type.try_into();
 
-        match (
+        let message = match (
             is_common,
             is_mining,
             is_job_declaration,
             is_template_distribution,
         ) {
-            (Ok(_), Err(_), Err(_), Err(_)) => {
-                Ok(Self::Common((message_type, payload).try_into()?))
-            }
-            (Err(_), Ok(_), Err(_), Err(_)) => {
-                Ok(Self::Mining((message_type, payload).try_into()?))
-            }
+            (Ok(_), Err(_), Err(_), Err(_)) => Self::Common((message_type, payload).try_into()?),
+            (Err(_), Ok(_), Err(_), Err(_)) => Self::Mining((message_type, payload).try_into()?),
             (Err(_), Err(_), Ok(_), Err(_)) => {
-                Ok(Self::JobDeclaration((message_type, payload).try_into()?))
+                Self::JobDeclaration((message_type, payload).try_into()?)
             }
-            (Err(_), Err(_), Err(_), Ok(_)) => Ok(Self::TemplateDistribution(
-                (message_type, payload).try_into()?,
-            )),
-            (Err(e), Err(_), Err(_), Err(_)) => Err(e),
+            (Err(_), Err(_), Err(_), Ok(_)) => {
+                Self::TemplateDistribution((message_type, payload).try_into()?)
+            }
+            (Err(e), Err(_), Err(_), Err(_)) => return Err(e),
             // This is an impossible state is safe to panic here
             _ => panic!(),
-        }
+        };
+        check_channel_msg_bit(&header, &message)?;
+        Ok(message)
     }
 }
 
@@ -2655,13 +2670,17 @@ impl<'a> TryFrom<AnyMessage<'a>> for MiningDeviceMessages<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::{AnyMessage, Extensions, ExtensionsNegotiation, JobDeclaration, Mining};
+    use crate::{
+        check_channel_msg_bit, AnyMessage, Extensions, ExtensionsNegotiation, JobDeclaration,
+        Mining, ParserError,
+    };
     use alloc::vec;
     use alloc::vec::Vec;
     use binary_sv2::{Seq0255, Seq064K, Str0255, Sv2Option, B0255, B032, B064K, U256};
     use codec_sv2::{EncodableFrame, MessageFrame};
     use core::convert::{TryFrom, TryInto};
     use extensions_sv2::{RequestExtensions, EXTENSION_TYPE_EXTENSIONS_NEGOTIATION};
+    use framing_sv2::header::Header;
     use job_declaration_sv2::PushSolution;
     use mining_sv2::{
         NewMiningJob, SetCustomMiningJob, SetCustomMiningJobError, SetCustomMiningJobSuccess,
@@ -2789,6 +2808,61 @@ mod test {
             }));
 
         message_serialization_check(job_declaration_message, &correctly_serialized_msg);
+    }
+
+    #[test]
+    fn channel_msg_bit_must_match_the_message() {
+        let channel_message = AnyMessage::Mining(Mining::SetCustomMiningJobSuccess(
+            SetCustomMiningJobSuccess {
+                channel_id: 1,
+                request_id: 2,
+                job_id: 3,
+            },
+        ));
+        let connection_message = AnyMessage::Extensions(Extensions::ExtensionsNegotiation(
+            ExtensionsNegotiation::RequestExtensions(RequestExtensions {
+                request_id: 0,
+                requested_extensions: Seq064K::new(vec![2]).unwrap(),
+            }),
+        ));
+
+        for message in [channel_message, connection_message] {
+            let frame = StdFrame::try_from(message).unwrap();
+            let mut bytes = vec![0; frame.encoded_length()];
+            frame.encode_into(&mut bytes).unwrap();
+            assert!(parse_frame(&mut bytes.clone()).is_ok());
+
+            // Flip the channel_msg bit (MSB of the little-endian extension_type).
+            bytes[1] ^= 0x80;
+            assert!(matches!(
+                parse_frame(&mut bytes),
+                Err(ParserError::UnexpectedMessage(_))
+            ));
+        }
+    }
+
+    #[test]
+    fn check_channel_msg_bit_rejects_a_connection_message_flagged_as_channel_message() {
+        let push_solution = PushSolution {
+            extranonce: B032::try_from([1_u8].as_slice()).unwrap(),
+            prev_hash: U256::try_from([0_u8; 32].as_slice()).unwrap(),
+            nonce: 0,
+            ntime: 0,
+            nbits: 0,
+            version: 0,
+        };
+        let message = JobDeclaration::PushSolution(push_solution);
+        let header_bytes = [0x00, 0x80, 0x60, 0, 0, 0];
+        let header = Header::from_bytes(&header_bytes).unwrap();
+        assert!(matches!(
+            check_channel_msg_bit(&header, &message),
+            Err(ParserError::UnexpectedMessage(0x60))
+        ));
+    }
+
+    fn parse_frame(bytes: &mut [u8]) -> Result<(), ParserError> {
+        let header = Header::from_bytes(&bytes[..Header::SIZE]).unwrap();
+        AnyMessage::try_from((header, &mut bytes[Header::SIZE..])).map(|_| ())
     }
 
     fn message_serialization_check(message: AnyMessage<'_>, expected_result: &[u8]) {
