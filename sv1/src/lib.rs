@@ -52,7 +52,7 @@ use tracing::debug;
 use error::Error;
 pub use json_rpc::Message;
 pub use methods::{client_to_server, server_to_client, Method, MethodError, ParsingMethodError};
-use utils::{Extranonce, HexU32Be};
+use utils::{Extranonce, HexU32Be, VERSION_ROLLING_MASK};
 
 /// json_rpc Response are not handled because stratum v1 does not have any request from a server to
 /// a client
@@ -132,12 +132,22 @@ pub trait IsServer {
             }
             methods::Client2Server::Configure(configure) => {
                 debug!("{:?}", configure);
-                self.set_version_rolling_mask(client_id, configure.version_rolling_mask())?;
-                self.set_version_rolling_min_bit(
-                    client_id,
-                    configure.version_rolling_min_bit_count(),
-                )?;
-                let (version_rolling, min_diff) = self.handle_configure(client_id, &configure)?;
+                let requested_mask = configure.version_rolling_mask();
+                let (mut version_rolling, min_diff) =
+                    self.handle_configure(client_id, &configure)?;
+                let negotiated_mask = version_rolling.as_mut().and_then(|params| {
+                    let mask = params.negotiated_mask(requested_mask.as_ref());
+                    if params.version_rolling {
+                        // Grant exactly the bits that submits are checked against below.
+                        params.version_rolling_mask = mask.clone().unwrap_or(HexU32Be(0));
+                    }
+                    mask
+                });
+                let min_bit = negotiated_mask
+                    .as_ref()
+                    .and(configure.version_rolling_min_bit_count());
+                self.set_version_rolling_mask(client_id, negotiated_mask)?;
+                self.set_version_rolling_min_bit(client_id, min_bit)?;
                 Ok(Some(configure.respond(version_rolling, min_diff)))
             }
             methods::Client2Server::ExtranonceSubscribe(subscribe) => {
@@ -189,6 +199,13 @@ pub trait IsServer {
 
     /// This message (JSON RPC Request) SHOULD be the first message sent by the miner after the
     /// connection with the server is established.
+    ///
+    /// The requested mask is available through `request`; the session mask is only set once this
+    /// returns. A version-rolling grant is narrowed to the bits the miner requested and to
+    /// [`utils::VERSION_ROLLING_MASK`] (see
+    /// [`server_to_client::VersionRollingParams::negotiated_mask`]); that narrowed mask is sent
+    /// in the response, stored with [`Self::set_version_rolling_mask`], and used to check the
+    /// version bits of every later `mining.submit`.
     fn handle_configure(
         &mut self,
         client_id: Option<usize>,
@@ -736,6 +753,7 @@ mod tests {
         extranonce2_size: usize,
         version_rolling_mask: Option<HexU32Be>,
         version_rolling_min_bit: Option<HexU32Be>,
+        version_rolling_grant: Option<server_to_client::VersionRollingParams>,
     }
 
     impl TestServer {
@@ -747,6 +765,7 @@ mod tests {
                 extranonce2_size,
                 version_rolling_mask: None,
                 version_rolling_min_bit: None,
+                version_rolling_grant: None,
             }
         }
     }
@@ -759,7 +778,7 @@ mod tests {
             _client_id: Option<usize>,
             _request: &client_to_server::Configure,
         ) -> Result<(Option<server_to_client::VersionRollingParams>, Option<bool>), Error> {
-            Ok((None, None))
+            Ok((self.version_rolling_grant.clone(), None))
         }
 
         fn handle_subscribe(
@@ -844,7 +863,7 @@ mod tests {
             &self,
             _client_id: Option<usize>,
         ) -> Result<Option<HexU32Be>, Error> {
-            Ok(None)
+            Ok(self.version_rolling_mask.clone())
         }
 
         fn set_version_rolling_mask(
@@ -1055,5 +1074,122 @@ mod tests {
         });
         let msg: Message = serde_json::from_value(raw).unwrap();
         assert!(Method::try_from(msg).is_err());
+    }
+
+    fn configure_request(params: serde_json::Value) -> Message {
+        serde_json::from_value(serde_json::json!({
+            "id": 1,
+            "method": "mining.configure",
+            "params": params,
+        }))
+        .unwrap()
+    }
+
+    fn version_rolling_request(mask: &str) -> Message {
+        configure_request(serde_json::json!([
+            ["version-rolling"],
+            {"version-rolling.mask": mask},
+        ]))
+    }
+
+    /// A server whose `handle_configure` grants every version bit, reserved ones included.
+    fn server_granting_every_bit() -> TestServer {
+        let mut server = TestServer::new(vec![0; 4].try_into().unwrap(), 4);
+        server.version_rolling_grant = Some(server_to_client::VersionRollingParams {
+            version_rolling: true,
+            version_rolling_mask: HexU32Be(0xffffffff),
+            version_rolling_min_bit_count: HexU32Be(0),
+        });
+        server.authorized_users.insert("worker".to_string());
+        server
+    }
+
+    fn submit(server: &mut TestServer, version_bits: Option<u32>) -> json_rpc::Response {
+        let request = client_to_server::Submit {
+            user_name: "worker".to_string(),
+            job_id: "job".to_string(),
+            extra_nonce2: vec![0; 4].try_into().unwrap(),
+            time: HexU32Be(0),
+            nonce: HexU32Be(0),
+            version_bits: version_bits.map(HexU32Be),
+            id: 2,
+        };
+        server
+            .handle_message(Some(7), request.into())
+            .unwrap()
+            .expect("mining.submit must receive a response")
+    }
+
+    #[test]
+    fn configure_never_grants_reserved_version_bits() {
+        let mut server = server_granting_every_bit();
+
+        let response = server
+            .handle_message(Some(7), version_rolling_request("ffffffff"))
+            .unwrap()
+            .expect("mining.configure must receive a response");
+
+        assert_eq!(response.result["version-rolling.mask"], "1fffffe0");
+        assert_eq!(
+            server.version_rolling_mask,
+            Some(HexU32Be(VERSION_ROLLING_MASK))
+        );
+        assert!(submit(&mut server, Some(0x1fffe000)).error.is_none());
+        assert_eq!(
+            submit(&mut server, Some(0x20000000)).error.unwrap().code,
+            20
+        );
+    }
+
+    #[test]
+    fn configure_only_grants_requested_version_bits() {
+        let mut server = server_granting_every_bit();
+
+        let response = server
+            .handle_message(Some(7), version_rolling_request("00ff0000"))
+            .unwrap()
+            .expect("mining.configure must receive a response");
+
+        assert_eq!(response.result["version-rolling.mask"], "00ff0000");
+        assert_eq!(server.version_rolling_mask, Some(HexU32Be(0x00ff0000)));
+        assert!(submit(&mut server, Some(0x00010000)).error.is_none());
+        assert_eq!(
+            submit(&mut server, Some(0x01000000)).error.unwrap().code,
+            20
+        );
+    }
+
+    #[test]
+    fn configure_without_version_rolling_keeps_submits_without_version_bits() {
+        let mut server = server_granting_every_bit();
+
+        server
+            .handle_message(Some(7), configure_request(serde_json::json!([[], {}])))
+            .unwrap();
+
+        assert_eq!(server.version_rolling_mask, None);
+        assert_eq!(server.version_rolling_min_bit, None);
+        assert!(submit(&mut server, None).error.is_none());
+        assert_eq!(
+            submit(&mut server, Some(0x00002000)).error.unwrap().code,
+            20
+        );
+    }
+
+    #[test]
+    fn refused_version_rolling_is_not_stored() {
+        let mut server = server_granting_every_bit();
+        server
+            .version_rolling_grant
+            .as_mut()
+            .unwrap()
+            .version_rolling = false;
+
+        server
+            .handle_message(Some(7), version_rolling_request("1fffffe0"))
+            .unwrap();
+
+        assert_eq!(server.version_rolling_mask, None);
+        assert_eq!(server.version_rolling_min_bit, None);
     }
 }
