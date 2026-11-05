@@ -702,7 +702,7 @@ pub fn parse_message_frame_with_tlvs<'a>(
     let raw_payload = payload.to_vec();
     let message: AnyMessage<'a> = (header, payload).try_into()?;
     let message_size = message.get_size();
-    let tlvs = extract_tlv_fields(&raw_payload, message_size, negotiated_extensions);
+    let tlvs = extract_tlv_fields(&raw_payload, message_size, negotiated_extensions)?;
     Ok((message, tlvs))
 }
 
@@ -711,10 +711,13 @@ fn extract_tlv_fields(
     raw_payload: &[u8],
     message_size: usize,
     negotiated_extensions: &[u16],
-) -> Option<Vec<Tlv>> {
-    let remainder = raw_payload.get(message_size..)?;
-    let tlvs = TlvList::from_bytes(remainder).for_extensions(negotiated_extensions);
-    (!tlvs.is_empty()).then_some(tlvs)
+) -> Result<Option<Vec<Tlv>>, ParserError> {
+    let Some(remainder) = raw_payload.get(message_size..) else {
+        return Ok(None);
+    };
+
+    let tlvs = TlvList::from_bytes(remainder).try_for_extensions(negotiated_extensions)?;
+    Ok((!tlvs.is_empty()).then_some(tlvs))
 }
 
 /// A trait that every Sv2 message parser must implement.
@@ -2655,7 +2658,8 @@ impl<'a> TryFrom<AnyMessage<'a>> for MiningDeviceMessages<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::{AnyMessage, Extensions, ExtensionsNegotiation, JobDeclaration, Mining};
+    use super::{extract_tlv_fields, ParserError};
+    use crate::{AnyMessage, Extensions, ExtensionsNegotiation, JobDeclaration, Mining, TlvError};
     use alloc::vec;
     use alloc::vec::Vec;
     use binary_sv2::{Seq0255, Seq064K, Str0255, Sv2Option, B0255, B032, B064K, U256};
@@ -2789,6 +2793,16 @@ mod test {
             }));
 
         message_serialization_check(job_declaration_message, &correctly_serialized_msg);
+    }
+
+    #[test]
+    fn malformed_tlv_suffix_is_rejected() {
+        let malformed = [0x02, 0x00, 0x01, 0x0a, 0x00, 0x00];
+
+        assert!(matches!(
+            extract_tlv_fields(&malformed, 0, &[0x0002]),
+            Err(ParserError::TlvError(TlvError::BufferTooShort(6, 15)))
+        ));
     }
 
     fn message_serialization_check(message: AnyMessage<'_>, expected_result: &[u8]) {
