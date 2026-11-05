@@ -1,6 +1,7 @@
 /// Classic implementation test suite
 use crate::vardiff::test::{
-    simulate_shares_and_wait, TEST_MIN_ALLOWED_HASHRATE, TEST_SHARES_PER_MINUTE,
+    simulate_shares_and_wait, TEST_INITIAL_HASHRATE, TEST_MIN_ALLOWED_HASHRATE,
+    TEST_SHARES_PER_MINUTE,
 };
 use crate::{target::hash_rate_to_target, vardiff::VardiffError, VardiffState};
 
@@ -187,4 +188,113 @@ fn test_new_with_min_rejects_unusable_floor() {
             "min_allowed_hashrate {min} from input {bad} is unusable as a baseline"
         );
     }
+}
+
+// A fully-silent channel must not be eased all the way to the floor. The zero-share path removes
+// up to `÷3` per evaluation with nothing bounding how many times it runs, so displacement after
+// `n` silent evaluations is `3ⁿ`. A returning miner is then served a difficulty that much too easy
+// and floods shares until vardiff climbs back.
+#[test]
+fn test_silent_channel_ease_displacement_is_bounded() {
+    let mut vardiff = new_test_vardiff_state().expect("Failed to create VardiffState");
+    let mut hashrate = TEST_INITIAL_HASHRATE;
+    let target =
+        hash_rate_to_target(hashrate.into(), TEST_SHARES_PER_MINUTE.into()).expect("valid target");
+
+    // Forty consecutive silent evaluations. Unbounded, the ~4 that carry
+    // TEST_INITIAL_HASHRATE down to TEST_MIN_ALLOWED_HASHRATE are spent in the first few.
+    for _ in 0..40 {
+        simulate_shares_and_wait(&mut vardiff, 0, 61);
+        if let Ok(Some(updated)) = vardiff.try_vardiff(hashrate, &target, TEST_SHARES_PER_MINUTE) {
+            hashrate = updated;
+        }
+    }
+
+    // `3² = 9×`, the bound `MAX_CONSECUTIVE_SILENT_EASES = 2` sets. Literal, not derived from the
+    // constant: a derived expectation moves with it and asserts nothing.
+    let expected = TEST_INITIAL_HASHRATE / 9.0;
+    assert!(
+        (hashrate / expected - 1.0).abs() < 1e-3,
+        "silent channel settled at {hashrate} H/s, not the {expected} H/s that a 9× bound \
+         allows (floor is {}) — a returning miner would be served a difficulty that much too easy",
+        vardiff.min_allowed_hashrate()
+    );
+}
+
+// The bound is on *consecutive* silence, so any share activity must restore the full budget.
+// Otherwise a long-lived channel that goes briefly quiet many times would eventually exhaust it
+// and stop easing for a genuine decline.
+#[test]
+fn test_share_activity_clears_the_silence_budget() {
+    let mut vardiff = new_test_vardiff_state().expect("Failed to create VardiffState");
+    let hashrate = TEST_INITIAL_HASHRATE;
+    let target =
+        hash_rate_to_target(hashrate.into(), TEST_SHARES_PER_MINUTE.into()).expect("valid target");
+
+    // Spend the whole budget in silence, then submit, three times over.
+    for _ in 0..3 {
+        for _ in 0..2 {
+            simulate_shares_and_wait(&mut vardiff, 0, 61);
+            let _ = vardiff.try_vardiff(hashrate, &target, TEST_SHARES_PER_MINUTE);
+        }
+        simulate_shares_and_wait(&mut vardiff, 20, 61);
+        let _ = vardiff.try_vardiff(hashrate, &target, TEST_SHARES_PER_MINUTE);
+    }
+
+    // A fresh silent evaluation must still ease, which it cannot do if activity left the
+    // accumulated silence in place.
+    simulate_shares_and_wait(&mut vardiff, 0, 61);
+    let eased = vardiff.try_vardiff(hashrate, &target, TEST_SHARES_PER_MINUTE);
+    assert!(
+        matches!(eased, Ok(Some(h)) if h < hashrate),
+        "activity did not clear the silence budget: {eased:?}"
+    );
+}
+
+// One pool tick: shares arrive, a minute passes, and `try_vardiff` runs. Only `try_vardiff` moves
+// the window, as in the pool; `simulate_shares_and_wait` re-anchors it on every call.
+fn pool_tick(vardiff: &mut VardiffState, hashrate: &mut f32, shares: u32) -> Option<f32> {
+    for _ in 0..shares {
+        vardiff.increment_shares_since_last_update();
+    }
+    let ts = vardiff.last_update_timestamp();
+    vardiff.set_timestamp_of_last_update(ts - 60);
+    let target =
+        hash_rate_to_target((*hashrate).into(), TEST_SHARES_PER_MINUTE.into()).expect("target");
+    let new = vardiff
+        .try_vardiff(*hashrate, &target, TEST_SHARES_PER_MINUTE)
+        .expect("vardiff");
+    if let Some(h) = new {
+        *hashrate = h;
+    }
+    new
+}
+
+// The pool and JDC mark a channel stable on `Ok(None)`. During the hold that `None` comes from a
+// miner that isn't submitting, so it must be told apart from a stable one, and a share must end it.
+#[test]
+fn test_silence_hold_is_distinguishable_from_stable() {
+    let mut vardiff = new_test_vardiff_state().expect("Failed to create VardiffState");
+    let mut hashrate = TEST_INITIAL_HASHRATE;
+    for _ in 0..5 {
+        pool_tick(&mut vardiff, &mut hashrate, TEST_SHARES_PER_MINUTE as u32);
+    }
+
+    for tick in 0..40 {
+        let new = pool_tick(&mut vardiff, &mut hashrate, 0);
+        assert!(
+            new.is_some() || vardiff.is_holding_on_silence(),
+            "silent tick {tick} returned None without holding"
+        );
+    }
+    assert!(
+        vardiff.is_holding_on_silence(),
+        "40 silent ticks never engaged the hold"
+    );
+
+    pool_tick(&mut vardiff, &mut hashrate, TEST_SHARES_PER_MINUTE as u32);
+    assert!(
+        !vardiff.is_holding_on_silence(),
+        "a returning miner is still reported as held"
+    );
 }
