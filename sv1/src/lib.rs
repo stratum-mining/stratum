@@ -455,8 +455,24 @@ pub trait IsClient {
         match response {
             methods::Server2ClientResponse::Configure(mut configure) => {
                 self.handle_configure(server_id, &mut configure)?;
-                self.set_version_rolling_mask(server_id, configure.version_rolling_mask())?;
-                self.set_version_rolling_min_bit(server_id, configure.version_rolling_min_bit())?;
+                // Rebuild the mask that `Self::configure` requested from the session state; only
+                // the part of it the pool granted may be rolled.
+                let requested_mask = match (
+                    self.version_rolling_mask(server_id)?,
+                    self.version_rolling_min_bit(server_id)?,
+                ) {
+                    (None, None) => None,
+                    (mask, _) => Some(mask.unwrap_or(HexU32Be(VERSION_ROLLING_MASK))),
+                };
+                let negotiated_mask = configure
+                    .version_rolling
+                    .as_ref()
+                    .and_then(|params| params.negotiated_mask(requested_mask.as_ref()));
+                let min_bit = negotiated_mask
+                    .as_ref()
+                    .and(configure.version_rolling_min_bit());
+                self.set_version_rolling_mask(server_id, negotiated_mask)?;
+                self.set_version_rolling_min_bit(server_id, min_bit)?;
                 self.set_status(server_id, ClientStatus::Configured)?;
 
                 //in sv1 the mining.configure message should be the first message to come in before
@@ -1191,5 +1207,238 @@ mod tests {
 
         assert_eq!(server.version_rolling_mask, None);
         assert_eq!(server.version_rolling_min_bit, None);
+    }
+
+    // A minimal implementation of IsClient trait for testing
+    struct TestClient {
+        status: ClientStatus,
+        version_rolling_mask: Option<HexU32Be>,
+        version_rolling_min_bit: Option<HexU32Be>,
+    }
+
+    impl TestClient {
+        fn requesting(mask: Option<u32>) -> Self {
+            Self {
+                status: ClientStatus::Init,
+                version_rolling_mask: mask.map(HexU32Be),
+                version_rolling_min_bit: None,
+            }
+        }
+
+        /// Feeds the client the pool's answer to its `mining.configure`.
+        fn receive_configure_response(&mut self, result: serde_json::Value) {
+            let response = serde_json::from_value(serde_json::json!({
+                "id": 1,
+                "error": null,
+                "result": result,
+            }))
+            .unwrap();
+            self.handle_message(None, response).unwrap();
+        }
+    }
+
+    impl IsClient for TestClient {
+        type Error = Error;
+
+        fn handle_error_message(
+            &mut self,
+            _server_id: Option<usize>,
+            _message: Message,
+        ) -> Result<Option<json_rpc::Message>, Error> {
+            Ok(None)
+        }
+
+        fn id_is_authorize(
+            &mut self,
+            _server_id: Option<usize>,
+            _id: &u64,
+        ) -> Result<Option<String>, Error> {
+            Ok(None)
+        }
+
+        fn id_is_submit(&mut self, _server_id: Option<usize>, _id: &u64) -> Result<bool, Error> {
+            Ok(false)
+        }
+
+        fn handle_notify(
+            &mut self,
+            _server_id: Option<usize>,
+            _notify: server_to_client::Notify,
+        ) -> Result<(), Error> {
+            Ok(())
+        }
+
+        fn handle_configure(
+            &mut self,
+            _server_id: Option<usize>,
+            _conf: &mut server_to_client::Configure,
+        ) -> Result<(), Error> {
+            Ok(())
+        }
+
+        fn handle_set_difficulty(
+            &mut self,
+            _server_id: Option<usize>,
+            _m: &mut server_to_client::SetDifficulty,
+        ) -> Result<(), Error> {
+            Ok(())
+        }
+
+        fn handle_set_extranonce(
+            &mut self,
+            _server_id: Option<usize>,
+            _m: &mut server_to_client::SetExtranonce,
+        ) -> Result<(), Error> {
+            Ok(())
+        }
+
+        fn handle_set_version_mask(
+            &mut self,
+            _server_id: Option<usize>,
+            _m: &mut server_to_client::SetVersionMask,
+        ) -> Result<(), Error> {
+            Ok(())
+        }
+
+        fn handle_subscribe(
+            &mut self,
+            _server_id: Option<usize>,
+            _subscribe: &server_to_client::Subscribe,
+        ) -> Result<(), Error> {
+            Ok(())
+        }
+
+        fn set_extranonce1(
+            &mut self,
+            _server_id: Option<usize>,
+            _extranonce1: Extranonce,
+        ) -> Result<(), Error> {
+            Ok(())
+        }
+
+        fn extranonce1(&self, _server_id: Option<usize>) -> Result<Extranonce, Error> {
+            Ok(vec![0; 4].try_into().unwrap())
+        }
+
+        fn set_extranonce2_size(
+            &mut self,
+            _server_id: Option<usize>,
+            _extra_nonce2_size: usize,
+        ) -> Result<(), Error> {
+            Ok(())
+        }
+
+        fn extranonce2_size(&self, _server_id: Option<usize>) -> Result<usize, Error> {
+            Ok(4)
+        }
+
+        fn version_rolling_mask(
+            &self,
+            _server_id: Option<usize>,
+        ) -> Result<Option<HexU32Be>, Error> {
+            Ok(self.version_rolling_mask.clone())
+        }
+
+        fn set_version_rolling_mask(
+            &mut self,
+            _server_id: Option<usize>,
+            mask: Option<HexU32Be>,
+        ) -> Result<(), Error> {
+            self.version_rolling_mask = mask;
+            Ok(())
+        }
+
+        fn set_version_rolling_min_bit(
+            &mut self,
+            _server_id: Option<usize>,
+            min: Option<HexU32Be>,
+        ) -> Result<(), Error> {
+            self.version_rolling_min_bit = min;
+            Ok(())
+        }
+
+        fn version_rolling_min_bit(
+            &mut self,
+            _server_id: Option<usize>,
+        ) -> Result<Option<HexU32Be>, Error> {
+            Ok(self.version_rolling_min_bit.clone())
+        }
+
+        fn set_status(
+            &mut self,
+            _server_id: Option<usize>,
+            status: ClientStatus,
+        ) -> Result<(), Error> {
+            self.status = status;
+            Ok(())
+        }
+
+        fn signature(&self, _server_id: Option<usize>) -> Result<String, Error> {
+            Ok("test".to_string())
+        }
+
+        fn status(&self, _server_id: Option<usize>) -> Result<ClientStatus, Error> {
+            Ok(self.status)
+        }
+
+        fn last_notify(
+            &self,
+            _server_id: Option<usize>,
+        ) -> Result<Option<server_to_client::Notify>, Error> {
+            Ok(None)
+        }
+
+        fn is_authorized(&self, _server_id: Option<usize>, _name: &String) -> Result<bool, Error> {
+            Ok(false)
+        }
+
+        fn authorize_user_name(
+            &mut self,
+            _server_id: Option<usize>,
+            _name: String,
+        ) -> Result<(), Error> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn client_never_rolls_reserved_version_bits() {
+        let mut client = TestClient::requesting(Some(0xffffffff));
+
+        client.receive_configure_response(serde_json::json!({
+            "version-rolling": true,
+            "version-rolling.mask": "ffffffff",
+        }));
+
+        assert_eq!(
+            client.version_rolling_mask,
+            Some(HexU32Be(VERSION_ROLLING_MASK))
+        );
+        assert_eq!(client.status, ClientStatus::Configured);
+    }
+
+    #[test]
+    fn client_only_rolls_requested_version_bits() {
+        let mut client = TestClient::requesting(Some(0x00ff0000));
+
+        client.receive_configure_response(serde_json::json!({
+            "version-rolling": true,
+            "version-rolling.mask": "1fffffe0",
+        }));
+
+        assert_eq!(client.version_rolling_mask, Some(HexU32Be(0x00ff0000)));
+    }
+
+    #[test]
+    fn client_ignores_version_rolling_it_did_not_request() {
+        let mut client = TestClient::requesting(None);
+
+        client.receive_configure_response(serde_json::json!({
+            "version-rolling": true,
+            "version-rolling.mask": "1fffffe0",
+        }));
+
+        assert_eq!(client.version_rolling_mask, None);
+        assert_eq!(client.version_rolling_min_bit, None);
     }
 }
