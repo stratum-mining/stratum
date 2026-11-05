@@ -676,25 +676,15 @@ impl ConfigureExtension {
                 let mask: HexU32Be = mask.as_str().try_into()?;
                 (Some(mask), None)
             }
-            // Min bit can be a string cpuminer
-            (Some(JString(mask)), Some(JString(min_bit))) => {
+            (Some(JString(mask)), Some(min_bit)) => {
                 let mask: HexU32Be = mask.as_str().try_into()?;
-                let min_bit: HexU32Be = min_bit.as_str().try_into()?;
-                (Some(mask), Some(min_bit))
-            }
-            // Min bit can be a number s9, s19
-            (Some(JString(mask)), Some(JNumber(min_bit))) => {
-                let mask: HexU32Be = mask.as_str().try_into()?;
-                let min_bit: HexU32Be = HexU32Be(min_bit.as_u64().ok_or_else(|| {
-                    ParsingMethodError::ImpossibleToParseAsU64(Box::new(min_bit.clone()))
-                })? as u32);
-                (Some(mask), Some(min_bit))
+                (Some(mask), parse_min_bit_count(min_bit))
             }
             // We can not have min bit count without a mask
             (None, Some(_)) => return Err(ParsingMethodError::Todo),
             // Mask need to be a JString
             (Some(_), None) => return Err(ParsingMethodError::Todo),
-            // Min bit need to be a string or a number
+            // Mask needs to be a string
             (Some(_), Some(_)) => return Err(ParsingMethodError::Todo),
         };
         if mask.is_some() || min_bit_count.is_some() {
@@ -775,6 +765,20 @@ impl ConfigureExtension {
         };
         Ok(res)
     }
+}
+
+/// Reads a miner's bit-count hint without rejecting its configure request.
+fn parse_min_bit_count(value: &Value) -> Option<HexU32Be> {
+    let bit_count = match value {
+        JString(value) => value.parse::<u32>().ok(),
+        JNumber(value) => value.as_u64().and_then(|value| u32::try_from(value).ok()),
+        _ => None,
+    }
+    .filter(|value| *value <= 32);
+    if bit_count.is_none() {
+        tracing::warn!("ignoring invalid version-rolling.min-bit-count (expected 0..=32)");
+    }
+    bit_count.map(HexU32Be)
 }
 
 impl ConfigureExtension {
@@ -872,7 +876,7 @@ impl From<InfoParams> for serde_json::Map<String, Value> {
 
 // mining.minimum_difficulty (extension)
 #[test]
-fn test_version_extension_with_broken_bit_count() {
+fn test_version_extension_with_decimal_string_bit_count() {
     let client_message = r#"{"id":0,
             "method": "mining.configure",
             "params":[
@@ -885,11 +889,35 @@ fn test_version_extension_with_broken_bit_count() {
     let server_configure = Configure::try_from(client_message).unwrap();
     match &server_configure.extensions[0] {
         ConfigureExtension::VersionRolling(params) => {
-            assert!(params.get_min_bit_count().as_ref().unwrap().0 == 0x16)
+            assert_eq!(params.get_min_bit_count(), &Some(HexU32Be(16)));
         }
         _ => panic!(),
     };
 }
+
+#[test]
+fn test_version_extension_ignores_invalid_bit_count() {
+    for value in [
+        serde_json::json!("0x10"),
+        serde_json::json!(33),
+        serde_json::json!(1.5),
+        serde_json::json!(true),
+    ] {
+        let params = serde_json::json!([
+            ["version-rolling"],
+            {"version-rolling.mask": "1fffffe0", "version-rolling.min-bit-count": value}
+        ]);
+        let extensions = ConfigureExtension::from_value(&params).unwrap();
+        match extensions.as_slice() {
+            [ConfigureExtension::VersionRolling(rolling)] => {
+                assert_eq!(rolling.get_mask(), &Some(HexU32Be(VERSION_ROLLING_MASK)));
+                assert_eq!(rolling.get_min_bit_count(), &None);
+            }
+            _ => panic!("expected version-rolling extension"),
+        }
+    }
+}
+
 #[test]
 fn test_version_extension_with_non_string_bit_count() {
     let client_message = r#"{"id":0,
@@ -1014,10 +1042,7 @@ fn test_submit_float_nonce_does_not_panic() {
 }
 
 #[test]
-fn test_configure_negative_min_bit_count_does_not_panic() {
-    // The mining.configure handler also panics: when min-bit-count is a
-    // negative JSON number, `min_bit.as_u64().unwrap()` blows up the
-    // server. Should return Err.
+fn test_configure_negative_min_bit_count_is_ignored() {
     let client_message = r#"{"id":0,
             "method": "mining.configure",
             "params":[
@@ -1026,9 +1051,11 @@ fn test_configure_negative_min_bit_count_does_not_panic() {
             ]
         }"#;
     let client_message: StandardRequest = serde_json::from_str(client_message).unwrap();
-    let result = Configure::try_from(client_message);
-    assert!(
-        result.is_err(),
-        "Configure::try_from should return Err for a negative min-bit-count, not panic"
-    );
+    let configure = Configure::try_from(client_message).unwrap();
+    match configure.extensions.as_slice() {
+        [ConfigureExtension::VersionRolling(rolling)] => {
+            assert_eq!(rolling.get_min_bit_count(), &None);
+        }
+        _ => panic!("expected version-rolling extension"),
+    }
 }
