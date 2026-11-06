@@ -90,9 +90,26 @@ impl UserIdentity {
     }
 }
 
+/// Renders as `UserIdentity(<name>)`.
+///
+/// The identity is peer-controlled, so control characters (LF, CR, TAB, ESC, ...) are written as
+/// Rust escapes (`\n`, `\r`, `\t`, `\u{1b}`) to keep it from breaking a log line or emitting
+/// terminal escape sequences. Other characters, including non-ASCII ones, are written as-is.
+/// Invalid UTF-8 is shown as hex, as in [`UserIdentity::as_string_or_hex`].
 impl fmt::Display for UserIdentity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "UserIdentity({})", self.as_string_or_hex())
+        let Ok(s) = core::str::from_utf8(&self.user_identity) else {
+            return write!(f, "UserIdentity({})", self.as_string_or_hex());
+        };
+        f.write_str("UserIdentity(")?;
+        for c in s.chars() {
+            if c.is_control() {
+                write!(f, "{}", c.escape_debug())?;
+            } else {
+                write!(f, "{}", c)?;
+            }
+        }
+        f.write_str(")")
     }
 }
 
@@ -171,6 +188,26 @@ mod tests {
     fn test_display() {
         let identity = UserIdentity::new("TestWorker").unwrap();
         let display = alloc::format!("{}", identity);
-        assert!(display.contains("TestWorker"));
+        assert_eq!(display, "UserIdentity(TestWorker)");
+    }
+
+    #[test]
+    fn test_display_keeps_non_ascii_readable() {
+        let identity = UserIdentity::new("rig-ñ-矿工").unwrap();
+        assert_eq!(alloc::format!("{}", identity), "UserIdentity(rig-ñ-矿工)");
+    }
+
+    #[test]
+    fn test_display_escapes_control_chars() {
+        let identity = UserIdentity::new("w1\n2026 INFO\r\x1b[2J\t").unwrap();
+        let display = alloc::format!("{}", identity);
+        assert!(!display.chars().any(char::is_control), "{:?}", display);
+        assert_eq!(display, "UserIdentity(w1\\n2026 INFO\\r\\u{1b}[2J\\t)");
+    }
+
+    #[test]
+    fn test_display_shows_invalid_utf8_as_hex() {
+        let identity = UserIdentity::from_bytes(&[0xFF, 0x0A]).unwrap();
+        assert_eq!(alloc::format!("{}", identity), "UserIdentity(0xff0a)");
     }
 }

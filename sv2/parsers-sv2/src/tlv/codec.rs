@@ -166,12 +166,15 @@ impl fmt::Display for Tlv {
     }
 }
 
-/// Helper function to convert TLV value bytes to a human-readable string.
+/// Renders TLV value bytes for [`Tlv`]'s `Display`.
+///
+/// Valid UTF-8 without control characters is shown as a quoted string; anything else, including
+/// values carrying LF, CR, TAB or ESC, is shown as hex. The value is peer-controlled, so this keeps
+/// it from breaking a log line or emitting terminal escape sequences.
 fn value_to_string(bytes: &[u8]) -> String {
     match core::str::from_utf8(bytes) {
         Ok(s) => {
-            // Check if the string is printable ASCII/UTF-8
-            if s.chars().all(|c| !c.is_control() || c == '\n' || c == '\t') {
+            if !s.chars().any(char::is_control) {
                 alloc::format!("\"{}\"", s)
             } else {
                 bytes_to_hex(bytes)
@@ -194,6 +197,25 @@ fn bytes_to_hex(bytes: &[u8]) -> String {
 mod tests {
     use super::*;
     use alloc::vec;
+
+    #[test]
+    fn test_tlv_display_shows_printable_value_as_string() {
+        let tlv = Tlv::new(0x0002, 0x01, "Worker_001-ñ".as_bytes().to_vec()).unwrap();
+        assert_eq!(
+            alloc::format!("{}", tlv),
+            "Tlv(ext=0x0002, field=0x01, len=13, value=\"Worker_001-ñ\")"
+        );
+    }
+
+    #[test]
+    fn test_tlv_display_shows_value_with_control_chars_as_hex() {
+        for value in [&b"w1\nfake"[..], b"w1\rfake", b"w1\x1b[2J", b"w1\tfake"] {
+            let tlv = Tlv::new(0x0002, 0x01, value.to_vec()).unwrap();
+            let rendered = alloc::format!("{}", tlv);
+            assert!(!rendered.chars().any(char::is_control), "{:?}", rendered);
+            assert!(rendered.ends_with(&alloc::format!("value={})", bytes_to_hex(value))));
+        }
+    }
 
     #[test]
     fn test_tlv_struct_encode_decode() {
