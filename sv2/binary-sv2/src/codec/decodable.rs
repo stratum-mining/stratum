@@ -95,6 +95,23 @@ pub enum FieldMarker {
     Raw(usize),
 }
 
+/// Drops nested structs iteratively, so structural depth cannot exhaust the stack.
+///
+/// Note that this makes [`FieldMarker`] impossible to destructure by move: consumers have to
+/// match its variants by reference.
+impl Drop for FieldMarker {
+    fn drop(&mut self) {
+        if let Self::Struct(ps) = self {
+            let mut pending = core::mem::take(ps);
+            while let Some(mut marker) = pending.pop() {
+                if let Self::Struct(inner) = &mut marker {
+                    pending.append(inner);
+                }
+            }
+        }
+    }
+}
+
 /// Trait for retrieving the [`FieldMarker`] associated with a type.
 ///
 /// Provides a standardized way to retrieve a `FieldMarker` for a type, allowing the protocol to
@@ -151,6 +168,24 @@ pub enum DecodableField<'a> {
     Raw(&'a mut [u8]),
 }
 
+/// Drops nested structs iteratively, so structural depth cannot exhaust the stack.
+///
+/// Note that this makes [`DecodableField`] impossible to destructure by move: consumers have
+/// to match its variants by reference. It also means drop-check requires a [`DecodableField`]
+/// to go out of scope before the data it borrows from.
+impl Drop for DecodableField<'_> {
+    fn drop(&mut self) {
+        if let Self::Struct(ps) = self {
+            let mut pending = core::mem::take(ps);
+            while let Some(mut field) = pending.pop() {
+                if let Self::Struct(inner) = &mut field {
+                    pending.append(inner);
+                }
+            }
+        }
+    }
+}
+
 impl SizeHint for PrimitiveMarker {
     // PrimitiveMarker requires a concrete marker instance to determine the size.
     fn size_hint(_data: &[u8], _offset: usize) -> Result<usize, Error> {
@@ -190,22 +225,34 @@ impl SizeHint for FieldMarker {
         Err(Error::UnInitializedDecoder)
     }
 
+    // Sums the leaves in decoding order, each measured at the offset where the previous one
+    // ends. Nested structs are walked through an explicit stack, so structural depth cannot
+    // exhaust the call stack.
     fn size_hint_(&self, data: &[u8], offset: usize) -> Result<usize, Error> {
-        match self {
-            Self::Primitive(p) => p.size_hint_(data, offset),
-            Self::Struct(ps) => {
-                let mut size = 0;
-                for p in ps {
-                    size += p.size_hint_(data, offset + size)?;
+        // Descending into a top level struct keeps flat markers from allocating a stack.
+        let mut current = match self {
+            Self::Struct(ps) => ps.iter(),
+            other => core::slice::from_ref(other).iter(),
+        };
+        let mut stack = Vec::new();
+        let mut size = 0;
+        loop {
+            match current.next() {
+                Some(Self::Primitive(p)) => size += p.size_hint_(data, offset + size)?,
+                Some(Self::Raw(len)) => {
+                    let at = offset + size;
+                    if data.len().saturating_sub(at) < *len {
+                        return Err(Error::ReadError(data.len(), at.saturating_add(*len)));
+                    }
+                    size += len;
                 }
-                Ok(size)
-            }
-            Self::Raw(size) => {
-                if data.len().saturating_sub(offset) >= *size {
-                    Ok(*size)
-                } else {
-                    Err(Error::ReadError(data.len(), offset.saturating_add(*size)))
+                Some(Self::Struct(ps)) => {
+                    stack.push(core::mem::replace(&mut current, ps.iter()));
                 }
+                None => match stack.pop() {
+                    Some(parent) => current = parent,
+                    None => return Ok(size),
+                },
             }
         }
     }
@@ -250,11 +297,10 @@ impl TryFrom<Vec<FieldMarker>> for FieldMarker {
 }
 
 impl<'a> From<DecodableField<'a>> for Vec<DecodableField<'a>> {
-    fn from(v: DecodableField<'a>) -> Self {
-        match v {
-            DecodableField::Primitive(p) => vec![DecodableField::Primitive(p)],
-            DecodableField::Struct(ps) => ps,
-            DecodableField::Raw(bytes) => vec![DecodableField::Raw(bytes)],
+    fn from(mut v: DecodableField<'a>) -> Self {
+        match &mut v {
+            DecodableField::Struct(ps) => core::mem::take(ps),
+            _ => vec![v],
         }
     }
 }
@@ -365,29 +411,49 @@ impl GetSize for DecodablePrimitive<'_> {
 }
 
 impl FieldMarker {
-    // Implements the decoding functionality for a `FieldMarker`.
-    // Depending on whether the field is primitive or structured, this method decodes the
-    // corresponding data. If the field is a structure, it recursively decodes each nested field
-    // and returns the resulting `DecodableField`.
+    // Decodes `data` according to this marker. Callers pass exactly the bytes measured by
+    // `size_hint_`.
+    //
+    // A struct decodes its leaves in order, each from the bytes its own size hint claims, and
+    // is rebuilt as a `DecodableField::Struct` holding its children in the same order. Nested
+    // structs are walked through an explicit stack, so structural depth cannot exhaust the call
+    // stack.
     pub(crate) fn decode<'a>(&self, data: &'a mut [u8]) -> Result<DecodableField<'a>, Error> {
-        match self {
-            Self::Primitive(p) => Ok(DecodableField::Primitive(p.decode(data, 0)?)),
-            Self::Struct(ps) => {
-                let mut decodeds = Vec::new();
-                let mut tail = data;
-                for p in ps {
-                    let field_size = p.size_hint_(tail, 0)?;
-                    let (head, t) = tail.split_at_mut(field_size);
-                    tail = t;
-                    decodeds.push(p.decode(head)?);
-                }
-                Ok(DecodableField::Struct(decodeds))
-            }
+        let ps = match self {
+            Self::Primitive(p) => return Ok(DecodableField::Primitive(p.decode(data, 0)?)),
             Self::Raw(size) => {
                 if data.len() < *size {
                     return Err(Error::ReadError(data.len(), *size));
                 }
-                Ok(DecodableField::Raw(&mut data[..*size]))
+                return Ok(DecodableField::Raw(&mut data[..*size]));
+            }
+            Self::Struct(ps) => ps,
+        };
+        let mut current = (ps.iter(), Vec::new());
+        let mut stack = Vec::new();
+        let mut tail = data;
+        loop {
+            match current.0.next() {
+                Some(Self::Struct(ps)) => {
+                    stack.push(core::mem::replace(&mut current, (ps.iter(), Vec::new())));
+                }
+                // A leaf decodes without descending any further.
+                Some(leaf) => {
+                    let field_size = leaf.size_hint_(tail, 0)?;
+                    let (head, t) = tail.split_at_mut(field_size);
+                    tail = t;
+                    current.1.push(leaf.decode(head)?);
+                }
+                None => {
+                    let decoded = DecodableField::Struct(core::mem::take(&mut current.1));
+                    match stack.pop() {
+                        Some(parent) => {
+                            current = parent;
+                            current.1.push(decoded);
+                        }
+                        None => return Ok(decoded),
+                    }
+                }
             }
         }
     }
