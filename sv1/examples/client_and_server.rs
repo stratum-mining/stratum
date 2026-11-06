@@ -200,15 +200,14 @@ impl IsServer for Server {
     fn handle_configure(
         &mut self,
         _client_id: Option<usize>,
-        _request: &client_to_server::Configure,
+        request: &client_to_server::Configure,
     ) -> Result<(Option<server_to_client::VersionRollingParams>, Option<bool>), Error> {
-        self.version_rolling_mask
-            .get_or_insert_with(new_version_rolling_mask);
-        self.version_rolling_min_bit
-            .get_or_insert_with(new_version_rolling_min);
-
-        let mask = self.version_rolling_mask.as_ref().unwrap().clone();
-        let min_bit = self.version_rolling_min_bit.as_ref().unwrap().clone();
+        let mask = request
+            .version_rolling_mask()
+            .unwrap_or_else(new_version_rolling_mask);
+        let min_bit = request
+            .version_rolling_min_bit_count()
+            .unwrap_or_else(new_version_rolling_min);
 
         Ok((
             Some(server_to_client::VersionRollingParams::new(mask, min_bit)),

@@ -800,6 +800,20 @@ impl VersionRollingParams {
             version_rolling_min_bit_count,
         }
     }
+
+    /// Returns the mask both peers act on once this grant answers a request for `requested`.
+    ///
+    /// BIP 310 only lets the miner roll bits it asked for and the server granted, and neither
+    /// side may roll bits outside [`VERSION_ROLLING_MASK`]. Returns `None` when version rolling
+    /// was not requested or was refused.
+    pub fn negotiated_mask(&self, requested: Option<&HexU32Be>) -> Option<HexU32Be> {
+        match requested {
+            Some(requested) if self.version_rolling => Some(HexU32Be(
+                requested.0 & self.version_rolling_mask.0 & VERSION_ROLLING_MASK,
+            )),
+            _ => None,
+        }
+    }
 }
 
 impl From<VersionRollingParams> for serde_json::Map<String, Value> {
@@ -816,4 +830,28 @@ impl From<VersionRollingParams> for serde_json::Map<String, Value> {
         );
         params
     }
+}
+
+#[test]
+fn negotiated_mask_keeps_only_requested_and_general_purpose_bits() {
+    let granted = VersionRollingParams {
+        version_rolling: true,
+        version_rolling_mask: HexU32Be(0xffffffff),
+        version_rolling_min_bit_count: HexU32Be(0),
+    };
+    assert_eq!(
+        granted.negotiated_mask(Some(&HexU32Be(0xffffffff))),
+        Some(HexU32Be(VERSION_ROLLING_MASK))
+    );
+    assert_eq!(
+        granted.negotiated_mask(Some(&HexU32Be(0x00ff0000))),
+        Some(HexU32Be(0x00ff0000))
+    );
+    assert_eq!(granted.negotiated_mask(None), None);
+
+    let refused = VersionRollingParams {
+        version_rolling: false,
+        ..granted
+    };
+    assert_eq!(refused.negotiated_mask(Some(&HexU32Be(0xffffffff))), None);
 }
