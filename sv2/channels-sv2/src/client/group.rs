@@ -85,10 +85,11 @@ impl GroupChannel {
         Ok(())
     }
 
-    /// Removes a channel from the group channel
-    /// channel by its `channel_id`.
-    pub fn remove_channel_id(&mut self, channel_id: u32) {
-        self.channel_ids.remove(&channel_id);
+    /// Removes a channel from the group channel by its `channel_id`.
+    ///
+    /// Returns `true` if the channel ID belonged to this group channel, `false` otherwise.
+    pub fn remove_channel_id(&mut self, channel_id: u32) -> bool {
+        self.channel_ids.remove(&channel_id)
     }
 
     /// Returns the group channel ID.
@@ -332,6 +333,23 @@ mod tests {
         assert_eq!(group_channel.get_channel_ids_count(), 2);
         assert!(!group_channel.has_channel_id(3));
         assert_eq!(group_channel.get_full_extranonce_size(), Some(10));
+    }
+
+    #[test]
+    fn test_remove_channel_id() {
+        let mut group_channel = GroupChannel::new(1);
+        group_channel.add_channel_id(1, 10).unwrap();
+        group_channel.add_channel_id(2, 10).unwrap();
+
+        assert!(group_channel.remove_channel_id(1));
+        assert!(!group_channel.has_channel_id(1));
+        assert_eq!(group_channel.get_channel_ids_count(), 1);
+
+        // removing the same channel ID again, or one that was never added, reports nothing removed
+        assert!(!group_channel.remove_channel_id(1));
+        assert!(!group_channel.remove_channel_id(3));
+        assert_eq!(group_channel.get_channel_ids_count(), 1);
+        assert!(group_channel.has_channel_id(2));
     }
 
     #[test]
