@@ -1056,4 +1056,47 @@ mod tests {
         let msg: Message = serde_json::from_value(raw).unwrap();
         assert!(Method::try_from(msg).is_err());
     }
+
+    #[test]
+    fn credentials_never_reach_formatted_output() {
+        let secret = "hunter2";
+        let authorize = client_to_server::Authorize {
+            id: 1,
+            name: "worker".to_string(),
+            password: secret.to_string(),
+        };
+        let wrapped = Error::InvalidReceiver(Box::new(Method::Client2Server(
+            methods::Client2Server::Authorize(authorize.clone()),
+        )));
+        for formatted in [
+            format!("{authorize}"),
+            format!("{authorize:?}"),
+            format!("{wrapped}"),
+            format!("{wrapped:?}"),
+        ] {
+            assert!(!formatted.contains(secret), "{formatted}");
+        }
+
+        for wire in [
+            r#"{"id":1,"method":"mining.authorize","params":["worker","hunter2",1]}"#,
+            r#"{"id":1,"method":"mining.authorize","params":{"password":"hunter2"}}"#,
+            r#"{"id":2,"method":"mining.configure","params":[["info"],{"info.connection-url":"stratum+tcp://worker:hunter2@pool.example:3333"}]}"#,
+            r#"{"id":2,"method":"mining.configure","params":{"info.connection-url":"stratum+tcp://worker:hunter2@pool.example:3333"}}"#,
+        ] {
+            let message: Message = serde_json::from_str(wire).unwrap();
+            let formatted = match methods::Client2Server::try_from(message) {
+                Ok(methods::Client2Server::Configure(configure)) => {
+                    vec![format!("{configure}"), format!("{configure:?}")]
+                }
+                Ok(request) => vec![format!("{request:?}")],
+                Err(error) => {
+                    let error = Error::from(error);
+                    vec![format!("{error}"), format!("{error:?}")]
+                }
+            };
+            for formatted in formatted {
+                assert!(!formatted.contains(secret), "{formatted}");
+            }
+        }
+    }
 }

@@ -9,7 +9,7 @@ use std::fmt;
 
 use crate::{
     error::Error,
-    json_rpc::{JsonRpcError, Message, Response, StandardRequest},
+    json_rpc::{redact_params, JsonRpcError, Message, Redacted, Response, StandardRequest},
     methods::ParsingMethodError,
     utils::{Extranonce, HexU32Be, VERSION_ROLLING_MASK},
 };
@@ -24,11 +24,21 @@ use quickcheck_macros;
 ///
 /// The result from an authorize request is usually true (successful), or false.
 /// The password may be omitted if the server does not require passwords.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Authorize {
     pub id: u64,
     pub name: String,
     pub password: String,
+}
+
+impl fmt::Debug for Authorize {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Authorize")
+            .field("id", &self.id)
+            .field("name", &self.name)
+            .field("password", &Redacted)
+            .finish()
+    }
 }
 
 impl fmt::Display for Authorize {
@@ -71,12 +81,18 @@ impl TryFrom<StandardRequest> for Authorize {
             Some(params) => {
                 let (name, password) = match &params[..] {
                     [JString(a), JString(b)] => (a.into(), b.into()),
-                    _ => return Err(ParsingMethodError::wrong_args_from_value(msg.params)),
+                    _ => {
+                        return Err(ParsingMethodError::wrong_args_from_value(
+                            redact_params(&msg.method, &msg.params).into_owned(),
+                        ))
+                    }
                 };
                 let id = msg.id;
                 Ok(Self { id, name, password })
             }
-            None => Err(ParsingMethodError::not_array_from_value(msg.params)),
+            None => Err(ParsingMethodError::not_array_from_value(
+                redact_params(&msg.method, &msg.params).into_owned(),
+            )),
         }
     }
 }
@@ -647,9 +663,11 @@ impl fmt::Display for ConfigureExtension {
 impl ConfigureExtension {
     pub fn from_value(val: &Value) -> Result<Vec<ConfigureExtension>, ParsingMethodError> {
         let mut res = vec![];
-        let root = val
-            .as_array()
-            .ok_or_else(|| ParsingMethodError::not_array_from_value(val.clone()))?;
+        let root = val.as_array().ok_or_else(|| {
+            ParsingMethodError::not_array_from_value(
+                redact_params("mining.configure", val).into_owned(),
+            )
+        })?;
         if root.is_empty() {
             return Err(ParsingMethodError::Todo);
         };
@@ -841,7 +859,7 @@ impl From<VersionRollingParams> for serde_json::Map<String, Value> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct InfoParams {
     pub connection_url: Option<String>,
     #[allow(dead_code)]
@@ -850,6 +868,21 @@ pub struct InfoParams {
     pub hw_version: Option<String>,
     #[allow(dead_code)]
     pub sw_version: Option<String>,
+}
+
+impl fmt::Debug for InfoParams {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // The connection URL can embed `user:password@`.
+        f.debug_struct("InfoParams")
+            .field(
+                "connection_url",
+                &self.connection_url.as_ref().map(|_| Redacted),
+            )
+            .field("hw_id", &self.hw_id)
+            .field("hw_version", &self.hw_version)
+            .field("sw_version", &self.sw_version)
+            .finish()
+    }
 }
 
 impl From<InfoParams> for serde_json::Map<String, Value> {

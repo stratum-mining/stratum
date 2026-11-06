@@ -1,6 +1,7 @@
 //! https://www.jsonrpc.org/specification#response_object
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::{fmt, fmt::Display};
+use serde_json::Value;
+use std::{borrow::Cow, fmt, fmt::Display};
 
 #[derive(Clone, Serialize, Debug)]
 #[serde(untagged)]
@@ -55,17 +56,85 @@ impl Display for Message {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
+/// Printed in place of credentials a peer sent.
+pub(crate) const REDACTED: &str = "<redacted>";
+
+/// Formats as [`REDACTED`], for `Debug` impls of fields that hold credentials.
+pub(crate) struct Redacted;
+
+impl fmt::Debug for Redacted {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(REDACTED)
+    }
+}
+
+/// Returns `params` with the credentials a request for `method` can carry replaced by
+/// [`REDACTED`], so that they never reach formatted output.
+///
+/// Those are everything but the worker name in `mining.authorize`, and `info.connection-url` in
+/// `mining.configure`, which can embed `user:password@`.
+pub(crate) fn redact_params<'a>(method: &str, params: &'a Value) -> Cow<'a, Value> {
+    match method {
+        "mining.authorize" => Cow::Owned(match params.as_array() {
+            Some(params) => params
+                .iter()
+                .enumerate()
+                .map(|(i, param)| {
+                    if i == 0 {
+                        param.clone()
+                    } else {
+                        REDACTED.into()
+                    }
+                })
+                .collect(),
+            None => REDACTED.into(),
+        }),
+        "mining.configure" => {
+            let mut params = params.clone();
+            redact_connection_url(&mut params);
+            Cow::Owned(params)
+        }
+        _ => Cow::Borrowed(params),
+    }
+}
+
+fn redact_connection_url(value: &mut Value) {
+    match value {
+        Value::Array(values) => values.iter_mut().for_each(redact_connection_url),
+        Value::Object(fields) => {
+            for (key, value) in fields.iter_mut() {
+                if key == "info.connection-url" {
+                    *value = REDACTED.into();
+                } else {
+                    redact_connection_url(value);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct StandardRequest {
     pub id: u64,
     pub method: String,
     pub params: serde_json::Value,
 }
 
+impl fmt::Debug for StandardRequest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("StandardRequest")
+            .field("id", &self.id)
+            .field("method", &self.method)
+            .field("params", &redact_params(&self.method, &self.params))
+            .finish()
+    }
+}
+
 impl fmt::Display for StandardRequest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let params =
-            serde_json::to_string_pretty(&self.params).unwrap_or_else(|_| self.params.to_string());
+        let params = redact_params(&self.method, &self.params);
+        let params = serde_json::to_string_pretty(&params).unwrap_or_else(|_| params.to_string());
         write!(
             f,
             "{{ id: {}, method: {}, params: {} }}",
@@ -74,16 +143,25 @@ impl fmt::Display for StandardRequest {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Notification {
     pub method: String,
     pub params: serde_json::Value,
 }
 
+impl fmt::Debug for Notification {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Notification")
+            .field("method", &self.method)
+            .field("params", &redact_params(&self.method, &self.params))
+            .finish()
+    }
+}
+
 impl fmt::Display for Notification {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let params =
-            serde_json::to_string_pretty(&self.params).unwrap_or_else(|_| self.params.to_string());
+        let params = redact_params(&self.method, &self.params);
+        let params = serde_json::to_string_pretty(&params).unwrap_or_else(|_| params.to_string());
 
         write!(f, "{{ method: \"{}\", params: {} }}", self.method, params)
     }
@@ -326,5 +404,37 @@ mod tests {
         }))
         .unwrap();
         assert!(matches!(success, Message::OkResponse(_)));
+    }
+
+    #[test]
+    fn formatted_requests_redact_credentials() {
+        for wire in [
+            r#"{"id":1,"method":"mining.authorize","params":["worker","hunter2"]}"#,
+            r#"{"id":1,"method":"mining.authorize","params":["worker","hunter2","extra"]}"#,
+            r#"{"id":1,"method":"mining.authorize","params":{"password":"hunter2"}}"#,
+            r#"{"id":null,"method":"mining.authorize","params":["worker","hunter2"]}"#,
+            r#"{"id":2,"method":"mining.configure","params":[["info"],{"info.connection-url":"stratum+tcp://worker:hunter2@pool.example:3333"}]}"#,
+        ] {
+            let message: Message = serde_json::from_str(wire).unwrap();
+            for formatted in [format!("{message}"), format!("{message:?}")] {
+                assert!(!formatted.contains("hunter2"), "{formatted}");
+                assert!(formatted.contains(REDACTED), "{formatted}");
+            }
+        }
+    }
+
+    #[test]
+    fn formatted_requests_keep_other_params() {
+        let message: Message = serde_json::from_str(
+            r#"{"id":1,"method":"mining.authorize","params":["worker","hunter2"]}"#,
+        )
+        .unwrap();
+        assert!(format!("{message}").contains("worker"));
+
+        let message: Message =
+            serde_json::from_str(r#"{"id":1,"method":"mining.subscribe","params":["agent"]}"#)
+                .unwrap();
+        assert!(format!("{message}").contains("agent"));
+        assert!(format!("{message:?}").contains("agent"));
     }
 }
