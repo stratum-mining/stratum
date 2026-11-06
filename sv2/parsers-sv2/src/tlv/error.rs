@@ -30,6 +30,17 @@ pub enum TlvError {
         /// Actual length of the value.
         actual: usize,
     },
+
+    /// A message carries the same TLV field more than once.
+    ///
+    /// An extension defines each of its TLV fields once, in a fixed order, so a repeated
+    /// `(extension_type, field_type)` pair is malformed.
+    DuplicateField {
+        /// Extension type of the repeated field.
+        extension_type: u16,
+        /// Field type of the repeated field.
+        field_type: u8,
+    },
 }
 
 impl fmt::Display for TlvError {
@@ -52,6 +63,14 @@ impl fmt::Display for TlvError {
                 f,
                 "TLV length field declares {} bytes, the value is {} bytes long",
                 declared, actual
+            ),
+            TlvError::DuplicateField {
+                extension_type,
+                field_type,
+            } => write!(
+                f,
+                "TLV field (extension 0x{:04x}, field 0x{:02x}) appears more than once",
+                extension_type, field_type
             ),
         }
     }
