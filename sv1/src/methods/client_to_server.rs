@@ -278,6 +278,19 @@ impl From<Submit> for Message {
     }
 }
 
+/// Reads a `mining.submit` `ntime` or `nonce` sent as a JSON number.
+///
+/// Both are 32-bit fields, so a value that does not fit in a `u32` is rejected instead of being
+/// truncated to its low bits.
+fn numeric_u32(value: &serde_json::Number) -> Result<HexU32Be, ParsingMethodError> {
+    let value_u64 = value
+        .as_u64()
+        .ok_or_else(|| ParsingMethodError::ImpossibleToParseAsU64(Box::new(value.clone())))?;
+    u32::try_from(value_u64)
+        .map(HexU32Be)
+        .map_err(|_| ParsingMethodError::unexpected_value_from_value(JNumber(value.clone())))
+}
+
 impl TryFrom<StandardRequest> for Submit {
     type Error = ParsingMethodError;
 
@@ -291,12 +304,8 @@ impl TryFrom<StandardRequest> for Submit {
                         a.into(),
                         b.into(),
                         Extranonce::try_from(hex_decode(c)?)?,
-                        HexU32Be(d.as_u64().ok_or_else(|| {
-                            ParsingMethodError::ImpossibleToParseAsU64(Box::new(d.clone()))
-                        })? as u32),
-                        HexU32Be(e.as_u64().ok_or_else(|| {
-                            ParsingMethodError::ImpossibleToParseAsU64(Box::new(e.clone()))
-                        })? as u32),
+                        numeric_u32(d)?,
+                        numeric_u32(e)?,
                         Some((f.as_str()).try_into()?),
                     ),
                     [JString(a), JString(b), JString(c), JString(d), JString(e), JString(f)] => (
@@ -311,12 +320,8 @@ impl TryFrom<StandardRequest> for Submit {
                         a.into(),
                         b.into(),
                         Extranonce::try_from(hex_decode(c)?)?,
-                        HexU32Be(d.as_u64().ok_or_else(|| {
-                            ParsingMethodError::ImpossibleToParseAsU64(Box::new(d.clone()))
-                        })? as u32),
-                        HexU32Be(e.as_u64().ok_or_else(|| {
-                            ParsingMethodError::ImpossibleToParseAsU64(Box::new(e.clone()))
-                        })? as u32),
+                        numeric_u32(d)?,
+                        numeric_u32(e)?,
                         None,
                     ),
                     [JString(a), JString(b), JString(c), JString(d), JString(e)] => (
@@ -1011,6 +1016,50 @@ fn test_submit_float_nonce_does_not_panic() {
         result.is_err(),
         "Submit::try_from should return Err for a fractional nOnce, not panic"
     );
+}
+
+#[test]
+fn submit_rejects_numeric_ntime_and_nonce_wider_than_32_bits() {
+    let submit = |time: Value, nonce: Value, version_bits: Option<&str>| {
+        let mut params = vec![
+            serde_json::json!("user"),
+            serde_json::json!("1"),
+            serde_json::json!("ab"),
+            time,
+            nonce,
+        ];
+        params.extend(version_bits.map(Value::from));
+        Submit::try_from(StandardRequest {
+            id: 1,
+            method: "mining.submit".to_string(),
+            params: params.into(),
+        })
+    };
+
+    for version_bits in [None, Some("00002000")] {
+        let max = submit(
+            serde_json::json!(u32::MAX),
+            serde_json::json!(u32::MAX),
+            version_bits,
+        )
+        .unwrap();
+        assert_eq!(
+            (max.time, max.nonce),
+            (HexU32Be(u32::MAX), HexU32Be(u32::MAX))
+        );
+
+        // 2^32 used to be truncated to 0
+        let too_wide = serde_json::json!(1_u64 << 32);
+        for (time, nonce) in [
+            (too_wide.clone(), serde_json::json!(0)),
+            (serde_json::json!(0), too_wide.clone()),
+        ] {
+            assert!(matches!(
+                submit(time, nonce, version_bits),
+                Err(ParsingMethodError::UnexpectedValue(_))
+            ));
+        }
+    }
 }
 
 #[test]
