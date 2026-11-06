@@ -269,9 +269,11 @@ impl TryFrom<Notification> for SetExtranonce {
         let (extra_nonce1, extra_nonce2_size) = match &params[..] {
             [JString(a), JNumber(b)] => (
                 Extranonce::try_from(hex_decode(a)?)?,
-                b.as_u64()
-                    .ok_or_else(|| ParsingMethodError::not_unsigned_from_value(b.clone()))?
-                    as usize,
+                extranonce2_size(
+                    b.as_u64()
+                        .ok_or_else(|| ParsingMethodError::not_unsigned_from_value(b.clone()))?,
+                    b,
+                )?,
             ),
             _ => return Err(ParsingMethodError::wrong_args_from_value(msg.params)),
         };
@@ -280,6 +282,21 @@ impl TryFrom<Notification> for SetExtranonce {
             extra_nonce2_size,
         })
     }
+}
+
+/// Checks an extranonce2 size sent by the server, given as `size` and as the JSON `value` it was
+/// read from.
+///
+/// The miner sends extranonce2 in [`crate::client_to_server::Submit`] as an [`Extranonce`], so a
+/// size above [`Extranonce::MAX_LEN`] would leave it unable to submit any share. Bounding the
+/// size first also keeps the conversion to `usize` lossless on 32-bit targets.
+fn extranonce2_size(size: u64, value: &serde_json::Number) -> Result<usize, ParsingMethodError> {
+    if size > Extranonce::MAX_LEN as u64 {
+        return Err(ParsingMethodError::unexpected_value_from_value(JNumber(
+            value.clone(),
+        )));
+    }
+    Ok(size as usize)
 }
 
 #[derive(Debug, Clone)]
@@ -503,9 +520,12 @@ impl TryFrom<&Response> for Subscribe {
                 a,
                 // infallible
                 b.as_str().try_into()?,
-                c.as_u64().ok_or_else(|| {
-                    ParsingMethodError::ImpossibleToParseAsU64(Box::new(c.clone()))
-                })? as usize,
+                extranonce2_size(
+                    c.as_u64().ok_or_else(|| {
+                        ParsingMethodError::ImpossibleToParseAsU64(Box::new(c.clone()))
+                    })?,
+                    c,
+                )?,
             ),
             _ => return Err(ParsingMethodError::UnexpectedArrayParams(params.clone())),
         };
@@ -815,5 +835,53 @@ impl From<VersionRollingParams> for serde_json::Map<String, Value> {
             version_rolling_min_bit_count,
         );
         params
+    }
+}
+
+#[test]
+fn extranonce2_size_must_fit_a_submit() {
+    let set_extranonce = |size: serde_json::Value| {
+        SetExtranonce::try_from(Notification {
+            method: "mining.set_extranonce".to_string(),
+            params: serde_json::json!(["08000002", size]),
+        })
+    };
+    let subscribe = |size: serde_json::Value| {
+        let response: Response = serde_json::from_value(serde_json::json!({
+            "id": 1,
+            "error": null,
+            "result": [[["mining.notify", "1"]], "08000002", size],
+        }))
+        .unwrap();
+        Subscribe::try_from(&response)
+    };
+
+    assert_eq!(
+        set_extranonce(serde_json::json!(0))
+            .unwrap()
+            .extra_nonce2_size,
+        0
+    );
+    assert_eq!(
+        set_extranonce(serde_json::json!(32))
+            .unwrap()
+            .extra_nonce2_size,
+        32
+    );
+    assert_eq!(
+        subscribe(serde_json::json!(32)).unwrap().extra_nonce2_size,
+        32
+    );
+
+    // 2^32 + 4 would become 4 if it were cast to a 32-bit usize
+    for size in [33, 4_294_967_300, u64::MAX] {
+        assert!(matches!(
+            set_extranonce(serde_json::json!(size)),
+            Err(ParsingMethodError::UnexpectedValue(_))
+        ));
+        assert!(matches!(
+            subscribe(serde_json::json!(size)),
+            Err(ParsingMethodError::UnexpectedValue(_))
+        ));
     }
 }

@@ -26,6 +26,9 @@ impl fmt::Display for Extranonce {
 }
 
 impl Extranonce {
+    /// The most bytes an extranonce can hold.
+    pub const MAX_LEN: usize = 32;
+
     pub fn len(&self) -> usize {
         self.0.len()
     }
