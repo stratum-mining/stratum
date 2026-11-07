@@ -150,7 +150,6 @@ impl GetSize for EncodablePrimitive<'_> {
 /// Each [`EncodableField`] represents either a primitive value or a collection of values
 /// (a struct). The encoding process for [`EncodableField`] supports nesting, allowing
 /// for complex hierarchical data structures to be serialized.
-#[derive(Debug)]
 pub enum EncodableField<'a> {
     /// Represents a primitive value
     ///
@@ -191,6 +190,47 @@ impl<'a> EncodableField<'a> {
         Primitives {
             current,
             stack: Vec::new(),
+        }
+    }
+}
+
+/// Formats nested structs iteratively, so structural depth cannot exhaust the stack.
+///
+/// The output matches what `#[derive(Debug)]` prints with `{:?}`, e.g.
+/// `Struct([Primitive(U8(1)), Struct([])])`. The alternate `{:#?}` form prints the same compact
+/// output.
+impl core::fmt::Debug for EncodableField<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let mut current = core::slice::from_ref(self).iter();
+        let mut stack = Vec::new();
+        let mut first = true;
+        loop {
+            match current.next() {
+                Some(field) => {
+                    if !first {
+                        f.write_str(", ")?;
+                    }
+                    match field {
+                        Self::Primitive(p) => {
+                            write!(f, "Primitive({p:?})")?;
+                            first = false;
+                        }
+                        Self::Struct(ps) => {
+                            f.write_str("Struct([")?;
+                            stack.push(core::mem::replace(&mut current, ps.iter()));
+                            first = true;
+                        }
+                    }
+                }
+                None => match stack.pop() {
+                    Some(parent) => {
+                        f.write_str("])")?;
+                        current = parent;
+                        first = false;
+                    }
+                    None => return Ok(()),
+                },
+            }
         }
     }
 }
