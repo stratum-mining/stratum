@@ -302,7 +302,7 @@ impl From<SetVersionMask> for Message {
     fn from(sv: SetVersionMask) -> Self {
         let version_mask: Value = sv.version_mask.into();
         Message::Notification(Notification {
-            method: "mining.set_version".to_string(),
+            method: "mining.set_version_mask".to_string(),
             params: (&[version_mask][..]).into(),
         })
     }
@@ -815,5 +815,26 @@ impl From<VersionRollingParams> for serde_json::Map<String, Value> {
             version_rolling_min_bit_count,
         );
         params
+    }
+}
+
+#[test]
+fn set_version_mask_round_trips() {
+    let message: Message = SetVersionMask {
+        version_mask: HexU32Be(0x1fffe000),
+    }
+    .into();
+    match &message {
+        Message::Notification(notification) => {
+            assert_eq!(notification.method, "mining.set_version_mask")
+        }
+        other => panic!("expected a notification, got {other:?}"),
+    }
+
+    match crate::methods::Method::try_from(message) {
+        Ok(crate::methods::Method::Server2Client(
+            crate::methods::Server2Client::SetVersionMask(set_version_mask),
+        )) => assert_eq!(set_version_mask.version_mask, HexU32Be(0x1fffe000)),
+        other => panic!("expected SetVersionMask, got {other:?}"),
     }
 }
