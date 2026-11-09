@@ -91,7 +91,8 @@ pub struct Responder {
 // or supplied by the caller, already issued.
 enum CertificateSource {
     // Sign a fresh certificate over the static key at handshake time, valid from the handshake's
-    // `now` for `cert_validity` seconds. Needs the authority private key on the host.
+    // `now` for `cert_validity` seconds. Needs the authority private key on the host; see the
+    // security note on [`Responder::new`].
     SignAtHandshake {
         authority: Keypair,
         cert_validity: u32,
@@ -166,6 +167,19 @@ impl Responder {
     /// protocol handshake. It generates ephemeral and static key pairs for the responder and
     /// prepares the handshake state. The authority keypair and certificate validity period are
     /// also configured.
+    ///
+    /// # Security
+    ///
+    /// A responder built here signs a fresh certificate in [`Self::step_1`], so the host running
+    /// it holds the authority private key `a` in memory and, in practice, in its configuration.
+    /// The authority public key is what clients pin (spec 4.5.3, 4.7), and neither the spec nor
+    /// this crate defines revocation, so a compromise of that host leaks a key that impersonates
+    /// the operator to every client for as long as any of them keeps trusting it. The static key
+    /// is generated here and discarded with the [`Responder`], so it cannot be certified in
+    /// advance, and the certificate lifetime is whatever `cert_validity` says on the same host.
+    /// Use it for development and testing. A server outside those should hold only a static key
+    /// and a certificate issued where the authority private key is kept: see
+    /// [`Self::from_certificate`].
     #[cfg(feature = "std")]
     pub fn new(a: Keypair, cert_validity: u32) -> Box<Self> {
         Self::new_with_rng(a, cert_validity, &mut rand::thread_rng())
@@ -261,6 +275,13 @@ impl Responder {
     /// the responder's authority credentials. It verifies that the provided public key matches the
     /// corresponding private key, ensuring the authenticity of the authority key pair. The
     /// certificate validity duration is also set here. Fails if the key pair is mismatched.
+    ///
+    /// # Security
+    ///
+    /// Like [`Self::new`], this signs a certificate on every handshake with the authority
+    /// private key on the host, over a static key that lives only as long as the [`Responder`].
+    /// See the security note on [`Self::new`]; outside development and testing use
+    /// [`Self::from_certificate`].
     #[cfg(feature = "std")]
     pub fn from_authority_kp(
         public: &[u8; 32],
