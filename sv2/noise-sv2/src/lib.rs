@@ -39,6 +39,15 @@
 //! `None`, accepts any responder and yields an encrypted but unauthenticated session that the
 //! crate does not distinguish from an authenticated one. Always pin the authority key for
 //! connections that cross a network boundary.
+//!
+//! ## Authority key custody
+//!
+//! Clients pin the authority public key, and neither the spec nor this crate defines revocation,
+//! so a leaked authority private key impersonates the operator for as long as any client trusts it.
+//! [`Responder::from_certificate`] lets an internet-facing server hold only its static key and a
+//! certificate over it, signed where the authority private key is kept. [`Responder::new`] and
+//! [`Responder::from_authority_kp`] instead sign a certificate on every handshake and need the
+//! authority private key on the server; they are meant for development and testing.
 
 #![cfg_attr(all(not(feature = "std"), not(test)), no_std)]
 
