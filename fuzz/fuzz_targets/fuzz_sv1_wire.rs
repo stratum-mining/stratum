@@ -89,6 +89,12 @@ fn test_msg_conversions(msg: Message) {
             }
             if let Ok(m) = ServerNotification::try_from(request) {
                 let _ = format!("{:?}", m);
+                let line = serde_json::to_string(&Message::from(m.clone())).unwrap();
+                if let Ok(Message::Request(again)) = Message::decode(&line) {
+                    let again = ServerNotification::try_from(again)
+                        .expect("encoded notifications always decode");
+                    assert_eq!(again, m);
+                }
             }
         }
         Message::Response(response) => {

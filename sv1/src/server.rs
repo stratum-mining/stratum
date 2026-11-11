@@ -205,8 +205,9 @@ impl SetDifficulty {
         match params_array(params)? {
             [difficulty] => difficulty
                 .as_f64()
+                .filter(|difficulty| *difficulty > 0.0)
                 .map(|difficulty| SetDifficulty { difficulty })
-                .ok_or(ParamError::new("difficulty", "not a number")),
+                .ok_or(ParamError::new("difficulty", "not a positive number")),
             _ => Err(ParamError::new(
                 "params",
                 "unexpected set_difficulty params",

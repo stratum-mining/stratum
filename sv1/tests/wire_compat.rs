@@ -778,3 +778,19 @@ fn merkle_branch_is_at_most_32_entries() {
         );
     }
 }
+
+#[test]
+fn set_difficulty_must_be_positive() {
+    for (difficulty, accepted) in [("2", true), ("0.001", true), ("0", false), ("-1", false)] {
+        let line =
+            format!(r#"{{"id":null,"method":"mining.set_difficulty","params":[{difficulty}]}}"#);
+        let Message::Request(request) = decode(&line) else {
+            panic!("not a request");
+        };
+        let decoded = ServerNotification::try_from(request);
+        assert_eq!(decoded.is_ok(), accepted, "{line}");
+        if let Ok(notification) = decoded {
+            to_json(notification);
+        }
+    }
+}
