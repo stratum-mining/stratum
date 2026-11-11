@@ -26,7 +26,7 @@ pub enum SupportedChannelTypes {
 /// this contextual information is readily available or not. In cases where `server_id` is either
 /// irrelevant or can be inferred without the context, this should always be `None`.
 ///
-/// Handler methods receive an optional `tlv_data` parameter containing validated TLV fields
+/// Handler methods receive an optional `tlv_fields` parameter containing validated TLV fields
 /// when extension data is appended to messages. It will be `Some` only if validation succeeds
 /// against negotiated extensions.
 pub trait HandleMiningMessagesFromServerSync {
@@ -319,7 +319,7 @@ pub trait HandleMiningMessagesFromServerSync {
 /// this contextual information is readily available or not. In cases where `server_id` is either
 /// irrelevant or can be inferred without the context, this should always be `None`.
 ///
-/// Handler methods receive an optional `tlv_data` parameter containing validated TLV fields
+/// Handler methods receive an optional `tlv_fields` parameter containing validated TLV fields
 /// when extension data is appended to messages. It will be `Some` only if validation succeeds
 /// against negotiated extensions.
 #[trait_variant::make(Send)]
@@ -641,7 +641,7 @@ pub trait HandleMiningMessagesFromServerAsync {
 /// this contextual information is readily available or not. In cases where `client_id` is either
 /// irrelevant or can be inferred without the context, this should always be `None`.
 ///
-/// Handler methods receive an optional `tlv_data` parameter containing validated TLV fields
+/// Handler methods receive an optional `tlv_fields` parameter containing validated TLV fields
 /// when extension data is appended to messages. It will be `Some` only if validation succeeds
 /// against negotiated extensions.
 pub trait HandleMiningMessagesFromClientSync {
@@ -691,10 +691,9 @@ pub trait HandleMiningMessagesFromClientSync {
 
     /// Handles a parsed mining message from a client.
     ///
-    /// The `tlv_data` parameter contains validated TLV fields if the message has extension
+    /// The `tlv_fields` parameter contains validated TLV fields if the message has extension
     /// data appended. It will be `Some` only if TLV validation succeeds against negotiated
-    /// extensions, otherwise `None`. Use `extensions_sv2` helper functions to extract
-    /// specific extension data (e.g., `extract_worker_identity_from_submit_shares`).
+    /// extensions, otherwise `None`.
     fn handle_mining_message_from_client(
         &mut self,
         client_id: Option<usize>,
@@ -876,7 +875,7 @@ pub trait HandleMiningMessagesFromClientSync {
 /// this contextual information is readily available or not. In cases where `client_id` is either
 /// irrelevant or can be inferred without the context, this should always be `None`.
 ///
-/// Handler methods receive an optional `tlv_data` parameter containing validated TLV fields
+/// Handler methods receive an optional `tlv_fields` parameter containing validated TLV fields
 /// when extension data is appended to messages. It will be `Some` only if validation succeeds
 /// against negotiated extensions.
 #[trait_variant::make(Send)]

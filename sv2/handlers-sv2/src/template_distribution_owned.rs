@@ -15,7 +15,7 @@ use crate::error::HandlerErrorType;
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_server()`.
 pub trait HandleTemplateDistributionMessagesFromServerOwnedSync {
@@ -143,7 +143,7 @@ pub trait HandleTemplateDistributionMessagesFromServerOwnedSync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_server()`.
 #[trait_variant::make(Send)]
@@ -282,7 +282,7 @@ pub trait HandleTemplateDistributionMessagesFromServerOwnedAsync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_client()`.
 pub trait HandleTemplateDistributionMessagesFromClientOwnedSync {
@@ -404,7 +404,7 @@ pub trait HandleTemplateDistributionMessagesFromClientOwnedSync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_client()`.
 #[trait_variant::make(Send)]

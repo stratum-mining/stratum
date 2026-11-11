@@ -18,7 +18,7 @@ use crate::error::HandlerErrorType;
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_server()`.
 pub trait HandleJobDeclarationMessagesFromServerSync {
@@ -149,7 +149,7 @@ pub trait HandleJobDeclarationMessagesFromServerSync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_server()`.
 #[trait_variant::make(Send)]
@@ -294,7 +294,7 @@ pub trait HandleJobDeclarationMessagesFromServerAsync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_client()`.
 pub trait HandleJobDeclarationMessagesFromClientSync {
@@ -423,7 +423,7 @@ pub trait HandleJobDeclarationMessagesFromClientSync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_client()`.
 #[trait_variant::make(Send)]
