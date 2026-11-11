@@ -1,33 +1,21 @@
-use crate::methods::{Method, MethodError};
 use bitcoin::hashes::hex::HexToBytesError;
+
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Error {
     BadBytesConvert(binary_sv2::Error),
     /// Errors on bad hex decode/encode.
     HexError(HexToBytesError),
-    /// Errors if `ClientStatus` is in an unexpected state when a message is received. For example,
-    /// if a `mining.subscribed` is received when the `ClientStatus` is in the `Init` state.
-    IncorrectClientStatus(String),
-    Infallible(std::convert::Infallible),
-    /// Errors if server receives a `json_rpc` request as the server should only receive responses.
-    /// TODO: Should update to accommodate miner requesting a difficulty change
-    InvalidJsonRpcMessageKind,
-    /// Errors when a hex string has invalid length (input too short or too long).
-    InvalidHexLen(String),
-    /// Errors if the client receives an invalid message that was intended to be sent from the
-    /// client to the server, NOT from the server to the client.
-    #[allow(clippy::upper_case_acronyms)]
-    InvalidReceiver(Box<Method>),
-    /// Errors encountered during conversion between valid `json_rpc` messages and SV1 messages.
-    Method(Box<MethodError>),
-    /// Errors if action is attempted that requires the client to be authorized, but it is
-    /// unauthorized. The client username is given in the error message.
-    UnauthorizedClient(String),
-    /// Errors if server does not recognize the client's `id`.
-    UnknownID(u64),
-    /// Errors when an unexpected or unsupported message/method is called.
-    UnexpectedMessage(String),
+    /// A hex string has an invalid length, in characters.
+    InvalidHexLen(usize),
+    Decode(DecodeError),
+    /// The result of the outstanding `method` request with this ID does not have that method's
+    /// result type.
+    InvalidResult {
+        id: crate::json_rpc::Id,
+        method: crate::json_rpc::Method,
+        error: serde_json::Error,
+    },
 }
 
 impl std::fmt::Display for Error {
@@ -38,51 +26,20 @@ impl std::fmt::Display for Error {
                 "Bad U256 or B032 conversion (U256 length must be exactly 32 bytes; B032 length must be <= 32 bytes): {e:?}"
             ),
             Error::HexError(ref e) => write!(f, "Bad hex encode/decode: `{e}`"),
-            Error::InvalidHexLen(ref val) => write!(f, "Hex string length is invalid: `{val}`"),
-            Error::IncorrectClientStatus(s) => {
-                write!(f, "Client status is incompatible with message: `{s}`")
+            Error::InvalidHexLen(len) => write!(f, "Hex string has an invalid length of {len}"),
+            Error::Decode(e) => e.fmt(f),
+            Error::InvalidResult { id, method, error } => {
+                write!(f, "malformed result for {method} request {id}: {error}")
             }
-            Error::Infallible(ref e) => write!(f, "Infallible error{e:?}"),
-            Error::InvalidJsonRpcMessageKind => write!(
-                f,
-                "Server received a `json_rpc` response when it should only receive requests"
-            ),
-            Error::InvalidReceiver(ref e) => write!(
-                f,
-                "Client received an invalid message that was intended to be sent from the
-            client to the server, NOT from the server to the client. Invalid message: `{e:?}`"
-            ),
-            Error::Method(ref e) => {
-                write!(
-                    f,
-                    "Error converting valid `json_rpc` SV1 message: `{e:?}`"
-                )
-            }
-            Error::UnauthorizedClient(id) => write!(
-                f,
-                "Client with id `{id}` expected to be authorized but is unauthorized."
-            ),
-            Error::UnknownID(e) => write!(f, "Server did not recognize the client id: `{e}`."),
-            Error::UnexpectedMessage(method) => write!(f, "Unexpected or unsupported message/method called: `{method}`."),
         }
     }
 }
 
+impl std::error::Error for Error {}
+
 impl From<HexToBytesError> for Error {
     fn from(e: HexToBytesError) -> Self {
         Error::HexError(e)
-    }
-}
-
-impl From<std::convert::Infallible> for Error {
-    fn from(e: std::convert::Infallible) -> Self {
-        Error::Infallible(e)
-    }
-}
-
-impl From<MethodError> for Error {
-    fn from(inner: MethodError) -> Self {
-        Error::Method(Box::new(inner))
     }
 }
 
@@ -91,3 +48,134 @@ impl From<binary_sv2::Error> for Error {
         Error::BadBytesConvert(inner)
     }
 }
+
+impl From<DecodeError> for Error {
+    fn from(e: DecodeError) -> Self {
+        Error::Decode(e)
+    }
+}
+
+/// The longest ID or method name a [`DecodeError`] keeps.
+const MAX_ECHOED_LEN: usize = 64;
+
+/// A message that could not be decoded.
+///
+/// `id` is set only when the message carried a valid ID, so a reply never reflects an invalid
+/// one.
+#[derive(Debug)]
+pub struct DecodeError {
+    pub id: Option<crate::json_rpc::Id>,
+    pub method: Option<crate::json_rpc::Method>,
+    pub kind: DecodeErrorKind,
+}
+
+#[derive(Debug)]
+pub enum DecodeErrorKind {
+    /// The line is not JSON, not an object, or repeats a reserved member.
+    Json(serde_json::Error),
+    InvalidEnvelope(&'static str),
+    /// The method is unknown, or is not sent in this direction.
+    UnknownMethod,
+    /// A request that needs a reply has no ID.
+    MissingId,
+    /// A response arrived where a request was expected.
+    UnexpectedResponse,
+    InvalidParams {
+        field: &'static str,
+        reason: &'static str,
+    },
+}
+
+/// A parameter that failed validation, before the request it belongs to is known.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ParamError {
+    pub(crate) field: &'static str,
+    pub(crate) reason: &'static str,
+}
+
+impl ParamError {
+    pub(crate) fn new(field: &'static str, reason: &'static str) -> Self {
+        ParamError { field, reason }
+    }
+}
+
+impl From<ParamError> for DecodeErrorKind {
+    fn from(e: ParamError) -> Self {
+        DecodeErrorKind::InvalidParams {
+            field: e.field,
+            reason: e.reason,
+        }
+    }
+}
+
+impl std::fmt::Display for ParamError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}: {}", self.field, self.reason)
+    }
+}
+
+impl DecodeError {
+    pub(crate) fn new(kind: DecodeErrorKind) -> Self {
+        DecodeError::about(None, None, kind)
+    }
+
+    /// Keeps the ID and method only while they are short, so the error stays small whatever the
+    /// size of the message.
+    pub(crate) fn about(
+        id: Option<crate::json_rpc::Id>,
+        method: Option<crate::json_rpc::Method>,
+        kind: DecodeErrorKind,
+    ) -> Self {
+        DecodeError {
+            id: id.filter(|id| id.text_len() <= MAX_ECHOED_LEN),
+            method: method.filter(|method| method.as_str().len() <= MAX_ECHOED_LEN),
+            kind,
+        }
+    }
+}
+
+impl std::fmt::Display for DecodeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match &self.kind {
+            DecodeErrorKind::Json(e) => write!(f, "invalid SV1 message: {e}")?,
+            DecodeErrorKind::InvalidEnvelope(reason) => {
+                write!(f, "invalid SV1 envelope: {reason}")?
+            }
+            DecodeErrorKind::UnknownMethod => f.write_str("unknown SV1 method")?,
+            DecodeErrorKind::MissingId => f.write_str("SV1 request has no id")?,
+            DecodeErrorKind::UnexpectedResponse => f.write_str("unexpected SV1 response")?,
+            DecodeErrorKind::InvalidParams { field, reason } => {
+                write!(f, "invalid SV1 params: {field}: {reason}")?
+            }
+        }
+        if let Some(method) = &self.method {
+            write!(f, " (method {method})")?;
+        }
+        if let Some(id) = &self.id {
+            write!(f, " (id {id})")?;
+        }
+        Ok(())
+    }
+}
+
+impl std::error::Error for DecodeError {}
+
+/// A response that did not carry the expected result.
+#[derive(Debug)]
+pub enum ResponseError {
+    /// The peer answered with an error.
+    Rpc(crate::json_rpc::RpcError),
+    /// The result does not have the expected shape.
+    InvalidResult(serde_json::Error),
+}
+
+impl std::fmt::Display for ResponseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            ResponseError::Rpc(e) => write!(f, "peer error {}: {:?}", e.code, e.message),
+            ResponseError::InvalidResult(e) => write!(f, "unexpected result: {e}"),
+        }
+    }
+}
+
+impl std::error::Error for ResponseError {}

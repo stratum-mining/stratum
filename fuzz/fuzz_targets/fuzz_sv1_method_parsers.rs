@@ -9,13 +9,8 @@ use arbitrary::{Arbitrary, Unstructured};
 use libfuzzer_sys::fuzz_target;
 use serde_json::Value;
 use sv1_api::{
-    client_to_server::{Authorize, Configure as C2SConfigure, Submit, Subscribe as C2SSubscribe},
-    json_rpc::{Notification, Response, StandardRequest},
-    methods::Server2ClientResponse,
-    server_to_client::{
-        Configure as S2CConfigure, GeneralResponse, Notify, SetDifficulty, SetExtranonce,
-        SetVersionMask, Subscribe as S2CSubscribe,
-    },
+    json_rpc::Request, ClientRequest, ConfigureResult, Id, Method, Response, ServerNotification,
+    SubscribeResult,
 };
 
 fn gen_edge_number(u: &mut Unstructured<'_>) -> arbitrary::Result<serde_json::Number> {
@@ -145,6 +140,22 @@ enum ParserTarget {
     Generic,
 }
 
+fn client_request(id: u64, method: Method, params: Value) {
+    let _ = ClientRequest::try_from(Request {
+        id: Some(Id::from(id)),
+        method,
+        params,
+    });
+}
+
+fn notification(method: Method, params: Value) {
+    let _ = ServerNotification::try_from(Request {
+        id: None,
+        method,
+        params,
+    });
+}
+
 fuzz_target!(|data: &[u8]| {
     let mut u = Unstructured::new(data);
     let Ok(target) = u.arbitrary::<ParserTarget>() else {
@@ -157,123 +168,68 @@ fuzz_target!(|data: &[u8]| {
     match target {
         ParserTarget::Submit => {
             if let Ok(params) = gen_submit_params(&mut u) {
-                let _ = Submit::try_from(StandardRequest {
-                    id,
-                    method: String::new(),
-                    params,
-                });
+                client_request(id, Method::Submit, params);
             }
         }
         ParserTarget::Authorize => {
             if let Ok(params) = gen_authorize_params(&mut u) {
-                let _ = Authorize::try_from(StandardRequest {
-                    id,
-                    method: String::new(),
-                    params,
-                });
+                client_request(id, Method::Authorize, params);
             }
         }
         ParserTarget::Subscribe => {
             if let Ok(params) = gen_subscribe_params(&mut u) {
-                let _ = C2SSubscribe::try_from(StandardRequest {
-                    id,
-                    method: String::new(),
-                    params,
-                });
+                client_request(id, Method::Subscribe, params);
             }
         }
         ParserTarget::Configure => {
             if let Ok(params) = gen_configure_params(&mut u) {
-                let _ = C2SConfigure::try_from(StandardRequest {
-                    id,
-                    method: String::new(),
-                    params,
-                });
+                client_request(id, Method::Configure, params);
             }
         }
         ParserTarget::Notify => {
             if let Ok(params) = gen_notify_params(&mut u) {
-                let _ = Notify::try_from(Notification {
-                    method: String::new(),
-                    params,
-                });
+                notification(Method::Notify, params);
             }
         }
         ParserTarget::SetDifficulty => {
             if let Ok(params) = gen_set_difficulty_params(&mut u) {
-                let _ = SetDifficulty::try_from(Notification {
-                    method: String::new(),
-                    params,
-                });
+                notification(Method::SetDifficulty, params);
             }
         }
         ParserTarget::SetExtranonce => {
             if let Ok(params) = gen_set_extranonce_params(&mut u) {
-                let _ = SetExtranonce::try_from(Notification {
-                    method: String::new(),
-                    params,
-                });
+                notification(Method::SetExtranonce, params);
             }
         }
         ParserTarget::SetVersionMask => {
             if let Ok(params) = gen_set_version_mask_params(&mut u) {
-                let _ = SetVersionMask::try_from(Notification {
-                    method: String::new(),
-                    params,
-                });
+                notification(Method::SetVersionMask, params);
             }
         }
         ParserTarget::Generic => {
             if let Ok(params) = common::gen_json_value(&mut u, 5) {
-                let _ = Submit::try_from(StandardRequest {
-                    id: 1,
-                    method: String::new(),
-                    params: params.clone(),
-                });
-                let _ = Authorize::try_from(StandardRequest {
-                    id: 2,
-                    method: String::new(),
-                    params: params.clone(),
-                });
-                let _ = C2SSubscribe::try_from(StandardRequest {
-                    id: 3,
-                    method: String::new(),
-                    params: params.clone(),
-                });
-                let _ = C2SConfigure::try_from(StandardRequest {
-                    id: 4,
-                    method: String::new(),
-                    params: params.clone(),
-                });
-                let _ = Notify::try_from(Notification {
-                    method: String::new(),
-                    params: params.clone(),
-                });
-                let _ = SetDifficulty::try_from(Notification {
-                    method: String::new(),
-                    params: params.clone(),
-                });
-                let _ = SetExtranonce::try_from(Notification {
-                    method: String::new(),
-                    params: params.clone(),
-                });
-                let _ = SetVersionMask::try_from(Notification {
-                    method: String::new(),
-                    params: params.clone(),
-                });
-                let resp = Response {
-                    id: 5,
-                    error: None,
-                    result: params.clone(),
-                };
-                let _ = S2CSubscribe::try_from(&resp);
-                let _ = S2CConfigure::try_from(&resp);
-                let _ = GeneralResponse::try_from(&resp);
-                let _ = Server2ClientResponse::try_from(Response {
-                    id: 6,
-                    error: None,
-                    result: params,
-                });
+                for method in [
+                    Method::Submit,
+                    Method::Authorize,
+                    Method::Subscribe,
+                    Method::Configure,
+                    Method::ExtranonceSubscribe,
+                    Method::SuggestDifficulty,
+                ] {
+                    client_request(id, method, params.clone());
+                }
+                for method in [
+                    Method::Notify,
+                    Method::SetDifficulty,
+                    Method::SetExtranonce,
+                    Method::SetVersionMask,
+                ] {
+                    notification(method, params.clone());
+                }
+                let response = Response::success(Id::from(id), params);
+                let _ = response.result_as::<SubscribeResult>();
+                let _ = response.result_as::<ConfigureResult>();
+                let _ = response.result_as::<bool>();
             }
         }
     }

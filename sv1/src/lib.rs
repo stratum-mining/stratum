@@ -1,13 +1,11 @@
-#![allow(clippy::result_unit_err)]
 //! Stratum V1 application protocol:
 //!
-//! json-rpc has two types of messages: **request** and **response**.
-//! A request message can be either a **notification** or a **standard message**.
-//! Standard messages expect a response, notifications do not. A typical example of a notification
-//! is the broadcasting of a new block.
+//! Messages are newline-delimited JSON objects of two kinds: **requests** and **responses**.
+//! A request is either a **notification**, which never gets a reply, or a **standard request**,
+//! which does. A typical example of a notification is the broadcasting of a new block.
 //!
-//! Every RPC request contains three parts:
-//! * message ID: integer or string
+//! Every request contains three parts:
+//! * message ID: integer or string, or null for a notification
 //! * remote method: unicode string
 //! * parameters: list of parameters
 //!
@@ -17,13 +15,6 @@
 //! server and clients can initiate request with id “1”). Client or server can choose string/UUID
 //! identifier for example in the case when standard “atomic” counter isn’t available.
 //!
-//! ## Notifications
-//! Notifications are like Request, but it does not expect any response and message ID is always
-//! null:
-//! * message ID: null
-//! * remote method: unicode string
-//! * parameters: list of parameters
-//!
 //! ## Responses
 //! Every response contains the following parts
 //! * message ID: same ID as in request, for pairing request-response together
@@ -32,6 +23,9 @@
 //!   element is null when no additional data is provided. For compatibility, deserialization also
 //!   accepts two-element lists with absent data and object-form errors.
 //!
+//! [`IsServer`] and [`IsClient`] route decoded messages to one handler per message. Their
+//! handlers are required, so an implementor cannot miss a message.
+//!
 //! References:
 //! [https://docs.google.com/document/d/17zHy1SUlhgtCMbypO8cHgpWH73V5iUQKk_0rWvMqSNs/edit?hl=en_US#]
 //! [https://braiins.com/stratum-v1/docs]
@@ -39,716 +33,367 @@
 //! [https://en.bitcoin.it/wiki/BIP_0310]
 //! [https://docs.google.com/spreadsheets/d/1z8a3S9gFkS8NGhBCxOMUDqs7h9SQltz8-VX3KPHk7Jw/edit#gid=0]
 
+mod client;
 pub mod error;
 pub mod json_rpc;
-pub mod methods;
+mod server;
 pub mod utils;
 
-use crate::utils::hex_decode;
-use std::convert::{TryFrom, TryInto};
-use tracing::debug;
-
-// use error::Result;
+pub use client::{
+    Authorize, ClientRequest, Configure, ConfigureExtension, InfoParams, Submit, Subscribe,
+    SuggestDifficulty, VersionRolling,
+};
 use error::Error;
-pub use json_rpc::Message;
-pub use methods::{client_to_server, server_to_client, Method, MethodError, ParsingMethodError};
-use utils::{Extranonce, HexU32Be};
+pub use json_rpc::{Id, Message, Method, Response, RpcError};
+use serde::de::DeserializeOwned;
+use serde_json::Value;
+pub use server::{
+    ConfigureResult, Notify, ServerNotification, SetDifficulty, SetExtranonce, SetVersionMask,
+    SubmitError, SubmitOutcome, SubscribeResult, VersionRollingResult,
+};
+use std::convert::TryFrom;
+use utils::{HexU32Be, VERSION_ROLLING_MASK};
 
-/// json_rpc Response are not handled because stratum v1 does not have any request from a server to
-/// a client
-/// TODO: Should update to accommodate miner requesting a difficulty change
+/// Routes requests from SV1 clients to one handler per method.
 ///
-/// A stratum v1 server represent a single connection with a client
+/// `client_id` identifies the connection, so one implementor can serve many clients.
 pub trait IsServer {
-    /// Error returned by the server implementation.
+    type Error;
+
+    /// Calls the handler for `request` and returns the reply, carrying the request's ID.
     ///
-    /// Implementations can use their application error type as long as native SV1 errors can be
-    /// converted into it. This allows default trait methods to report protocol errors while
-    /// implementors can also propagate errors from their own state and synchronization layers.
-    type Error: From<Error>;
-
-    /// handle the received message and return a response if the message is a request or
-    /// notification.
-    fn handle_message(
-        &mut self,
-        client_id: Option<usize>,
-        msg: json_rpc::Message,
-    ) -> Result<Option<json_rpc::Response>, Self::Error>
-    where
-        Self: std::marker::Sized,
-    {
-        match msg {
-            Message::StandardRequest(_) => {
-                // handle valid standard request
-                self.handle_request(client_id, msg)
-            }
-            Message::Notification(_) => {
-                // handle valid server notification
-                self.handle_request(client_id, msg)
-            }
-            _ => {
-                // Server shouldn't receive json_rpc responses
-                Err(Error::InvalidJsonRpcMessageKind.into())
-            }
-        }
-    }
-
-    /// Call the right handler according with the called method
+    /// A submit reaches [`Self::handle_submit`] only when its worker is authorized, its
+    /// extranonce2 has the size returned by [`Self::extranonce2_size`], and its version bits
+    /// match the negotiated mask, including whether they must be present. Bits outside
+    /// [`VERSION_ROLLING_MASK`] are rejected even if the negotiated mask allows them.
+    /// Otherwise the reply rejects it with [`SubmitError::UnauthorizedWorker`] (24) or
+    /// [`SubmitError::Other`] (20).
+    ///
+    /// The request is already decoded, so callers can check session ordering or queue it first.
     fn handle_request(
         &mut self,
         client_id: Option<usize>,
-        msg: json_rpc::Message,
-    ) -> Result<Option<json_rpc::Response>, Self::Error>
-    where
-        Self: std::marker::Sized,
-    {
-        let request = msg.try_into().map_err(Error::from)?;
-
-        self.handle_parsed_request(client_id, request)
-    }
-
-    /// Handles a request already decoded by [`methods::Client2Server::try_from`].
-    ///
-    /// Servers may use the typed request to check session ordering before allocating resources,
-    /// then dispatch it here without parsing it again. This is the same dispatch path used by
-    /// [`Self::handle_message`]; decoding alone does not execute handlers or authorize a client.
-    fn handle_parsed_request(
-        &mut self,
-        client_id: Option<usize>,
-        request: methods::Client2Server,
-    ) -> Result<Option<json_rpc::Response>, Self::Error>
-    where
-        Self: std::marker::Sized,
-    {
-        match request {
-            // TODO: Handle suggested difficulty
-            methods::Client2Server::SuggestDifficulty() => Ok(None),
-            methods::Client2Server::Authorize(authorize) => {
-                let authorized = self.handle_authorize(client_id, &authorize)?;
-                if authorized {
-                    self.authorize(client_id, &authorize.name)?;
-                }
-                Ok(Some(authorize.respond(authorized)))
+        request: ClientRequest,
+    ) -> Result<Option<Response>, Self::Error> {
+        Ok(Some(match request {
+            ClientRequest::Configure(id, configure) => {
+                Response::success(id, self.handle_configure(client_id, &configure)?)
             }
-            methods::Client2Server::Configure(configure) => {
-                debug!("{:?}", configure);
-                self.set_version_rolling_mask(client_id, configure.version_rolling_mask())?;
-                self.set_version_rolling_min_bit(
-                    client_id,
-                    configure.version_rolling_min_bit_count(),
-                )?;
-                let (version_rolling, min_diff) = self.handle_configure(client_id, &configure)?;
-                Ok(Some(configure.respond(version_rolling, min_diff)))
+            ClientRequest::Subscribe(id, subscribe) => {
+                Response::success(id, self.handle_subscribe(client_id, &subscribe)?)
             }
-            methods::Client2Server::ExtranonceSubscribe(subscribe) => {
+            ClientRequest::Authorize(id, authorize) => {
+                Response::success(id, self.handle_authorize(client_id, &authorize)?)
+            }
+            ClientRequest::Submit(id, submit) => {
+                let outcome = match check_submit(self, client_id, &submit)? {
+                    Some(rejection) => SubmitOutcome::Rejected(rejection),
+                    None => self.handle_submit(client_id, &submit)?,
+                };
+                outcome.into_response(id)
+            }
+            ClientRequest::ExtranonceSubscribe(id) => {
                 self.handle_extranonce_subscribe(client_id)?;
-                Ok(Some(subscribe.respond()))
+                Response::success(id, true)
             }
-            methods::Client2Server::Submit(submit) => {
-                let has_valid_version_bits = match &submit.version_bits {
-                    Some(a) => {
-                        if let Some(version_rolling_mask) = self.version_rolling_mask(client_id)? {
-                            version_rolling_mask.check_mask(a)
-                        } else {
-                            false
-                        }
-                    }
-                    None => self.version_rolling_mask(client_id)?.is_none(),
-                };
-
-                if !self.is_authorized(client_id, &submit.user_name)? {
-                    return Ok(Some(submit.respond(
-                        client_to_server::SubmitOutcome::Rejected(
-                            client_to_server::SubmitError::UnauthorizedWorker,
-                        ),
-                    )));
-                }
-
-                let outcome = if self.extranonce2_size(client_id)? != submit.extra_nonce2.len()
-                    || !has_valid_version_bits
-                {
-                    client_to_server::SubmitOutcome::Rejected(client_to_server::SubmitError::Other)
-                } else {
-                    self.handle_submit(client_id, &submit)?
-                };
-
-                Ok(Some(submit.respond(outcome)))
+            ClientRequest::SuggestDifficulty(_, suggest) => {
+                self.handle_suggest_difficulty(client_id, &suggest)?;
+                return Ok(None);
             }
-            methods::Client2Server::Subscribe(subscribe) => {
-                let subscriptions = self.handle_subscribe(client_id, &subscribe)?;
-                let extra_n1 = self.set_extranonce1(client_id, None)?;
-                let extra_n2_size = self.set_extranonce2_size(client_id, None)?;
-                Ok(Some(subscribe.respond(
-                    subscriptions,
-                    extra_n1,
-                    extra_n2_size,
-                )))
-            }
-        }
+        }))
     }
 
-    /// This message (JSON RPC Request) SHOULD be the first message sent by the miner after the
-    /// connection with the server is established.
     fn handle_configure(
         &mut self,
         client_id: Option<usize>,
-        request: &client_to_server::Configure,
-    ) -> Result<(Option<server_to_client::VersionRollingParams>, Option<bool>), Self::Error>;
+        request: &Configure,
+    ) -> Result<ConfigureResult, Self::Error>;
 
-    /// On the beginning of the session, client subscribes current connection for receiving mining
-    /// jobs.
-    ///
-    /// The client can specify [mining.notify][a] job_id the client wishes to resume working with
-    ///
-    /// The result contains three items:
-    /// * Subscriptions details: 2-tuple with name of subscribed notification and subscription ID.
-    ///   Teoretically it may be used for unsubscribing, but obviously miners won't use it.
-    /// * Extranonce1 - Hex-encoded, per-connection unique string which will be used for coinbase
-    ///   serialization later. Keep it safe!
-    /// * Extranonce2_size - Represents expected length of extranonce2 which will be generated by
-    ///   the miner.
-    ///
-    /// Almost instantly after the subscription server start to send [jobs][a]
-    ///
-    /// This function return the first item of the result (2 tuple with name of subscibed ...)
-    ///
-    /// [a]: crate::methods::server_to_client::Notify
     fn handle_subscribe(
-        &self,
+        &mut self,
         client_id: Option<usize>,
-        request: &client_to_server::Subscribe,
-    ) -> Result<Vec<(String, String)>, Self::Error>;
+        request: &Subscribe,
+    ) -> Result<SubscribeResult, Self::Error>;
 
-    /// You can authorize as many workers as you wish and at any
-    /// time during the session. In this way, you can handle big basement of independent mining rigs
-    /// just by one Stratum connection.
-    ///
-    /// https://bitcoin.stackexchange.com/questions/29416/how-do-pool-servers-handle-multiple-workers-sharing-one-connection-with-stratum
+    /// Records the worker when it returns `true`. A worker may be authorized at any time during
+    /// the session, so one connection can carry many workers.
     fn handle_authorize(
-        &self,
+        &mut self,
         client_id: Option<usize>,
-        request: &client_to_server::Authorize,
+        request: &Authorize,
     ) -> Result<bool, Self::Error>;
 
-    /// Validates a share after the default request handler has checked its SV1 session fields.
-    ///
-    /// [`Self::handle_parsed_request`] calls this only when the worker is authorized, extranonce2
-    /// has the size returned by [`Self::extranonce2_size`], and the version bits match the negotiated
-    /// version-rolling mask (including whether version bits must be present).
-    ///
-    /// Unauthorized workers receive [`client_to_server::SubmitError::UnauthorizedWorker`] (24).
-    /// Invalid extranonce2 sizes or version bits receive [`client_to_server::SubmitError::Other`]
-    /// (20). These rejections bypass this method and return `Ok(Some(response))`, not a Rust error;
-    /// applications that log or count them should inspect the returned response's `error` field.
-    /// Errors returned by the session-state accessors are still propagated to the caller.
+    /// Called only after the checks described in [`Self::handle_request`] pass.
     fn handle_submit(
-        &self,
+        &mut self,
         client_id: Option<usize>,
-        request: &client_to_server::Submit,
-    ) -> Result<client_to_server::SubmitOutcome, Self::Error>;
+        request: &Submit,
+    ) -> Result<SubmitOutcome, Self::Error>;
 
-    /// Records that the identified client supports the `mining.set_extranonce`
-    /// notification.
-    ///
-    /// The mutable receiver allows an implementation to retain this capability
-    /// for the lifetime of the client session.
+    /// The client supports `mining.set_extranonce`.
     fn handle_extranonce_subscribe(&mut self, client_id: Option<usize>) -> Result<(), Self::Error>;
+
+    /// No reply is sent. Servers are not required to honour the suggestion.
+    fn handle_suggest_difficulty(
+        &mut self,
+        client_id: Option<usize>,
+        request: &SuggestDifficulty,
+    ) -> Result<(), Self::Error>;
 
     fn is_authorized(&self, client_id: Option<usize>, name: &str) -> Result<bool, Self::Error>;
 
-    fn authorize(&mut self, client_id: Option<usize>, name: &str) -> Result<(), Self::Error>;
-
-    /// Set extranonce1 to extranonce1 if provided. If not create a new one and set it.
-    fn set_extranonce1(
-        &mut self,
-        client_id: Option<usize>,
-        extranonce1: Option<Extranonce>,
-    ) -> Result<Extranonce, Self::Error>;
-
-    fn extranonce1(&self, client_id: Option<usize>) -> Result<Extranonce, Self::Error>;
-
-    /// Set extranonce2_size to extranonce2_size if provided. If not create a new one and set it.
-    fn set_extranonce2_size(
-        &mut self,
-        client_id: Option<usize>,
-        extra_nonce2_size: Option<usize>,
-    ) -> Result<usize, Self::Error>;
-
     fn extranonce2_size(&self, client_id: Option<usize>) -> Result<usize, Self::Error>;
 
+    /// The negotiated mask, or `None` when version rolling is not in use.
     fn version_rolling_mask(
         &self,
         client_id: Option<usize>,
     ) -> Result<Option<HexU32Be>, Self::Error>;
-
-    fn set_version_rolling_mask(
-        &mut self,
-        client_id: Option<usize>,
-        mask: Option<HexU32Be>,
-    ) -> Result<(), Self::Error>;
-
-    fn set_version_rolling_min_bit(
-        &mut self,
-        client_id: Option<usize>,
-        mask: Option<HexU32Be>,
-    ) -> Result<(), Self::Error>;
-
-    fn update_extranonce(
-        &mut self,
-        client_id: Option<usize>,
-        extra_nonce1: Extranonce,
-        extra_nonce2_size: usize,
-    ) -> Result<json_rpc::Message, Self::Error> {
-        self.set_extranonce1(client_id, Some(extra_nonce1.clone()))?;
-        self.set_extranonce2_size(client_id, Some(extra_nonce2_size))?;
-
-        Ok(server_to_client::SetExtranonce {
-            extra_nonce1,
-            extra_nonce2_size,
-        }
-        .into())
-    }
-    // {"params":["00003000"], "id":null, "method": "mining.set_version_mask"}
-    // fn update_version_rolling_mask
-
-    fn notify(&mut self, client_id: Option<usize>) -> Result<json_rpc::Message, Self::Error>;
-
-    fn handle_set_difficulty(
-        &mut self,
-        _client_id: Option<usize>,
-        value: f64,
-    ) -> Result<json_rpc::Message, Self::Error> {
-        let set_difficulty = server_to_client::SetDifficulty { value };
-        Ok(set_difficulty.into())
-    }
 }
 
-fn route_general_response(
-    general: server_to_client::GeneralResponse,
-    authorize_user_name: Option<String>,
-    is_submit: bool,
-    is_extranonce_subscribe: bool,
-) -> Result<methods::Server2ClientResponse, Error> {
-    match (authorize_user_name, is_submit, is_extranonce_subscribe) {
-        (Some(previous_name), false, false) => Ok(methods::Server2ClientResponse::Authorize(
-            general.into_authorize(previous_name),
-        )),
-        (None, false, true) => Ok(methods::Server2ClientResponse::ExtranonceSubscribe(
-            general.into_extranonce_subscribe(),
-        )),
-        (None, false, false) => Ok(methods::Server2ClientResponse::Submit(
-            general.into_submit(),
-        )),
-        _ => Err(Error::UnknownID(general.id)),
+/// The session checks every submit passes before [`IsServer::handle_submit`].
+fn check_submit<S: IsServer + ?Sized>(
+    server: &S,
+    client_id: Option<usize>,
+    submit: &Submit,
+) -> Result<Option<SubmitError>, S::Error> {
+    let has_valid_version_bits = match (
+        &submit.version_bits,
+        server.version_rolling_mask(client_id)?,
+    ) {
+        (Some(bits), Some(mask)) => HexU32Be(mask.0 & VERSION_ROLLING_MASK).check_mask(bits),
+        (Some(_), None) => false,
+        (None, mask) => mask.is_none(),
+    };
+    if !server.is_authorized(client_id, &submit.worker_name)? {
+        return Ok(Some(SubmitError::UnauthorizedWorker));
     }
+    if server.extranonce2_size(client_id)? != submit.extranonce2.len() || !has_valid_version_bits {
+        return Ok(Some(SubmitError::Other));
+    }
+    Ok(None)
 }
 
+/// Decodes the result of the outstanding `method` request with this ID, keeping both on failure
+/// so the caller can complete the request.
+fn decode_result<T: DeserializeOwned>(
+    id: &Id,
+    method: &Method,
+    result: &Value,
+) -> Result<T, Error> {
+    T::deserialize(result).map_err(|error| Error::InvalidResult {
+        id: id.clone(),
+        method: method.clone(),
+        error,
+    })
+}
+
+/// Routes messages from an SV1 server to one handler per notification and result.
+///
+/// A response does not name the method it answers, so the router asks
+/// [`Self::request_method`] for the method of the outstanding request with that ID.
 pub trait IsClient {
-    /// Error returned by the client implementation.
-    ///
-    /// Implementations can use their application error type as long as native SV1 errors can be
-    /// converted into it. This allows default trait methods to report protocol errors while
-    /// implementors can also propagate errors from their own state and synchronization layers.
     type Error: From<Error>;
 
-    /// Deserialize a [raw json_rpc message][a] into a [stratum v1 message][b] and handle the
-    /// result.
+    /// Calls the handler for `message`.
     ///
-    /// [a]: crate::...
-    /// [b]:
+    /// A malformed notification is returned as an error and no handler runs. A result that does
+    /// not match its request's method returns [`Error::InvalidResult`], which carries the ID and
+    /// method so the caller can complete the request.
     fn handle_message(
         &mut self,
         server_id: Option<usize>,
-        msg: json_rpc::Message,
-    ) -> Result<Option<json_rpc::Message>, Self::Error>
-    where
-        Self: std::marker::Sized,
-    {
-        let method: Result<Method, MethodError> = msg.try_into();
-
-        match method {
-            Ok(m) => match m {
-                Method::Server2ClientResponse(response) => {
-                    let response = self.update_response(server_id, response)?;
-                    self.handle_response(server_id, response)
-                }
-                Method::Server2Client(request) => self.handle_request(server_id, request),
-                Method::Client2Server(_) => Err(Error::InvalidReceiver(m.into()).into()),
-                Method::ErrorMessage(msg) => self.handle_error_message(server_id, msg),
-            },
-            Err(e) => Err(Error::from(e).into()),
-        }
-    }
-
-    fn update_response(
-        &mut self,
-        server_id: Option<usize>,
-        response: methods::Server2ClientResponse,
-    ) -> Result<methods::Server2ClientResponse, Self::Error> {
-        match response {
-            methods::Server2ClientResponse::GeneralResponse(general) => {
-                let is_authorize = self.id_is_authorize(server_id, &general.id)?;
-                let is_submit = self.id_is_submit(server_id, &general.id)?;
-                let is_extranonce_subscribe =
-                    self.id_is_extranonce_subscribe(server_id, &general.id)?;
-                route_general_response(general, is_authorize, is_submit, is_extranonce_subscribe)
-                    .map_err(Self::Error::from)
-            }
-            response => Ok(response),
-        }
-    }
-
-    /// Call the right handler according with the called method
-    fn handle_request(
-        &mut self,
-        server_id: Option<usize>,
-        request: methods::Server2Client,
-    ) -> Result<Option<json_rpc::Message>, Self::Error>
-    where
-        Self: std::marker::Sized,
-    {
-        match request {
-            methods::Server2Client::Notify(notify) => {
-                self.handle_notify(server_id, notify)?;
-                Ok(None)
-            }
-            methods::Server2Client::SetDifficulty(mut set_diff) => {
-                self.handle_set_difficulty(server_id, &mut set_diff)?;
-                Ok(None)
-            }
-            methods::Server2Client::SetExtranonce(mut set_extra_nonce) => {
-                self.handle_set_extranonce(server_id, &mut set_extra_nonce)?;
-                Ok(None)
-            }
-            methods::Server2Client::SetVersionMask(mut set_version_mask) => {
-                self.handle_set_version_mask(server_id, &mut set_version_mask)?;
-                Ok(None)
-            }
-        }
-    }
-
-    fn handle_response(
-        &mut self,
-        server_id: Option<usize>,
-        response: methods::Server2ClientResponse,
-    ) -> Result<Option<json_rpc::Message>, Self::Error>
-    where
-        Self: std::marker::Sized,
-    {
-        match response {
-            methods::Server2ClientResponse::Configure(mut configure) => {
-                self.handle_configure(server_id, &mut configure)?;
-                self.set_version_rolling_mask(server_id, configure.version_rolling_mask())?;
-                self.set_version_rolling_min_bit(server_id, configure.version_rolling_min_bit())?;
-                self.set_status(server_id, ClientStatus::Configured)?;
-
-                //in sv1 the mining.configure message should be the first message to come in before
-                // the subscribe - the subscribe response is where the server hands out the
-                // extranonce so it doesnt really matter what the server sets the
-                // extranonce to in the mining.configure handler
-                debug!("NOTICE: Subscribe extranonce is hardcoded by server");
-                let subscribe = self
-                    .subscribe(
-                        server_id,
-                        configure.id,
-                        Some(Extranonce::try_from(hex_decode("08000002")?)?),
-                    )
-                    .ok();
-                Ok(subscribe)
-            }
-            methods::Server2ClientResponse::Subscribe(subscribe) => {
-                self.handle_subscribe(server_id, &subscribe)?;
-                self.set_extranonce1(server_id, subscribe.extra_nonce1)?;
-                self.set_extranonce2_size(server_id, subscribe.extra_nonce2_size)?;
-                self.set_status(server_id, ClientStatus::Subscribed)?;
-                Ok(None)
-            }
-            methods::Server2ClientResponse::Authorize(authorize) => {
-                if authorize.is_ok() {
-                    self.authorize_user_name(server_id, authorize.user_name())?;
-                };
-                Ok(None)
-            }
-            methods::Server2ClientResponse::ExtranonceSubscribe(_) => Ok(None),
-            methods::Server2ClientResponse::Submit(_) => Ok(None),
-            // impossible state
-            methods::Server2ClientResponse::GeneralResponse(_) => panic!(),
-            methods::Server2ClientResponse::SetDifficulty(_) => Ok(None),
-        }
-    }
-
-    fn handle_error_message(
-        &mut self,
-        server_id: Option<usize>,
         message: Message,
-    ) -> Result<Option<json_rpc::Message>, Self::Error>;
-
-    /// Check if the client sent an Authorize request with the given id, if so it return the
-    /// authorized name
-    fn id_is_authorize(
-        &mut self,
-        server_id: Option<usize>,
-        id: &u64,
-    ) -> Result<Option<String>, Self::Error>;
-
-    /// Check if the client sent a Submit request with the given id
-    fn id_is_submit(&mut self, server_id: Option<usize>, id: &u64) -> Result<bool, Self::Error>;
-
-    /// Returns whether `id` belongs to a `mining.extranonce.subscribe` request.
-    ///
-    /// Clients that do not send this extension can use the default implementation.
-    fn id_is_extranonce_subscribe(
-        &mut self,
-        _server_id: Option<usize>,
-        _id: &u64,
-    ) -> Result<bool, Self::Error> {
-        Ok(false)
+    ) -> Result<(), Self::Error> {
+        match message {
+            Message::Request(request) => {
+                if let Method::Other(_) = request.method {
+                    return self.handle_unknown_request(server_id, request);
+                }
+                match ServerNotification::try_from(request).map_err(Error::from)? {
+                    ServerNotification::Notify(m) => self.handle_notify(server_id, m),
+                    ServerNotification::SetDifficulty(m) => {
+                        self.handle_set_difficulty(server_id, m)
+                    }
+                    ServerNotification::SetExtranonce(m) => {
+                        self.handle_set_extranonce(server_id, m)
+                    }
+                    ServerNotification::SetVersionMask(m) => {
+                        self.handle_set_version_mask(server_id, m)
+                    }
+                }
+            }
+            Message::Response(response) => {
+                let method = match &response.id {
+                    Some(id) => self.request_method(server_id, id)?,
+                    None => None,
+                };
+                let (Some(id), Some(method)) = (response.id.clone(), method) else {
+                    return self.handle_unknown_response(server_id, response);
+                };
+                if !matches!(
+                    method,
+                    Method::Configure
+                        | Method::Subscribe
+                        | Method::Authorize
+                        | Method::Submit
+                        | Method::ExtranonceSubscribe
+                ) {
+                    return self.handle_unknown_response(server_id, response);
+                }
+                let result = match &response.result {
+                    Ok(result) => result,
+                    Err(error) => {
+                        return self.handle_error_response(server_id, &id, method, error.clone())
+                    }
+                };
+                match &method {
+                    Method::Configure => {
+                        let result = decode_result(&id, &method, result)?;
+                        self.handle_configure_result(server_id, &id, result)
+                    }
+                    Method::Subscribe => {
+                        let result = decode_result(&id, &method, result)?;
+                        self.handle_subscribe_result(server_id, &id, result)
+                    }
+                    Method::Authorize => {
+                        let authorized = decode_result(&id, &method, result)?;
+                        self.handle_authorize_result(server_id, &id, authorized)
+                    }
+                    Method::Submit => {
+                        let accepted = decode_result(&id, &method, result)?;
+                        self.handle_submit_result(server_id, &id, accepted)
+                    }
+                    _ => {
+                        let acknowledged = decode_result(&id, &method, result)?;
+                        self.handle_extranonce_subscribe_result(server_id, &id, acknowledged)
+                    }
+                }
+            }
+        }
     }
+
+    /// The method of the outstanding request with this ID, or `None` if there is none.
+    ///
+    /// Clients record each request's method when sending it, and drop the entry in the result or
+    /// error handler for that ID.
+    fn request_method(
+        &self,
+        server_id: Option<usize>,
+        id: &Id,
+    ) -> Result<Option<Method>, Self::Error>;
 
     fn handle_notify(
         &mut self,
         server_id: Option<usize>,
-        notify: server_to_client::Notify,
-    ) -> Result<(), Self::Error>;
-
-    fn handle_configure(
-        &mut self,
-        server_id: Option<usize>,
-        conf: &mut server_to_client::Configure,
+        notify: Notify,
     ) -> Result<(), Self::Error>;
 
     fn handle_set_difficulty(
         &mut self,
         server_id: Option<usize>,
-        m: &mut server_to_client::SetDifficulty,
+        set: SetDifficulty,
     ) -> Result<(), Self::Error>;
 
     fn handle_set_extranonce(
         &mut self,
         server_id: Option<usize>,
-        m: &mut server_to_client::SetExtranonce,
+        set: SetExtranonce,
     ) -> Result<(), Self::Error>;
 
     fn handle_set_version_mask(
         &mut self,
         server_id: Option<usize>,
-        m: &mut server_to_client::SetVersionMask,
+        set: SetVersionMask,
     ) -> Result<(), Self::Error>;
 
-    fn handle_subscribe(
+    fn handle_configure_result(
         &mut self,
         server_id: Option<usize>,
-        subscribe: &server_to_client::Subscribe,
+        id: &Id,
+        result: ConfigureResult,
     ) -> Result<(), Self::Error>;
 
-    fn set_extranonce1(
+    fn handle_subscribe_result(
         &mut self,
         server_id: Option<usize>,
-        extranonce1: Extranonce,
+        id: &Id,
+        result: SubscribeResult,
     ) -> Result<(), Self::Error>;
 
-    fn extranonce1(&self, server_id: Option<usize>) -> Result<Extranonce, Self::Error>;
-
-    fn set_extranonce2_size(
+    fn handle_authorize_result(
         &mut self,
         server_id: Option<usize>,
-        extra_nonce2_size: usize,
+        id: &Id,
+        authorized: bool,
     ) -> Result<(), Self::Error>;
 
-    fn extranonce2_size(&self, server_id: Option<usize>) -> Result<usize, Self::Error>;
-
-    fn version_rolling_mask(
-        &self,
-        server_id: Option<usize>,
-    ) -> Result<Option<HexU32Be>, Self::Error>;
-
-    fn set_version_rolling_mask(
+    fn handle_submit_result(
         &mut self,
         server_id: Option<usize>,
-        mask: Option<HexU32Be>,
+        id: &Id,
+        accepted: bool,
     ) -> Result<(), Self::Error>;
 
-    fn set_version_rolling_min_bit(
+    fn handle_extranonce_subscribe_result(
         &mut self,
         server_id: Option<usize>,
-        min: Option<HexU32Be>,
+        id: &Id,
+        acknowledged: bool,
     ) -> Result<(), Self::Error>;
 
-    fn version_rolling_min_bit(
+    /// The server rejected the outstanding request with this ID.
+    fn handle_error_response(
         &mut self,
         server_id: Option<usize>,
-    ) -> Result<Option<HexU32Be>, Self::Error>;
-
-    fn set_status(
-        &mut self,
-        server_id: Option<usize>,
-        status: ClientStatus,
+        id: &Id,
+        method: Method,
+        error: RpcError,
     ) -> Result<(), Self::Error>;
 
-    fn signature(&self, server_id: Option<usize>) -> Result<String, Self::Error>;
-
-    fn status(&self, server_id: Option<usize>) -> Result<ClientStatus, Self::Error>;
-
-    fn last_notify(
-        &self,
-        server_id: Option<usize>,
-    ) -> Result<Option<server_to_client::Notify>, Self::Error>;
-
-    /// Check if the given user_name has been authorized by the server
-    #[allow(clippy::ptr_arg)]
-    fn is_authorized(&self, server_id: Option<usize>, name: &String) -> Result<bool, Self::Error>;
-
-    /// Register the given user_name has authorized by the server
-    fn authorize_user_name(
+    /// A response with a null ID, or an ID that matches no outstanding request.
+    fn handle_unknown_response(
         &mut self,
         server_id: Option<usize>,
-        name: String,
+        response: Response,
     ) -> Result<(), Self::Error>;
 
-    fn configure(
+    /// A request whose method this crate does not model, such as `client.reconnect`.
+    fn handle_unknown_request(
         &mut self,
         server_id: Option<usize>,
-        id: u64,
-    ) -> Result<json_rpc::Message, Self::Error> {
-        if self.version_rolling_min_bit(server_id)?.is_none()
-            && self.version_rolling_mask(server_id)?.is_none()
-        {
-            Ok(client_to_server::Configure::void(id).into())
-        } else {
-            Ok(client_to_server::Configure::new(
-                id,
-                self.version_rolling_mask(server_id)?,
-                self.version_rolling_min_bit(server_id)?,
-            )
-            .into())
-        }
-    }
-
-    fn subscribe(
-        &mut self,
-        server_id: Option<usize>,
-        id: u64,
-        extranonce1: Option<Extranonce>,
-    ) -> Result<json_rpc::Message, Self::Error> {
-        match self.status(server_id)? {
-            ClientStatus::Init => {
-                Err(Error::IncorrectClientStatus("mining.subscribe".to_string()).into())
-            }
-            _ => Ok(client_to_server::Subscribe {
-                id,
-                agent_signature: self.signature(server_id)?,
-                extranonce1,
-            }
-            .try_into()?),
-        }
-    }
-
-    fn authorize(
-        &mut self,
-        server_id: Option<usize>,
-        id: u64,
-        name: String,
-        password: String,
-    ) -> Result<json_rpc::Message, Self::Error> {
-        match self.status(server_id)? {
-            ClientStatus::Init => {
-                Err(Error::IncorrectClientStatus("mining.authorize".to_string()).into())
-            }
-            _ => Ok(client_to_server::Authorize { id, name, password }.into()),
-        }
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn submit(
-        &mut self,
-        server_id: Option<usize>,
-        id: u64,
-        user_name: String,
-        extra_nonce2: Extranonce,
-        time: i64,
-        nonce: i64,
-        version_bits: Option<HexU32Be>,
-    ) -> Result<json_rpc::Message, Self::Error> {
-        match self.status(server_id)? {
-            ClientStatus::Init => {
-                Err(Error::IncorrectClientStatus("mining.submit".to_string()).into())
-            }
-            _ => {
-                if let Some(notify) = self.last_notify(server_id)? {
-                    if !self.is_authorized(server_id, &user_name)? {
-                        return Err(Error::UnauthorizedClient(user_name).into());
-                    }
-                    Ok(client_to_server::Submit {
-                        job_id: notify.job_id,
-                        user_name,
-                        extra_nonce2,
-                        time: HexU32Be(time as u32),
-                        nonce: HexU32Be(nonce as u32),
-                        version_bits,
-                        id,
-                    }
-                    .into())
-                } else {
-                    Err(Error::IncorrectClientStatus("No Notify instance found".to_string()).into())
-                }
-            }
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum ClientStatus {
-    Init,
-    Configured,
-    Subscribed,
+        request: json_rpc::Request,
+    ) -> Result<(), Self::Error>;
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashSet;
+    use crate::utils::Extranonce;
+    use serde_json::json;
+    use std::collections::HashMap;
 
-    #[test]
-    fn extranonce_subscribe_acknowledgement_has_distinct_response_route() {
-        let response = route_general_response(
-            server_to_client::GeneralResponse {
-                id: 42,
-                result: true,
-            },
-            None,
-            false,
-            true,
-        )
-        .unwrap();
-
-        let methods::Server2ClientResponse::ExtranonceSubscribe(response) = response else {
-            panic!("extranonce subscription acknowledgement was routed as another response");
+    fn request(line: &str) -> ClientRequest {
+        let Message::Request(request) = Message::decode(line).unwrap() else {
+            panic!("{line}: not a request");
         };
-        assert_eq!(response.id, 42);
-        assert!(response.is_ok());
+        ClientRequest::try_from(request).unwrap()
     }
 
-    // A minimal implementation of IsServer trait for testing
+    fn reply(server: &mut TestServer, line: &str) -> Option<serde_json::Value> {
+        server
+            .handle_request(Some(1), request(line))
+            .unwrap()
+            .map(|response| serde_json::to_value(Message::Response(response)).unwrap())
+    }
+
+    #[derive(Default)]
     struct TestServer {
-        authorized_users: HashSet<String>,
-        extranonce_subscriptions: HashSet<Option<usize>>,
-        extranonce1: Extranonce,
-        extranonce2_size: usize,
-        version_rolling_mask: Option<HexU32Be>,
-        version_rolling_min_bit: Option<HexU32Be>,
-    }
-
-    impl TestServer {
-        fn new(extranonce1: Extranonce, extranonce2_size: usize) -> Self {
-            Self {
-                authorized_users: HashSet::new(),
-                extranonce_subscriptions: HashSet::new(),
-                extranonce1,
-                extranonce2_size,
-                version_rolling_mask: None,
-                version_rolling_min_bit: None,
-            }
-        }
+        workers: Vec<String>,
+        mask: Option<HexU32Be>,
+        submits: usize,
+        extranonce_subscribed: bool,
+        suggested: Option<f64>,
     }
 
     impl IsServer for TestServer {
@@ -756,304 +401,439 @@ mod tests {
 
         fn handle_configure(
             &mut self,
-            _client_id: Option<usize>,
-            _request: &client_to_server::Configure,
-        ) -> Result<(Option<server_to_client::VersionRollingParams>, Option<bool>), Error> {
-            Ok((None, None))
+            _: Option<usize>,
+            request: &Configure,
+        ) -> Result<ConfigureResult, Error> {
+            self.mask = request
+                .version_rolling_mask()
+                .map(|mask| HexU32Be(mask.0 & VERSION_ROLLING_MASK));
+            Ok(ConfigureResult {
+                version_rolling: self
+                    .mask
+                    .clone()
+                    .map(|mask| VersionRollingResult::new(mask, 0)),
+                minimum_difficulty: None,
+            })
         }
 
         fn handle_subscribe(
-            &self,
-            _client_id: Option<usize>,
-            _request: &client_to_server::Subscribe,
-        ) -> Result<Vec<(String, String)>, Error> {
-            Ok(vec![("mining.notify".to_string(), "1".to_string())])
+            &mut self,
+            _: Option<usize>,
+            _: &Subscribe,
+        ) -> Result<SubscribeResult, Error> {
+            Ok(SubscribeResult {
+                subscriptions: vec![("mining.notify".to_string(), "1".to_string())],
+                extranonce1: Extranonce::try_from(vec![8, 0, 0, 2]).unwrap(),
+                extranonce2_size: 4,
+            })
         }
 
         fn handle_authorize(
-            &self,
-            _client_id: Option<usize>,
-            _request: &client_to_server::Authorize,
+            &mut self,
+            _: Option<usize>,
+            request: &Authorize,
         ) -> Result<bool, Error> {
-            Ok(true)
+            let authorized = request.password == "x";
+            if authorized {
+                self.workers.push(request.worker_name.clone());
+            }
+            Ok(authorized)
         }
 
-        fn notify(&mut self, _client_id: Option<usize>) -> Result<json_rpc::Message, Error> {
-            Ok(json_rpc::Message::StandardRequest(
-                json_rpc::StandardRequest {
-                    id: 1,
-                    method: "mining.notify".to_string(),
-                    params: serde_json::json!([]),
-                },
-            ))
+        fn handle_submit(&mut self, _: Option<usize>, _: &Submit) -> Result<SubmitOutcome, Error> {
+            self.submits += 1;
+            Ok(SubmitOutcome::Rejected(SubmitError::LowDifficultyShare))
         }
 
-        fn handle_submit(
-            &self,
-            _client_id: Option<usize>,
-            _request: &client_to_server::Submit,
-        ) -> Result<client_to_server::SubmitOutcome, Error> {
-            Ok(client_to_server::SubmitOutcome::Accepted)
-        }
-
-        fn handle_extranonce_subscribe(&mut self, client_id: Option<usize>) -> Result<(), Error> {
-            self.extranonce_subscriptions.insert(client_id);
+        fn handle_extranonce_subscribe(&mut self, _: Option<usize>) -> Result<(), Error> {
+            self.extranonce_subscribed = true;
             Ok(())
         }
 
-        fn is_authorized(&self, _client_id: Option<usize>, name: &str) -> Result<bool, Error> {
-            Ok(self.authorized_users.contains(name))
-        }
-
-        fn authorize(&mut self, _client_id: Option<usize>, name: &str) -> Result<(), Error> {
-            self.authorized_users.insert(name.to_string());
-            Ok(())
-        }
-
-        fn set_extranonce1(
+        fn handle_suggest_difficulty(
             &mut self,
-            _client_id: Option<usize>,
-            extranonce1: Option<Extranonce>,
-        ) -> Result<Extranonce, Error> {
-            if let Some(extranonce1) = extranonce1 {
-                self.extranonce1 = extranonce1;
-            }
-            Ok(self.extranonce1.clone())
-        }
-
-        fn extranonce1(&self, _client_id: Option<usize>) -> Result<Extranonce, Error> {
-            Ok(self.extranonce1.clone())
-        }
-
-        fn set_extranonce2_size(
-            &mut self,
-            _client_id: Option<usize>,
-            extra_nonce2_size: Option<usize>,
-        ) -> Result<usize, Error> {
-            if let Some(extra_nonce2_size) = extra_nonce2_size {
-                self.extranonce2_size = extra_nonce2_size;
-            }
-            Ok(self.extranonce2_size)
-        }
-
-        fn extranonce2_size(&self, _client_id: Option<usize>) -> Result<usize, Error> {
-            Ok(self.extranonce2_size)
-        }
-
-        fn version_rolling_mask(
-            &self,
-            _client_id: Option<usize>,
-        ) -> Result<Option<HexU32Be>, Error> {
-            Ok(None)
-        }
-
-        fn set_version_rolling_mask(
-            &mut self,
-            _client_id: Option<usize>,
-            mask: Option<HexU32Be>,
+            _: Option<usize>,
+            request: &SuggestDifficulty,
         ) -> Result<(), Error> {
-            self.version_rolling_mask = mask;
+            self.suggested = request.difficulty;
             Ok(())
         }
 
-        fn set_version_rolling_min_bit(
+        fn is_authorized(&self, _: Option<usize>, name: &str) -> Result<bool, Error> {
+            Ok(self.workers.iter().any(|worker| worker == name))
+        }
+
+        fn extranonce2_size(&self, _: Option<usize>) -> Result<usize, Error> {
+            Ok(4)
+        }
+
+        fn version_rolling_mask(&self, _: Option<usize>) -> Result<Option<HexU32Be>, Error> {
+            Ok(self.mask.clone())
+        }
+    }
+
+    const SUBMIT: &str =
+        r#"{"id":"s","method":"mining.submit","params":["w","bf","00000000","647025b5","1d2e3f40""#;
+
+    fn submit(server: &mut TestServer, rest: &str) -> serde_json::Value {
+        reply(server, &format!("{SUBMIT}{rest}]}}")).unwrap()
+    }
+
+    #[test]
+    fn replies_carry_the_request_id() {
+        let mut server = TestServer::default();
+        assert_eq!(
+            reply(
+                &mut server,
+                r#"{"id":"a","method":"mining.authorize","params":["w","x"]}"#
+            ),
+            Some(json!({"id": "a", "result": true, "error": null}))
+        );
+        assert_eq!(
+            reply(
+                &mut server,
+                r#"{"id":7,"method":"mining.authorize","params":["w","bad"]}"#
+            ),
+            Some(json!({"id": 7, "result": false, "error": null}))
+        );
+        assert_eq!(
+            reply(
+                &mut server,
+                r#"{"id":2,"method":"mining.subscribe","params":[]}"#
+            ),
+            Some(
+                json!({"id": 2, "result": [[["mining.notify", "1"]], "08000002", 4], "error": null})
+            )
+        );
+        assert_eq!(
+            reply(
+                &mut server,
+                r#"{"id":3,"method":"mining.configure","params":[["version-rolling"],{"version-rolling.mask":"ffffffff"}]}"#
+            ),
+            Some(json!({"id": 3, "result": {
+                "version-rolling": true,
+                "version-rolling.mask": "1fffffe0",
+                "version-rolling.min-bit-count": "00000000",
+            }, "error": null}))
+        );
+        assert_eq!(
+            reply(
+                &mut server,
+                r#"{"id":4,"method":"mining.extranonce.subscribe","params":[]}"#
+            ),
+            Some(json!({"id": 4, "result": true, "error": null}))
+        );
+        assert!(server.extranonce_subscribed);
+    }
+
+    #[test]
+    fn suggest_difficulty_gets_no_reply() {
+        let mut server = TestServer::default();
+        assert_eq!(
+            reply(
+                &mut server,
+                r#"{"id":5,"method":"mining.suggest_difficulty","params":[512]}"#
+            ),
+            None
+        );
+        assert_eq!(server.suggested, Some(512.0));
+    }
+
+    #[test]
+    fn submit_checks_run_before_the_handler() {
+        let mut server = TestServer::default();
+        let rejected = |code: i32, message: &str| json!({"id": "s", "result": null, "error": [code, message, null]});
+
+        assert_eq!(submit(&mut server, ""), rejected(24, "Unauthorized worker"));
+        server.workers.push("w".to_string());
+        assert_eq!(
+            submit(&mut server, r#","00002000""#),
+            rejected(20, "Other/Unknown")
+        );
+        assert_eq!(
+            reply(
+                &mut server,
+                r#"{"id":"s","method":"mining.submit","params":["w","bf","00","647025b5","1d2e3f40"]}"#
+            ),
+            Some(rejected(20, "Other/Unknown"))
+        );
+
+        server.mask = Some(HexU32Be(0x1fffe000));
+        assert_eq!(submit(&mut server, ""), rejected(20, "Other/Unknown"));
+        assert_eq!(
+            submit(&mut server, r#","e0000000""#),
+            rejected(20, "Other/Unknown")
+        );
+        assert_eq!(server.submits, 0);
+
+        assert_eq!(
+            submit(&mut server, r#","00002000""#),
+            rejected(23, "Low difficulty share")
+        );
+        server.mask = None;
+        assert_eq!(
+            submit(&mut server, ""),
+            rejected(23, "Low difficulty share")
+        );
+        assert_eq!(server.submits, 2);
+    }
+
+    #[test]
+    fn reserved_version_bits_are_rejected_whatever_the_mask() {
+        let mut server = TestServer {
+            workers: vec!["w".to_string()],
+            mask: Some(HexU32Be(0xffffffff)),
+            ..TestServer::default()
+        };
+        assert_eq!(submit(&mut server, r#","e0000000""#)["error"][0], json!(20));
+        assert_eq!(submit(&mut server, r#","00002000""#)["error"][0], json!(23));
+    }
+
+    #[test]
+    fn unauthorized_worker_takes_precedence() {
+        let mut server = TestServer {
+            mask: Some(HexU32Be(0x1fffe000)),
+            ..TestServer::default()
+        };
+        assert_eq!(submit(&mut server, r#","e0000000""#)["error"][0], json!(24));
+    }
+
+    #[derive(Default)]
+    struct TestClient {
+        pending: HashMap<Id, Method>,
+        events: Vec<String>,
+    }
+
+    impl TestClient {
+        fn send(&mut self, id: Id, method: Method) {
+            self.pending.insert(id, method);
+        }
+
+        fn complete(&mut self, id: &Id, event: String) -> Result<(), Error> {
+            self.pending.remove(id);
+            self.events.push(event);
+            Ok(())
+        }
+    }
+
+    impl IsClient for TestClient {
+        type Error = Error;
+
+        fn request_method(&self, _: Option<usize>, id: &Id) -> Result<Option<Method>, Error> {
+            Ok(self.pending.get(id).cloned())
+        }
+
+        fn handle_notify(&mut self, _: Option<usize>, notify: Notify) -> Result<(), Error> {
+            self.events.push(format!("notify {}", notify.job_id));
+            Ok(())
+        }
+
+        fn handle_set_difficulty(
             &mut self,
-            _client_id: Option<usize>,
-            mask: Option<HexU32Be>,
+            _: Option<usize>,
+            set: SetDifficulty,
         ) -> Result<(), Error> {
-            self.version_rolling_min_bit = mask;
+            self.events.push(format!("difficulty {}", set.difficulty));
+            Ok(())
+        }
+
+        fn handle_set_extranonce(
+            &mut self,
+            _: Option<usize>,
+            set: SetExtranonce,
+        ) -> Result<(), Error> {
+            self.events
+                .push(format!("extranonce {}", set.extranonce2_size));
+            Ok(())
+        }
+
+        fn handle_set_version_mask(
+            &mut self,
+            _: Option<usize>,
+            set: SetVersionMask,
+        ) -> Result<(), Error> {
+            self.events.push(format!("mask {}", set.mask));
+            Ok(())
+        }
+
+        fn handle_configure_result(
+            &mut self,
+            _: Option<usize>,
+            id: &Id,
+            result: ConfigureResult,
+        ) -> Result<(), Error> {
+            self.complete(
+                id,
+                format!("configure {}", result.version_rolling.is_some()),
+            )
+        }
+
+        fn handle_subscribe_result(
+            &mut self,
+            _: Option<usize>,
+            id: &Id,
+            result: SubscribeResult,
+        ) -> Result<(), Error> {
+            self.complete(id, format!("subscribe {}", result.extranonce2_size))
+        }
+
+        fn handle_authorize_result(
+            &mut self,
+            _: Option<usize>,
+            id: &Id,
+            authorized: bool,
+        ) -> Result<(), Error> {
+            self.complete(id, format!("authorize {id} {authorized}"))
+        }
+
+        fn handle_submit_result(
+            &mut self,
+            _: Option<usize>,
+            id: &Id,
+            accepted: bool,
+        ) -> Result<(), Error> {
+            self.complete(id, format!("submit {id} {accepted}"))
+        }
+
+        fn handle_extranonce_subscribe_result(
+            &mut self,
+            _: Option<usize>,
+            id: &Id,
+            acknowledged: bool,
+        ) -> Result<(), Error> {
+            self.complete(id, format!("extranonce_subscribe {acknowledged}"))
+        }
+
+        fn handle_error_response(
+            &mut self,
+            _: Option<usize>,
+            id: &Id,
+            method: Method,
+            error: RpcError,
+        ) -> Result<(), Error> {
+            self.complete(id, format!("error {method} {}", error.code))
+        }
+
+        fn handle_unknown_response(
+            &mut self,
+            _: Option<usize>,
+            response: Response,
+        ) -> Result<(), Error> {
+            let id = response.id.map_or("null".to_string(), |id| id.to_string());
+            self.events.push(format!("unknown response {id}"));
+            Ok(())
+        }
+
+        fn handle_unknown_request(
+            &mut self,
+            _: Option<usize>,
+            request: json_rpc::Request,
+        ) -> Result<(), Error> {
+            self.events
+                .push(format!("unknown request {}", request.method));
             Ok(())
         }
     }
 
-    #[test]
-    fn test_server_handle_invalid_message() {
-        let extranonce1 = Extranonce::try_from(hex_decode("08000002").unwrap()).unwrap();
-        let mut server = TestServer::new(extranonce1, 4);
-
-        // Create an invalid message (response)
-        let request_message = json_rpc::Message::StandardRequest(json_rpc::StandardRequest {
-            id: 42,
-            method: "mining.subscribe_bad".to_string(),
-            params: serde_json::json!([]),
-        });
-
-        let result = server.handle_message(None, request_message);
-
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            Error::Method(inner) => match *inner {
-                MethodError::MethodNotFound(_) => {}
-                other => panic!("Expected MethodNotFound error, got {:?}", other),
-            },
-            other => panic!("Expected Error::Method, got {:?}", other),
-        }
+    fn receive(client: &mut TestClient, line: &str) -> Result<(), Error> {
+        client.handle_message(None, Message::decode(line).unwrap())
     }
 
     #[test]
-    fn extranonce_subscribe_passes_client_id_to_server() {
-        let extranonce1 = Extranonce::try_from(hex_decode("08000002").unwrap()).unwrap();
-        let mut server = TestServer::new(extranonce1, 4);
-        let request = json_rpc::Message::StandardRequest(json_rpc::StandardRequest {
-            id: 42,
-            method: "mining.extranonce.subscribe".to_string(),
-            params: serde_json::json!([]),
-        });
+    fn responses_are_routed_by_their_request_method() {
+        let mut client = TestClient::default();
+        client.send(Id::from(1u64), Method::Configure);
+        client.send(Id::from(2u64), Method::Subscribe);
+        client.send(Id::from(3u64), Method::Authorize);
+        client.send(Id::from(4u64), Method::Submit);
+        client.send(Id::from("4"), Method::Submit);
+        client.send(Id::from(5u64), Method::ExtranonceSubscribe);
 
-        let response = server.handle_message(Some(7), request).unwrap();
-
-        let response = response.expect("extranonce subscribe should be acknowledged");
-        assert_eq!(response.id, 42);
-        assert_eq!(response.result, serde_json::json!(true));
-        assert!(response.error.is_none());
-        assert_eq!(server.extranonce_subscriptions, HashSet::from([Some(7)]));
-    }
-
-    #[test]
-    fn extranonce_subscribe_ignores_params_and_acknowledges_request_id() {
-        for params in [
-            serde_json::Value::Null,
-            serde_json::json!(["ignored"]),
-            serde_json::json!({"ignored": true}),
+        for line in [
+            r#"{"id":"4","result":false,"error":null}"#,
+            r#"{"id":4,"result":true,"error":null}"#,
+            r#"{"id":3,"result":true,"error":null}"#,
+            r#"{"id":5,"result":true,"error":null}"#,
+            r#"{"id":2,"result":[[],"08000002",4],"error":null}"#,
+            r#"{"id":1,"result":{},"error":null}"#,
+            r#"{"id":4,"result":true,"error":null}"#,
+            r#"{"id":null,"result":null,"error":[20,"Other/Unknown",null]}"#,
         ] {
-            let extranonce1 = vec![0; 4].try_into().unwrap();
-            let mut server = TestServer::new(extranonce1, 4);
-            let request = serde_json::from_value(serde_json::json!({
-                "id": 42,
-                "method": "mining.extranonce.subscribe",
-                "params": params,
-            }))
-            .unwrap();
-
-            let response = server
-                .handle_message(Some(7), request)
-                .unwrap()
-                .expect("extranonce subscribe should be acknowledged");
-
-            assert_eq!(response.id, 42);
-            assert_eq!(response.result, serde_json::json!(true));
-            assert!(response.error.is_none());
-            assert_eq!(server.extranonce_subscriptions, HashSet::from([Some(7)]));
+            receive(&mut client, line).unwrap();
         }
+        assert_eq!(
+            client.events,
+            [
+                "submit \"4\" false",
+                "submit 4 true",
+                "authorize 3 true",
+                "extranonce_subscribe true",
+                "subscribe 4",
+                "configure false",
+                "unknown response 4",
+                "unknown response null",
+            ]
+        );
+        assert!(client.pending.is_empty());
     }
 
     #[test]
-    fn parsed_requests_use_the_same_dispatch_as_wire_messages() {
-        let prefix: Extranonce = vec![1, 2, 3, 4].try_into().unwrap();
-        let mut wire_server = TestServer::new(prefix.clone(), 4);
-        let mut typed_server = TestServer::new(prefix, 4);
-        for wire in [
-            r#"{"id":1,"method":"mining.configure","params":[[],{}]}"#,
-            r#"{"id":2,"method":"mining.subscribe","params":[]}"#,
-            r#"{"id":3,"method":"mining.authorize","params":["worker",""]}"#,
-            r#"{"id":4,"method":"mining.extranonce.subscribe","params":[]}"#,
-            r#"{"id":5,"method":"mining.submit","params":["worker","1","00000000","00000001","00000000"]}"#,
+    fn error_responses_complete_their_request() {
+        let mut client = TestClient::default();
+        client.send(Id::from(4u64), Method::Submit);
+        receive(
+            &mut client,
+            r#"{"id":4,"result":null,"error":[23,"Low difficulty share",null]}"#,
+        )
+        .unwrap();
+        assert_eq!(client.events, ["error mining.submit 23"]);
+        assert!(client.pending.is_empty());
+    }
+
+    #[test]
+    fn mismatched_results_are_errors() {
+        let mut client = TestClient::default();
+        client.send(Id::from(2u64), Method::Subscribe);
+        assert!(matches!(
+            receive(&mut client, r#"{"id":2,"result":true,"error":null}"#),
+            Err(Error::InvalidResult { id, method: Method::Subscribe, .. }) if id == Id::from(2u64)
+        ));
+        assert!(client.events.is_empty());
+    }
+
+    #[test]
+    fn notifications_are_routed() {
+        let mut client = TestClient::default();
+        for line in [
+            r#"{"id":null,"method":"mining.set_difficulty","params":[2]}"#,
+            r#"{"id":null,"method":"mining.set_extranonce","params":["08000002",4]}"#,
+            r#"{"id":null,"method":"mining.set_version_mask","params":["1fffe000"]}"#,
+            r#"{"id":null,"method":"mining.notify","params":["bf","000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f","01","02",[],"20000000","1705ae3a","647025b5",true]}"#,
+            r#"{"id":9,"method":"client.reconnect","params":[]}"#,
         ] {
-            let message: Message = serde_json::from_str(wire).unwrap();
-            let request = methods::Client2Server::try_from(message.clone()).unwrap();
-            let wire_response = wire_server.handle_message(Some(7), message).unwrap();
-            let typed_response = typed_server
-                .handle_parsed_request(Some(7), request)
-                .unwrap();
-            assert_eq!(
-                serde_json::to_value(wire_response).unwrap(),
-                serde_json::to_value(typed_response).unwrap()
-            );
-            assert_eq!(wire_server.authorized_users, typed_server.authorized_users);
-            assert_eq!(
-                wire_server.extranonce_subscriptions,
-                typed_server.extranonce_subscriptions
-            );
+            receive(&mut client, line).unwrap();
         }
+        assert_eq!(
+            client.events,
+            [
+                "difficulty 2",
+                "extranonce 4",
+                "mask 1fffe000",
+                "notify bf",
+                "unknown request \"client.reconnect\"",
+            ]
+        );
     }
 
     #[test]
-    fn invalid_submit_fields_return_code_20() {
-        let extranonce1 = Extranonce::try_from(hex_decode("08000002").unwrap()).unwrap();
-        let mut server = TestServer::new(extranonce1, 4);
-        server.authorized_users.insert("worker".to_string());
-        let request = client_to_server::Submit {
-            user_name: "worker".to_string(),
-            job_id: "job".to_string(),
-            extra_nonce2: vec![0; 3].try_into().unwrap(),
-            time: HexU32Be(0),
-            nonce: HexU32Be(0),
-            version_bits: None,
-            id: 42,
-        };
-
-        let response = server
-            .handle_message(None, request.into())
-            .unwrap()
-            .expect("mining.submit must receive a response");
-
-        assert_eq!(response.result, serde_json::Value::Null);
-        let error = response
-            .error
-            .expect("invalid submit must include an error");
-        assert_eq!(error.code, 20);
-    }
-
-    #[test]
-    fn unauthorized_submit_returns_code_24() {
-        let extranonce1 = Extranonce::try_from(hex_decode("08000002").unwrap()).unwrap();
-        let mut server = TestServer::new(extranonce1, 4);
-        let request = client_to_server::Submit {
-            user_name: "worker".to_string(),
-            job_id: "job".to_string(),
-            extra_nonce2: vec![0; 4].try_into().unwrap(),
-            time: HexU32Be(0),
-            nonce: HexU32Be(0),
-            version_bits: None,
-            id: 42,
-        };
-
-        let response = server
-            .handle_message(None, request.into())
-            .unwrap()
-            .expect("unauthorized mining.submit must receive a response");
-
-        assert_eq!(response.result, serde_json::Value::Null);
-        let error = response
-            .error
-            .expect("unauthorized mining.submit must include an error");
-        assert_eq!(error.code, 24);
-    }
-
-    #[test]
-    fn version_mask_invalid_len() {
-        let raw = serde_json::json!([
-            "mining.set_version_mask",
-            ["123456789"] // len > 8 bytes
-        ]);
-
-        let msg: Result<Message, _> = serde_json::from_value(raw);
-
-        if let Ok(msg) = msg {
-            let result = Method::try_from(msg);
-            assert!(result.is_err(), "Expected error for invalid hex length");
-
-            match result.unwrap_err() {
-                MethodError::ParsingMethodError((ParsingMethodError::InvalidHexLen(_), _)) => {}
-                other => panic!("Expected InvalidHexLen, got {:?}", other),
-            }
-        } else {
-            panic!("Message parsing failed unexpectedly");
-        }
-    }
-    #[test]
-    fn subscribe_extranonce1_too_long_must_not_panic() {
-        // Extranonce1 hex that decodes to 33 bytes, exceeding the B032
-        // 32-byte cap. Extranonce::try_from returns Error::BadBytesConvert,
-        // which From<Error> for ParsingMethodError (sv1/src/methods/mod.rs)
-        // must map to ParsingMethodError::BadBytesConvert instead of panicking.
-        let extranonce1 = "00".repeat(33);
-        let raw = serde_json::json!({
-            "id": 1,
-            "method": "mining.subscribe",
-            "params": ["agent", extranonce1],
-        });
-        let msg: Message = serde_json::from_value(raw).unwrap();
-        assert!(Method::try_from(msg).is_err());
+    fn client_requests_are_not_notifications() {
+        let mut client = TestClient::default();
+        assert!(matches!(
+            receive(
+                &mut client,
+                r#"{"id":1,"method":"mining.submit","params":[]}"#
+            ),
+            Err(Error::Decode(_))
+        ));
     }
 }
