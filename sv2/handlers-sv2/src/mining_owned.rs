@@ -1,5 +1,4 @@
 use crate::{error::HandlerErrorType, mining::SupportedChannelTypes};
-use binary_sv2::Str0255;
 use framing_sv2::header::Header;
 use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, Mining, MiningOwned, Tlv};
 
@@ -641,11 +640,6 @@ pub trait HandleMiningMessagesFromClientOwnedSync {
 
     fn get_channel_type_for_client(&self, client_id: Option<usize>) -> SupportedChannelTypes;
     fn is_work_selection_enabled_for_client(&self, client_id: Option<usize>) -> bool;
-    fn is_client_authorized(
-        &self,
-        client_id: Option<usize>,
-        user_identity: &Str0255,
-    ) -> Result<bool, Self::Error>;
 
     /// Returns the list of negotiated extension_types with a client.
     ///
@@ -823,6 +817,7 @@ pub trait HandleMiningMessagesFromClientOwnedSync {
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error>;
 
+    /// Authorizing `msg.user_identity` is up to the implementor.
     fn handle_open_standard_mining_channel(
         &mut self,
         client_id: Option<usize>,
@@ -830,6 +825,7 @@ pub trait HandleMiningMessagesFromClientOwnedSync {
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error>;
 
+    /// Authorizing `msg.user_identity` is up to the implementor.
     fn handle_open_extended_mining_channel(
         &mut self,
         client_id: Option<usize>,
@@ -882,11 +878,6 @@ pub trait HandleMiningMessagesFromClientOwnedAsync {
 
     fn get_channel_type_for_client(&self, client_id: Option<usize>) -> SupportedChannelTypes;
     fn is_work_selection_enabled_for_client(&self, client_id: Option<usize>) -> bool;
-    fn is_client_authorized(
-        &self,
-        client_id: Option<usize>,
-        user_identity: &Str0255,
-    ) -> Result<bool, Self::Error>;
 
     /// Returns the list of negotiated extension types for a client.
     ///
@@ -1078,6 +1069,7 @@ pub trait HandleMiningMessagesFromClientOwnedAsync {
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error>;
 
+    /// Authorizing `msg.user_identity` is up to the implementor.
     async fn handle_open_standard_mining_channel(
         &mut self,
         client_id: Option<usize>,
@@ -1085,6 +1077,7 @@ pub trait HandleMiningMessagesFromClientOwnedAsync {
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error>;
 
+    /// Authorizing `msg.user_identity` is up to the implementor.
     async fn handle_open_extended_mining_channel(
         &mut self,
         client_id: Option<usize>,

@@ -547,7 +547,6 @@ checksum = "1b43ede17f21864e81be2fa654110bf1e793774238d86ef8555c37e6519c0403"
 name = "handlers_sv2"
 version = "0.7.0"
 dependencies = [
- "binary_sv2",
  "common_messages_sv2",
  "extensions_sv2",
  "framing_sv2",
