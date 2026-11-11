@@ -50,7 +50,7 @@ pub use server::{
     SubmitError, SubmitOutcome, SubscribeResult, VersionRollingResult,
 };
 use std::convert::TryFrom;
-use utils::HexU32Be;
+use utils::{HexU32Be, VERSION_ROLLING_MASK};
 
 /// Routes requests from SV1 clients to one handler per method.
 ///
@@ -62,8 +62,10 @@ pub trait IsServer {
     ///
     /// A submit reaches [`Self::handle_submit`] only when its worker is authorized, its
     /// extranonce2 has the size returned by [`Self::extranonce2_size`], and its version bits
-    /// match the negotiated mask, including whether they must be present. Otherwise the reply
-    /// rejects it with [`SubmitError::UnauthorizedWorker`] (24) or [`SubmitError::Other`] (20).
+    /// match the negotiated mask, including whether they must be present. Bits outside
+    /// [`VERSION_ROLLING_MASK`] are rejected even if the negotiated mask allows them.
+    /// Otherwise the reply rejects it with [`SubmitError::UnauthorizedWorker`] (24) or
+    /// [`SubmitError::Other`] (20).
     ///
     /// The request is already decoded, so callers can check session ordering or queue it first.
     fn handle_request(
@@ -157,7 +159,7 @@ fn check_submit<S: IsServer + ?Sized>(
         &submit.version_bits,
         server.version_rolling_mask(client_id)?,
     ) {
-        (Some(bits), Some(mask)) => mask.check_mask(bits),
+        (Some(bits), Some(mask)) => HexU32Be(mask.0 & VERSION_ROLLING_MASK).check_mask(bits),
         (Some(_), None) => false,
         (None, mask) => mask.is_none(),
     };
@@ -352,7 +354,7 @@ pub trait IsClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::{Extranonce, VERSION_ROLLING_MASK};
+    use crate::utils::Extranonce;
     use serde_json::json;
     use std::collections::HashMap;
 
@@ -559,6 +561,17 @@ mod tests {
             rejected(23, "Low difficulty share")
         );
         assert_eq!(server.submits, 2);
+    }
+
+    #[test]
+    fn reserved_version_bits_are_rejected_whatever_the_mask() {
+        let mut server = TestServer {
+            workers: vec!["w".to_string()],
+            mask: Some(HexU32Be(0xffffffff)),
+            ..TestServer::default()
+        };
+        assert_eq!(submit(&mut server, r#","e0000000""#)["error"][0], json!(20));
+        assert_eq!(submit(&mut server, r#","00002000""#)["error"][0], json!(23));
     }
 
     #[test]

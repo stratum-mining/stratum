@@ -691,6 +691,13 @@ fn server_response_encoding() {
 }
 
 #[test]
+fn configure_result_mask_is_clamped() {
+    let line = r#"{"id":7,"result":{"version-rolling":true,"version-rolling.mask":"ffffffff"},"error":null}"#;
+    let result: ConfigureResult = server_response(line).result_as().unwrap();
+    assert_eq!(result.version_rolling.unwrap().mask, HexU32Be(0x1fffffe0));
+}
+
+#[test]
 fn raw_configure_hides_the_connection_url() {
     let line = r#"{"id":7,"method":"mining.configure","params":[["info"],{"info.connection-url":"stratum+tcp://user:secret@pool.example","info.hw-version":"S19"}]}"#;
     let message = decode(line);

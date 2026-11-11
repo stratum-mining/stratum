@@ -343,7 +343,8 @@ impl SubscribeResult {
 
 impl ConfigureResult {
     /// Version rolling needs both `version-rolling` and `version-rolling.mask`; a missing
-    /// `version-rolling.min-bit-count` reads as zero.
+    /// `version-rolling.min-bit-count` reads as zero. The mask is clamped to
+    /// [`VERSION_ROLLING_MASK`], so a client never rolls reserved bits.
     fn from_value(result: &Value) -> Result<Self, ParamError> {
         let values = result
             .as_object()
@@ -359,6 +360,7 @@ impl ConfigureResult {
                 mask: mask
                     .as_str()
                     .and_then(|mask| HexU32Be::try_from(mask).ok())
+                    .map(|mask| HexU32Be(mask.0 & VERSION_ROLLING_MASK))
                     .ok_or(ParamError::new(
                         "version-rolling.mask",
                         "not a 32-bit hex value",
