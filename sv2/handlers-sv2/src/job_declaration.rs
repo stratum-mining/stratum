@@ -1,10 +1,5 @@
 use framing_sv2::header::Header;
-use job_declaration_sv2::{
-    MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
-    MESSAGE_TYPE_DECLARE_MINING_JOB, MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
-    MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
-    MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PUSH_SOLUTION, *,
-};
+use job_declaration_sv2::*;
 use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, JobDeclaration, Tlv};
 
 use crate::error::HandlerErrorType;

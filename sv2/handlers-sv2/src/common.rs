@@ -1,6 +1,4 @@
-use common_messages_sv2::{
-    ChannelEndpointChanged, Reconnect, SetupConnectionError, SetupConnectionSuccess, *,
-};
+use common_messages_sv2::*;
 use framing_sv2::header::Header;
 use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, CommonMessages, Tlv};
 
