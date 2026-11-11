@@ -19,7 +19,7 @@ pub use common::{
 
 pub use mining::{
     HandleMiningMessagesFromClientAsync, HandleMiningMessagesFromClientSync,
-    HandleMiningMessagesFromServerAsync, HandleMiningMessagesFromServerSync, SupportedChannelTypes,
+    HandleMiningMessagesFromServerAsync, HandleMiningMessagesFromServerSync,
 };
 
 pub use template_distribution::{
