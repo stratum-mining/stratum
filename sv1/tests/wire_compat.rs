@@ -437,7 +437,10 @@ fn client_requests_encode_canonically() {
             json!({"id": 7, "method": "mining.configure", "params": [["version-rolling", "minimum-difficulty"], {"version-rolling.mask": "1fffe000", "version-rolling.min-bit-count": 2, "minimum-difficulty.value": 2048}]}),
         ),
     ] {
-        let encoded = to_json(client_request(line));
+        let request = client_request(line);
+        let method = request.method();
+        let encoded = to_json(request);
+        assert_eq!(encoded["method"], method.as_str(), "{line}");
         assert_eq!(encoded, canonical, "{line}");
         client_request(&encoded.to_string());
     }

@@ -88,6 +88,17 @@ pub struct SuggestDifficulty {
 }
 
 impl ClientRequest {
+    pub fn method(&self) -> Method {
+        match self {
+            ClientRequest::Configure(..) => Method::Configure,
+            ClientRequest::Subscribe(..) => Method::Subscribe,
+            ClientRequest::Authorize(..) => Method::Authorize,
+            ClientRequest::Submit(..) => Method::Submit,
+            ClientRequest::ExtranonceSubscribe(..) => Method::ExtranonceSubscribe,
+            ClientRequest::SuggestDifficulty(..) => Method::SuggestDifficulty,
+        }
+    }
+
     pub fn id(&self) -> &Id {
         match self {
             ClientRequest::Configure(id, _)

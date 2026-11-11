@@ -221,11 +221,9 @@ impl Client {
     fn send<P>(&mut self, request: fn(Id, P) -> ClientRequest, params: P) {
         let id = Id::from(self.next_id);
         self.next_id += 1;
-        let message = Message::from(request(id.clone(), params));
-        if let Message::Request(request) = &message {
-            self.pending.insert(id, request.method.clone());
-        }
-        let _ = self.outgoing.send(message);
+        let request = request(id.clone(), params);
+        self.pending.insert(id, request.method());
+        let _ = self.outgoing.send(request.into());
     }
 
     fn submit(&mut self) {
