@@ -15,9 +15,10 @@ use crate::error::HandlerErrorType;
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
-/// extension data appended. TLV fields are only passed if they match negotiated extensions
-/// returned by `get_negotiated_extensions_with_server()`.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
 pub trait HandleCommonMessagesFromServerOwnedSync {
     type Error: HandlerErrorType;
 
@@ -64,10 +65,9 @@ pub trait HandleCommonMessagesFromServerOwnedSync {
 
     /// Handles a parsed common message from a server.
     ///
-    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
-    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
-    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
-    /// `extension_type`, `field_type`, `length`, and `value`.
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     fn handle_common_message_from_server(
         &mut self,
         server_id: Option<usize>,
@@ -133,9 +133,10 @@ pub trait HandleCommonMessagesFromServerOwnedSync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
-/// extension data appended. TLV fields are only passed if they match negotiated extensions
-/// returned by `get_negotiated_extensions_with_server()`.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
 #[trait_variant::make(Send)]
 pub trait HandleCommonMessagesFromServerOwnedAsync {
     type Error: HandlerErrorType;
@@ -191,10 +192,9 @@ pub trait HandleCommonMessagesFromServerOwnedAsync {
 
     /// Handles a parsed common message from a server.
     ///
-    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
-    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
-    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
-    /// `extension_type`, `field_type`, `length`, and `value`.
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     async fn handle_common_message_from_server(
         &mut self,
         server_id: Option<usize>,
@@ -265,9 +265,10 @@ pub trait HandleCommonMessagesFromServerOwnedAsync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
-/// extension data appended. TLV fields are only passed if they match negotiated extensions
-/// returned by `get_negotiated_extensions_with_client()`.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
 pub trait HandleCommonMessagesFromClientOwnedSync {
     type Error: HandlerErrorType;
 
@@ -314,10 +315,9 @@ pub trait HandleCommonMessagesFromClientOwnedSync {
 
     /// Handles a parsed common message from a client.
     ///
-    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
-    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
-    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
-    /// `extension_type`, `field_type`, `length`, and `value`.
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     fn handle_common_message_from_client(
         &mut self,
         client_id: Option<usize>,
@@ -364,9 +364,10 @@ pub trait HandleCommonMessagesFromClientOwnedSync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
-/// extension data appended. TLV fields are only passed if they match negotiated extensions
-/// returned by `get_negotiated_extensions_with_client()`.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
 #[trait_variant::make(Send)]
 pub trait HandleCommonMessagesFromClientOwnedAsync {
     type Error: HandlerErrorType;
@@ -421,10 +422,9 @@ pub trait HandleCommonMessagesFromClientOwnedAsync {
 
     /// Handles a parsed common message from a client.
     ///
-    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
-    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
-    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
-    /// `extension_type`, `field_type`, `length`, and `value`.
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     async fn handle_common_message_from_client(
         &mut self,
         client_id: Option<usize>,

@@ -11,9 +11,10 @@ use mining_sv2::*;
 /// this contextual information is readily available or not. In cases where `server_id` is either
 /// irrelevant or can be inferred without the context, this should always be `None`.
 ///
-/// Handler methods receive an optional `tlv_data` parameter containing validated TLV fields
-/// when extension data is appended to messages. It will be `Some` only if validation succeeds
-/// against negotiated extensions.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
 pub trait HandleMiningMessagesFromServerOwnedSync {
     type Error: HandlerErrorType;
 
@@ -63,10 +64,9 @@ pub trait HandleMiningMessagesFromServerOwnedSync {
 
     /// Handles a parsed mining message from a server.
     ///
-    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
-    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
-    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
-    /// `extension_type`, `field_type`, `length`, and `value`.
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     fn handle_mining_message_from_server(
         &mut self,
         server_id: Option<usize>,
@@ -306,9 +306,10 @@ pub trait HandleMiningMessagesFromServerOwnedSync {
 /// this contextual information is readily available or not. In cases where `server_id` is either
 /// irrelevant or can be inferred without the context, this should always be `None`.
 ///
-/// Handler methods receive an optional `tlv_data` parameter containing validated TLV fields
-/// when extension data is appended to messages. It will be `Some` only if validation succeeds
-/// against negotiated extensions.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
 #[trait_variant::make(Send)]
 pub trait HandleMiningMessagesFromServerOwnedAsync {
     type Error: HandlerErrorType;
@@ -366,10 +367,9 @@ pub trait HandleMiningMessagesFromServerOwnedAsync {
 
     /// Handles a parsed Mining protocol message from a server.
     ///
-    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
-    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
-    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
-    /// `extension_type`, `field_type`, `length`, and `value`.
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     async fn handle_mining_message_from_server(
         &mut self,
         server_id: Option<usize>,
@@ -632,9 +632,10 @@ pub trait HandleMiningMessagesFromServerOwnedAsync {
 /// this contextual information is readily available or not. In cases where `client_id` is either
 /// irrelevant or can be inferred without the context, this should always be `None`.
 ///
-/// Handler methods receive an optional `tlv_data` parameter containing validated TLV fields
-/// when extension data is appended to messages. It will be `Some` only if validation succeeds
-/// against negotiated extensions.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
 pub trait HandleMiningMessagesFromClientOwnedSync {
     type Error: HandlerErrorType;
 
@@ -684,10 +685,9 @@ pub trait HandleMiningMessagesFromClientOwnedSync {
 
     /// Handles a parsed mining message from a client.
     ///
-    /// The `tlv_data` parameter contains validated TLV fields if the message has extension
-    /// data appended. It will be `Some` only if TLV validation succeeds against negotiated
-    /// extensions, otherwise `None`. Use `extensions_sv2` helper functions to extract
-    /// specific extension data (e.g., `extract_worker_identity_from_submit_shares`).
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     fn handle_mining_message_from_client(
         &mut self,
         client_id: Option<usize>,
@@ -869,9 +869,10 @@ pub trait HandleMiningMessagesFromClientOwnedSync {
 /// this contextual information is readily available or not. In cases where `client_id` is either
 /// irrelevant or can be inferred without the context, this should always be `None`.
 ///
-/// Handler methods receive an optional `tlv_data` parameter containing validated TLV fields
-/// when extension data is appended to messages. It will be `Some` only if validation succeeds
-/// against negotiated extensions.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
 #[trait_variant::make(Send)]
 pub trait HandleMiningMessagesFromClientOwnedAsync {
     type Error: HandlerErrorType;
@@ -929,10 +930,9 @@ pub trait HandleMiningMessagesFromClientOwnedAsync {
 
     /// Handles a parsed Mining protocol message from a client.
     ///
-    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
-    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
-    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
-    /// `extension_type`, `field_type`, `length`, and `value`.
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     async fn handle_mining_message_from_client(
         &mut self,
         client_id: Option<usize>,
