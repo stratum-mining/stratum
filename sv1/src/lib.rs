@@ -45,6 +45,8 @@ pub use client::{
 };
 use error::Error;
 pub use json_rpc::{Id, Message, Method, Response, RpcError};
+use serde::de::DeserializeOwned;
+use serde_json::Value;
 pub use server::{
     ConfigureResult, Notify, ServerNotification, SetDifficulty, SetExtranonce, SetVersionMask,
     SubmitError, SubmitOutcome, SubscribeResult, VersionRollingResult,
@@ -172,6 +174,20 @@ fn check_submit<S: IsServer + ?Sized>(
     Ok(None)
 }
 
+/// Decodes the result of the outstanding `method` request with this ID, keeping both on failure
+/// so the caller can complete the request.
+fn decode_result<T: DeserializeOwned>(
+    id: &Id,
+    method: &Method,
+    result: &Value,
+) -> Result<T, Error> {
+    T::deserialize(result).map_err(|error| Error::InvalidResult {
+        id: id.clone(),
+        method: method.clone(),
+        error,
+    })
+}
+
 /// Routes messages from an SV1 server to one handler per notification and result.
 ///
 /// A response does not name the method it answers, so the router asks
@@ -181,8 +197,9 @@ pub trait IsClient {
 
     /// Calls the handler for `message`.
     ///
-    /// A malformed notification, or a result that does not match its request's method, is
-    /// returned as an error and no handler runs.
+    /// A malformed notification is returned as an error and no handler runs. A result that does
+    /// not match its request's method returns [`Error::InvalidResult`], which carries the ID and
+    /// method so the caller can complete the request.
     fn handle_message(
         &mut self,
         server_id: Option<usize>,
@@ -224,35 +241,33 @@ pub trait IsClient {
                 ) {
                     return self.handle_unknown_response(server_id, response);
                 }
-                if let Err(error) = &response.result {
-                    return self.handle_error_response(server_id, &id, method, error.clone());
-                }
-                match method {
-                    Method::Configure => self.handle_configure_result(
-                        server_id,
-                        &id,
-                        response.result_as().map_err(Error::from)?,
-                    ),
-                    Method::Subscribe => self.handle_subscribe_result(
-                        server_id,
-                        &id,
-                        response.result_as().map_err(Error::from)?,
-                    ),
-                    Method::Authorize => self.handle_authorize_result(
-                        server_id,
-                        &id,
-                        response.result_as().map_err(Error::from)?,
-                    ),
-                    Method::Submit => self.handle_submit_result(
-                        server_id,
-                        &id,
-                        response.result_as().map_err(Error::from)?,
-                    ),
-                    _ => self.handle_extranonce_subscribe_result(
-                        server_id,
-                        &id,
-                        response.result_as().map_err(Error::from)?,
-                    ),
+                let result = match &response.result {
+                    Ok(result) => result,
+                    Err(error) => {
+                        return self.handle_error_response(server_id, &id, method, error.clone())
+                    }
+                };
+                match &method {
+                    Method::Configure => {
+                        let result = decode_result(&id, &method, result)?;
+                        self.handle_configure_result(server_id, &id, result)
+                    }
+                    Method::Subscribe => {
+                        let result = decode_result(&id, &method, result)?;
+                        self.handle_subscribe_result(server_id, &id, result)
+                    }
+                    Method::Authorize => {
+                        let authorized = decode_result(&id, &method, result)?;
+                        self.handle_authorize_result(server_id, &id, authorized)
+                    }
+                    Method::Submit => {
+                        let accepted = decode_result(&id, &method, result)?;
+                        self.handle_submit_result(server_id, &id, accepted)
+                    }
+                    _ => {
+                        let acknowledged = decode_result(&id, &method, result)?;
+                        self.handle_extranonce_subscribe_result(server_id, &id, acknowledged)
+                    }
                 }
             }
         }
@@ -781,7 +796,7 @@ mod tests {
         client.send(Id::from(2u64), Method::Subscribe);
         assert!(matches!(
             receive(&mut client, r#"{"id":2,"result":true,"error":null}"#),
-            Err(Error::Response(_))
+            Err(Error::InvalidResult { id, method: Method::Subscribe, .. }) if id == Id::from(2u64)
         ));
         assert!(client.events.is_empty());
     }

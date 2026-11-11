@@ -9,7 +9,13 @@ pub enum Error {
     /// A hex string has an invalid length, in characters.
     InvalidHexLen(usize),
     Decode(DecodeError),
-    Response(ResponseError),
+    /// The result of the outstanding `method` request with this ID does not have that method's
+    /// result type.
+    InvalidResult {
+        id: crate::json_rpc::Id,
+        method: crate::json_rpc::Method,
+        error: serde_json::Error,
+    },
 }
 
 impl std::fmt::Display for Error {
@@ -22,7 +28,9 @@ impl std::fmt::Display for Error {
             Error::HexError(ref e) => write!(f, "Bad hex encode/decode: `{e}`"),
             Error::InvalidHexLen(len) => write!(f, "Hex string has an invalid length of {len}"),
             Error::Decode(e) => e.fmt(f),
-            Error::Response(e) => e.fmt(f),
+            Error::InvalidResult { id, method, error } => {
+                write!(f, "malformed result for {method} request {id}: {error}")
+            }
         }
     }
 }
@@ -44,12 +52,6 @@ impl From<binary_sv2::Error> for Error {
 impl From<DecodeError> for Error {
     fn from(e: DecodeError) -> Self {
         Error::Decode(e)
-    }
-}
-
-impl From<ResponseError> for Error {
-    fn from(e: ResponseError) -> Self {
-        Error::Response(e)
     }
 }
 
