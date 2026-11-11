@@ -1,197 +1,73 @@
+//! An SV1 server and client talking over a local TCP connection for 30 seconds.
+//!
+//! The server sends a job every 5 seconds. The client configures version rolling, subscribes and
+//! authorizes, then submits a share for the latest job every 2 seconds. It exits with an error
+//! if no share was accepted.
+
 use std::{
-    convert::{TryFrom, TryInto},
+    collections::HashMap,
+    convert::TryFrom,
     io::{BufRead, BufReader, Write},
-    net::{SocketAddr, TcpListener, TcpStream},
+    net::{TcpListener, TcpStream},
     process::exit,
-    sync::{mpsc, Arc, Mutex},
+    sync::mpsc::{self, RecvTimeoutError},
     thread,
-    time::{Duration, SystemTime},
+    time::{Duration, Instant},
 };
-
-const ADDR: &str = "127.0.0.1:0";
-const TEST_DURATION: i32 = 30;
-
-type Receiver<T> = mpsc::Receiver<T>;
-type Sender<T> = mpsc::Sender<T>;
 
 use sv1_api::{
-    client_to_server,
     error::Error,
-    json_rpc, server_to_client,
-    utils::{Extranonce, HexU32Be, MerkleNode, PrevHash},
-    ClientStatus, IsClient, IsServer, Message,
+    json_rpc,
+    utils::{Extranonce, HexBytes, HexU32Be, MerkleNode, PrevHash, VERSION_ROLLING_MASK},
+    Authorize, ClientRequest, Configure, ConfigureResult, Id, IsClient, IsServer, Message, Method,
+    Notify, Response, RpcError, SetDifficulty, SetExtranonce, SetVersionMask, Submit,
+    SubmitOutcome, Subscribe, SubscribeResult, SuggestDifficulty, VersionRollingResult,
 };
 
-fn new_extranonce() -> Extranonce {
-    extranonce_from_hex("08000002")
-}
+const RUN_FOR: Duration = Duration::from_secs(30);
+const JOB_INTERVAL: Duration = Duration::from_secs(5);
+const SUBMIT_INTERVAL: Duration = Duration::from_secs(2);
+const EXTRANONCE2_SIZE: usize = 4;
+const WORKER: &str = "user";
 
-fn extranonce_from_hex(hex: &str) -> Extranonce {
-    let data = utils::decode_hex(hex).unwrap();
-    Extranonce::try_from(data).expect("Failed to convert hex to U256")
-}
-
-fn merklenode_from_hex(hex: &str) -> MerkleNode {
-    let data = utils::decode_hex(hex).unwrap();
-    let len = data.len();
-    if hex.len() >= 64 {
-        // panic if hex is larger than 32 bytes
-        MerkleNode::try_from(hex).expect("Failed to convert hex to U256")
-    } else {
-        // prepend hex with zeros so that it is 32 bytes
-        let mut new_vec = vec![0_u8; 32 - len];
-        new_vec.extend(data.iter());
-        MerkleNode::try_from(utils::encode_hex(&new_vec).as_str())
-            .expect("Failed to convert hex to U256")
-    }
-}
-
-fn prevhash_from_hex(hex: &str) -> PrevHash {
-    let data = utils::decode_hex(hex).unwrap();
-    let len = data.len();
-    if hex.len() >= 64 {
-        // panic if hex is larger than 32 bytes
-        PrevHash::try_from(hex).expect("Failed to convert hex to U256")
-    } else {
-        // prepend hex with zeros so that it is 32 bytes
-        let mut new_vec = vec![0_u8; 32 - len];
-        new_vec.extend(data.iter());
-        PrevHash::try_from(utils::encode_hex(&new_vec).as_str())
-            .expect("Failed to convert hex to U256")
-    }
-}
-
-fn new_extranonce2_size() -> usize {
-    4
-}
-
-fn new_version_rolling_mask() -> HexU32Be {
-    HexU32Be(0xffffffff)
-}
-fn new_version_rolling_min() -> HexU32Be {
-    HexU32Be(0x00000000)
-}
-
-struct Server {
-    authorized_names: Vec<String>,
-    extranonce1: Extranonce,
-    extranonce2_size: usize,
-    version_rolling_mask: Option<HexU32Be>,
-    version_rolling_min_bit: Option<HexU32Be>,
-    receiver_incoming: Receiver<String>,
-    sender_outgoing: Sender<String>,
-}
-
-fn server_pool_listen(listener: TcpListener) {
-    loop {
-        match listener.accept() {
-            Ok((stream, addr)) => {
-                println!("SERVER - Accepting from: {addr}");
-                let server = Server::new(stream);
-                let _ = Arc::new(Mutex::new(server));
+/// Decodes newline-delimited messages from `stream` into a channel, and writes the messages sent
+/// on the returned sender.
+fn connect(stream: TcpStream) -> (mpsc::Receiver<Message>, mpsc::Sender<Message>) {
+    let (incoming_tx, incoming) = mpsc::channel();
+    let reader = BufReader::new(stream.try_clone().expect("failed to clone the stream"));
+    thread::spawn(move || {
+        for line in reader.lines().map_while(Result::ok) {
+            match Message::decode(&line) {
+                Ok(message) => {
+                    if incoming_tx.send(message).is_err() {
+                        break;
+                    }
+                }
+                Err(e) => eprintln!("dropping line: {e}"),
             }
-            Err(e) => {
-                eprintln!("SERVER - Accept error: {e}");
+        }
+    });
+
+    let (outgoing, outgoing_rx) = mpsc::channel::<Message>();
+    let mut writer = stream;
+    thread::spawn(move || {
+        for message in outgoing_rx {
+            let line = format!(
+                "{}\n",
+                serde_json::to_string(&message).expect("serializable")
+            );
+            if writer.write_all(line.as_bytes()).is_err() {
                 break;
             }
         }
-    }
+    });
+    (incoming, outgoing)
 }
 
-impl Server {
-    pub fn new(stream: TcpStream) -> Arc<Mutex<Server>> {
-        let (sender_incoming, receiver_incoming) = mpsc::channel::<String>();
-        let (sender_outgoing, receiver_outgoing) = mpsc::channel::<String>();
-
-        let reader_stream = stream.try_clone().expect("Failed to clone stream (read)");
-        let mut writer_stream = stream;
-
-        // read thread
-        thread::spawn(move || {
-            let reader = BufReader::new(reader_stream);
-            for line in reader.lines().map_while(Result::ok) {
-                if sender_incoming.send(line).is_err() {
-                    break;
-                }
-            }
-        });
-
-        thread::spawn(move || {
-            for msg in receiver_outgoing {
-                let _ = writer_stream.write_all(msg.as_bytes());
-            }
-        });
-
-        let server = Server {
-            authorized_names: vec![],
-            extranonce1: extranonce_from_hex("00000000"),
-            extranonce2_size: 2,
-            version_rolling_mask: None,
-            version_rolling_min_bit: None,
-            receiver_incoming,
-            sender_outgoing,
-        };
-
-        let server_arc = Arc::new(Mutex::new(server));
-
-        {
-            let cloned = Arc::clone(&server_arc);
-            thread::spawn(move || loop {
-                if let Ok(mut self_) = cloned.try_lock() {
-                    if let Ok(line) = self_.receiver_incoming.try_recv() {
-                        println!("SERVER - message: {line}");
-                        let message: Result<json_rpc::Message, _> = serde_json::from_str(&line);
-                        if let Ok(message) = message {
-                            if let Ok(Some(resp)) = self_.handle_message(message) {
-                                Self::send_message(
-                                    &self_.sender_outgoing,
-                                    json_rpc::Message::OkResponse(resp),
-                                );
-                            }
-                        }
-                    }
-                }
-                thread::sleep(Duration::from_millis(100));
-            });
-        }
-
-        {
-            let cloned = Arc::clone(&server_arc);
-            thread::spawn(move || {
-                let mut run_time = TEST_DURATION;
-                loop {
-                    let notify_time = 5;
-                    if let Ok(mut self_) = cloned.try_lock() {
-                        let sender = self_.sender_outgoing.clone();
-                        if let Ok(notify_msg) = self_.notify(None) {
-                            Server::send_message(&sender, notify_msg);
-                        }
-                    }
-                    thread::sleep(Duration::from_secs(notify_time));
-                    run_time -= notify_time as i32;
-
-                    if run_time <= 0 {
-                        println!("Test Success - ran for {TEST_DURATION} seconds");
-                        exit(0)
-                    }
-                }
-            });
-        }
-
-        server_arc
-    }
-
-    fn handle_message(
-        &mut self,
-        _message: json_rpc::Message,
-    ) -> Result<Option<json_rpc::Response>, Error> {
-        Ok(None)
-    }
-
-    fn send_message(sender_outgoing: &Sender<String>, msg: json_rpc::Message) {
-        let msg = format!("{}\n", serde_json::to_string(&msg).unwrap());
-        let _ = sender_outgoing.send(msg);
-    }
+#[derive(Default)]
+struct Server {
+    workers: Vec<String>,
+    mask: Option<HexU32Be>,
 }
 
 impl IsServer for Server {
@@ -200,279 +76,192 @@ impl IsServer for Server {
     fn handle_configure(
         &mut self,
         _client_id: Option<usize>,
-        _request: &client_to_server::Configure,
-    ) -> Result<(Option<server_to_client::VersionRollingParams>, Option<bool>), Error> {
-        self.version_rolling_mask
-            .get_or_insert_with(new_version_rolling_mask);
-        self.version_rolling_min_bit
-            .get_or_insert_with(new_version_rolling_min);
-
-        let mask = self.version_rolling_mask.as_ref().unwrap().clone();
-        let min_bit = self.version_rolling_min_bit.as_ref().unwrap().clone();
-
-        Ok((
-            Some(server_to_client::VersionRollingParams::new(mask, min_bit)),
-            Some(false),
-        ))
+        request: &Configure,
+    ) -> Result<ConfigureResult, Error> {
+        self.mask = request
+            .version_rolling_mask()
+            .map(|mask| HexU32Be(mask.0 & VERSION_ROLLING_MASK));
+        let min_bit_count = request.version_rolling_min_bit_count().unwrap_or(0);
+        Ok(ConfigureResult {
+            version_rolling: self
+                .mask
+                .clone()
+                .map(|mask| VersionRollingResult::new(mask, min_bit_count)),
+            minimum_difficulty: None,
+        })
     }
 
     fn handle_subscribe(
-        &self,
+        &mut self,
         _client_id: Option<usize>,
-        _request: &client_to_server::Subscribe,
-    ) -> Result<Vec<(String, String)>, Error> {
-        Ok(vec![])
+        _request: &Subscribe,
+    ) -> Result<SubscribeResult, Error> {
+        Ok(SubscribeResult {
+            subscriptions: vec![("mining.notify".to_string(), "1".to_string())],
+            extranonce1: Extranonce::try_from(vec![8, 0, 0, 2]).expect("4 bytes"),
+            extranonce2_size: EXTRANONCE2_SIZE,
+        })
     }
 
     fn handle_authorize(
-        &self,
+        &mut self,
         _client_id: Option<usize>,
-        _request: &client_to_server::Authorize,
+        request: &Authorize,
     ) -> Result<bool, Error> {
+        self.workers.push(request.worker_name.clone());
         Ok(true)
     }
 
     fn handle_submit(
-        &self,
+        &mut self,
         _client_id: Option<usize>,
-        _request: &client_to_server::Submit,
-    ) -> Result<client_to_server::SubmitOutcome, Error> {
-        Ok(client_to_server::SubmitOutcome::Accepted)
+        _request: &Submit,
+    ) -> Result<SubmitOutcome, Error> {
+        Ok(SubmitOutcome::Accepted)
     }
 
-    /// Indicates to the server that the client supports the mining.set_extranonce method.
     fn handle_extranonce_subscribe(&mut self, _client_id: Option<usize>) -> Result<(), Error> {
         Ok(())
     }
 
-    fn is_authorized(&self, _client_id: Option<usize>, _name: &str) -> Result<bool, Error> {
-        Ok(true)
-    }
-
-    fn authorize(&mut self, _client_id: Option<usize>, name: &str) -> Result<(), Error> {
-        self.authorized_names.push(name.to_string());
+    fn handle_suggest_difficulty(
+        &mut self,
+        _client_id: Option<usize>,
+        _request: &SuggestDifficulty,
+    ) -> Result<(), Error> {
         Ok(())
     }
 
-    /// Set extranonce1 to extranonce1 if provided. If not create a new one and set it.
-    fn set_extranonce1(
-        &mut self,
-        _client_id: Option<usize>,
-        extranonce1: Option<Extranonce>,
-    ) -> Result<Extranonce, Error> {
-        self.extranonce1 = extranonce1.unwrap_or_else(new_extranonce);
-        Ok(self.extranonce1.clone())
-    }
-
-    fn extranonce1(&self, _client_id: Option<usize>) -> Result<Extranonce, Error> {
-        Ok(self.extranonce1.clone())
-    }
-
-    /// Set extranonce2_size to extranonce2_size if provided. If not create a new one and set it.
-    fn set_extranonce2_size(
-        &mut self,
-        _client_id: Option<usize>,
-        extra_nonce2_size: Option<usize>,
-    ) -> Result<usize, Error> {
-        self.extranonce2_size = extra_nonce2_size.unwrap_or_else(new_extranonce2_size);
-        Ok(self.extranonce2_size)
+    fn is_authorized(&self, _client_id: Option<usize>, name: &str) -> Result<bool, Error> {
+        Ok(self.workers.iter().any(|worker| worker == name))
     }
 
     fn extranonce2_size(&self, _client_id: Option<usize>) -> Result<usize, Error> {
-        Ok(self.extranonce2_size)
+        Ok(EXTRANONCE2_SIZE)
     }
 
     fn version_rolling_mask(&self, _client_id: Option<usize>) -> Result<Option<HexU32Be>, Error> {
-        Ok(self.version_rolling_mask.clone())
+        Ok(self.mask.clone())
     }
+}
 
-    fn set_version_rolling_mask(
-        &mut self,
-        _client_id: Option<usize>,
-        mask: Option<HexU32Be>,
-    ) -> Result<(), Error> {
-        self.version_rolling_mask = mask;
-        Ok(())
+fn job(id: u32) -> Notify {
+    Notify {
+        job_id: id.to_string(),
+        prev_hash: PrevHash::try_from("00".repeat(32).as_str()).expect("32 bytes"),
+        coinbase1: HexBytes::from(vec![1, 0, 0, 0]),
+        coinbase2: HexBytes::from(vec![0xff; 4]),
+        merkle_branch: vec![MerkleNode::try_from(vec![0; 32]).expect("32 bytes")],
+        version: HexU32Be(0x2000_0000),
+        nbits: HexU32Be(0x1705_ae3a),
+        ntime: HexU32Be(0x6470_25b5),
+        clean_jobs: true,
     }
+}
 
-    fn set_version_rolling_min_bit(
-        &mut self,
-        _client_id: Option<usize>,
-        mask: Option<HexU32Be>,
-    ) -> Result<(), Error> {
-        self.version_rolling_min_bit = mask;
-        Ok(())
-    }
-
-    fn notify(&mut self, _client_id: Option<usize>) -> Result<json_rpc::Message, Error> {
-        let hex = "ffff";
-        Ok(server_to_client::Notify {
-            job_id: "ciao".to_string(),
-            prev_hash: prevhash_from_hex(hex),
-            coin_base1: hex.try_into()?,
-            coin_base2: hex.try_into()?,
-            merkle_branch: vec![merklenode_from_hex(hex)],
-            version: HexU32Be(5667),
-            bits: HexU32Be(5678),
-            time: HexU32Be(5609),
-            clean_jobs: true,
+fn serve(stream: TcpStream) {
+    let (incoming, outgoing) = connect(stream);
+    let jobs = outgoing.clone();
+    thread::spawn(move || {
+        let _ = jobs.send(SetDifficulty { difficulty: 1.0 }.into());
+        for id in 0.. {
+            if jobs.send(job(id).into()).is_err() {
+                break;
+            }
+            thread::sleep(JOB_INTERVAL);
         }
-        .into())
+    });
+
+    let mut server = Server::default();
+    for message in incoming {
+        println!("SERVER <- {message}");
+        let Message::Request(request) = message else {
+            continue;
+        };
+        match ClientRequest::try_from(request) {
+            Ok(request) => {
+                let response = server
+                    .handle_request(Some(0), request)
+                    .expect("this server's handlers never fail");
+                if let Some(response) = response {
+                    let _ = outgoing.send(Message::Response(response));
+                }
+            }
+            Err(e) => eprintln!("SERVER - {e}"),
+        }
     }
 }
 
 struct Client {
-    client_id: u32,
-    extranonce1: Extranonce,
-    extranonce2_size: usize,
-    version_rolling_mask: Option<HexU32Be>,
-    version_rolling_min_bit: Option<HexU32Be>,
-    status: ClientStatus,
-    last_notify: Option<server_to_client::Notify>,
-    sented_authorize_request: Vec<(u64, String)>, // (id, user_name)
-    authorized: Vec<String>,
-    receiver_incoming: Receiver<String>,
-    sender_outgoing: Sender<String>,
+    outgoing: mpsc::Sender<Message>,
+    next_id: u64,
+    pending: HashMap<Id, Method>,
+    extranonce2_size: Option<usize>,
+    mask: Option<HexU32Be>,
+    authorized: bool,
+    job_id: Option<String>,
+    accepted: usize,
 }
 
 impl Client {
-    pub fn new(client_id: u32, socket: SocketAddr) -> Arc<Mutex<Client>> {
-        loop {
-            thread::sleep(Duration::from_secs(1));
-            match TcpStream::connect(socket) {
-                Ok(st) => {
-                    println!("CLIENT - connected to server at {socket}");
-                    let (sender_incoming, receiver_incoming) = mpsc::channel::<String>();
-                    let (sender_outgoing, receiver_outgoing) = mpsc::channel::<String>();
-
-                    let reader_stream = st.try_clone().unwrap();
-                    let mut writer_stream = st;
-
-                    thread::spawn(move || {
-                        let reader = BufReader::new(reader_stream);
-                        for line in reader.lines().map_while(Result::ok) {
-                            if sender_incoming.send(line).is_err() {
-                                break;
-                            }
-                        }
-                    });
-
-                    thread::spawn(move || {
-                        for msg in receiver_outgoing {
-                            let _ = writer_stream.write_all(msg.as_bytes());
-                        }
-                    });
-
-                    let client = Client {
-                        client_id,
-                        extranonce1: extranonce_from_hex("00000000"),
-                        extranonce2_size: 2,
-                        version_rolling_mask: None,
-                        version_rolling_min_bit: None,
-                        status: ClientStatus::Init,
-                        last_notify: None,
-                        sented_authorize_request: vec![],
-                        authorized: vec![],
-                        receiver_incoming,
-                        sender_outgoing,
-                    };
-
-                    let arc_client = Arc::new(Mutex::new(client));
-
-                    {
-                        let cloned = Arc::clone(&arc_client);
-                        thread::spawn(move || loop {
-                            if let Ok(mut this) = cloned.try_lock() {
-                                if let Ok(line) = this.receiver_incoming.try_recv() {
-                                    println!("CLIENT {} - message: {}", this.client_id, line);
-                                    if let Ok(msg) =
-                                        serde_json::from_str::<json_rpc::Message>(&line)
-                                    {
-                                        this.handle_message(None, msg).ok();
-                                    }
-                                }
-                            }
-                            thread::sleep(Duration::from_millis(100));
-                        });
-                    }
-
-                    return arc_client;
-                }
-                Err(_) => {
-                    println!("Server not ready... retry");
-                    continue;
-                }
-            }
+    fn new(outgoing: mpsc::Sender<Message>) -> Self {
+        Client {
+            outgoing,
+            next_id: 1,
+            pending: HashMap::new(),
+            extranonce2_size: None,
+            mask: None,
+            authorized: false,
+            job_id: None,
+            accepted: 0,
         }
     }
 
-    fn send_message(sender_outgoing: &Sender<String>, msg: json_rpc::Message) {
-        let s = format!("{}\n", serde_json::to_string(&msg).unwrap());
-        let _ = sender_outgoing.send(s);
+    /// Records the request's method so its response can be routed, then sends it.
+    fn send<P>(&mut self, request: fn(Id, P) -> ClientRequest, params: P) {
+        let id = Id::from(self.next_id);
+        self.next_id += 1;
+        let message = Message::from(request(id.clone(), params));
+        if let Message::Request(request) = &message {
+            self.pending.insert(id, request.method.clone());
+        }
+        let _ = self.outgoing.send(message);
     }
 
-    pub fn send_subscribe(&mut self) {
-        while let Ok(ClientStatus::Init) = self.status(None) {
-            thread::sleep(Duration::from_millis(100));
-        }
-        let id = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        if let Ok(subscribe) = self.subscribe(None, id, None) {
-            Self::send_message(&self.sender_outgoing, subscribe);
-        }
-    }
-
-    pub fn send_authorize(&mut self) {
-        let id = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        if let Ok(authorize) = self.authorize(None, id, "user".to_string(), "user".to_string()) {
-            Self::send_message(&self.sender_outgoing, authorize);
-        }
-    }
-
-    pub fn send_submit(&mut self) {
-        let id = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        let extranonce2 = extranonce_from_hex("00");
-        let nonce = 78;
-        let version_bits = None;
-        if let Ok(submit) = self.submit(
-            None,
-            id,
-            "user".to_string(),
-            extranonce2,
-            nonce,
-            nonce,
-            version_bits,
-        ) {
-            Self::send_message(&self.sender_outgoing, submit);
-        }
-    }
-
-    pub fn send_configure(&mut self) {
-        let id = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        if let Ok(configure) = self.configure(None, id) {
-            Self::send_message(&self.sender_outgoing, configure);
-        }
+    fn submit(&mut self) {
+        let (Some(size), Some(job_id), true) =
+            (self.extranonce2_size, self.job_id.clone(), self.authorized)
+        else {
+            return;
+        };
+        let submit = Submit {
+            worker_name: WORKER.to_string(),
+            job_id,
+            extranonce2: Extranonce::try_from(vec![0; size]).expect("at most 32 bytes"),
+            ntime: HexU32Be(0x6470_25b5),
+            nonce: HexU32Be(78),
+            version_bits: self.mask.clone().map(|mask| HexU32Be(0x2000 & mask.0)),
+        };
+        self.send(ClientRequest::Submit, submit);
     }
 }
 
 impl IsClient for Client {
     type Error = Error;
 
+    fn request_method(&self, _server_id: Option<usize>, id: &Id) -> Result<Option<Method>, Error> {
+        Ok(self.pending.get(id).cloned())
+    }
+
+    fn handle_notify(&mut self, _server_id: Option<usize>, notify: Notify) -> Result<(), Error> {
+        self.job_id = Some(notify.job_id);
+        Ok(())
+    }
+
     fn handle_set_difficulty(
         &mut self,
         _server_id: Option<usize>,
-        _conf: &mut server_to_client::SetDifficulty,
+        _set: SetDifficulty,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -480,263 +269,172 @@ impl IsClient for Client {
     fn handle_set_extranonce(
         &mut self,
         _server_id: Option<usize>,
-        _conf: &mut server_to_client::SetExtranonce,
+        set: SetExtranonce,
     ) -> Result<(), Error> {
+        self.extranonce2_size = Some(set.extranonce2_size);
         Ok(())
     }
 
     fn handle_set_version_mask(
         &mut self,
         _server_id: Option<usize>,
-        _conf: &mut server_to_client::SetVersionMask,
+        set: SetVersionMask,
     ) -> Result<(), Error> {
+        self.mask = Some(set.mask);
         Ok(())
     }
 
-    fn handle_notify(
+    fn handle_configure_result(
         &mut self,
         _server_id: Option<usize>,
-        notify: server_to_client::Notify,
+        id: &Id,
+        result: ConfigureResult,
     ) -> Result<(), Error> {
-        self.last_notify = Some(notify);
+        self.pending.remove(id);
+        self.mask = result
+            .version_rolling
+            .filter(|version_rolling| version_rolling.enabled)
+            .map(|version_rolling| version_rolling.mask);
         Ok(())
     }
 
-    fn handle_configure(
+    fn handle_subscribe_result(
         &mut self,
         _server_id: Option<usize>,
-        _conf: &mut server_to_client::Configure,
+        id: &Id,
+        result: SubscribeResult,
     ) -> Result<(), Error> {
+        self.pending.remove(id);
+        self.extranonce2_size = Some(result.extranonce2_size);
         Ok(())
     }
 
-    fn handle_subscribe(
+    fn handle_authorize_result(
         &mut self,
         _server_id: Option<usize>,
-        _subscribe: &server_to_client::Subscribe,
+        id: &Id,
+        authorized: bool,
     ) -> Result<(), Error> {
+        self.pending.remove(id);
+        self.authorized = authorized;
         Ok(())
     }
 
-    fn set_extranonce1(
+    fn handle_submit_result(
         &mut self,
         _server_id: Option<usize>,
-        extranonce1: Extranonce,
+        id: &Id,
+        accepted: bool,
     ) -> Result<(), Error> {
-        self.extranonce1 = extranonce1;
-        Ok(())
-    }
-
-    fn extranonce1(&self, _server_id: Option<usize>) -> Result<Extranonce, Error> {
-        Ok(self.extranonce1.clone())
-    }
-
-    fn set_extranonce2_size(
-        &mut self,
-        _server_id: Option<usize>,
-        extra_nonce2_size: usize,
-    ) -> Result<(), Error> {
-        self.extranonce2_size = extra_nonce2_size;
-        Ok(())
-    }
-
-    fn extranonce2_size(&self, _server_id: Option<usize>) -> Result<usize, Error> {
-        Ok(self.extranonce2_size)
-    }
-
-    fn version_rolling_mask(&self, _server_id: Option<usize>) -> Result<Option<HexU32Be>, Error> {
-        Ok(self.version_rolling_mask.clone())
-    }
-
-    fn set_version_rolling_mask(
-        &mut self,
-        _server_id: Option<usize>,
-        mask: Option<HexU32Be>,
-    ) -> Result<(), Error> {
-        self.version_rolling_mask = mask;
-        Ok(())
-    }
-
-    fn set_version_rolling_min_bit(
-        &mut self,
-        _server_id: Option<usize>,
-        min: Option<HexU32Be>,
-    ) -> Result<(), Error> {
-        self.version_rolling_min_bit = min;
-        Ok(())
-    }
-
-    fn set_status(&mut self, _server_id: Option<usize>, status: ClientStatus) -> Result<(), Error> {
-        self.status = status;
-        Ok(())
-    }
-
-    fn signature(&self, _server_id: Option<usize>) -> Result<String, Error> {
-        Ok(format!("{}", self.client_id))
-    }
-
-    fn status(&self, _server_id: Option<usize>) -> Result<ClientStatus, Error> {
-        Ok(self.status)
-    }
-
-    fn version_rolling_min_bit(
-        &mut self,
-        _server_id: Option<usize>,
-    ) -> Result<Option<HexU32Be>, Error> {
-        Ok(self.version_rolling_min_bit.clone())
-    }
-
-    fn id_is_authorize(
-        &mut self,
-        _server_id: Option<usize>,
-        id: &u64,
-    ) -> Result<Option<String>, Error> {
-        let req: Vec<&(u64, String)> = self
-            .sented_authorize_request
-            .iter()
-            .filter(|x| x.0 == *id)
-            .collect();
-        match req.len() {
-            0 => Ok(None),
-            _ => Ok(Some(req[0].1.clone())),
+        self.pending.remove(id);
+        if accepted {
+            self.accepted += 1;
         }
-    }
-
-    fn id_is_submit(&mut self, _server_id: Option<usize>, _: &u64) -> Result<bool, Error> {
-        Ok(false)
-    }
-
-    fn authorize_user_name(
-        &mut self,
-        _server_id: Option<usize>,
-        name: String,
-    ) -> Result<(), Error> {
-        self.authorized.push(name);
         Ok(())
     }
 
-    fn is_authorized(&self, _server_id: Option<usize>, name: &String) -> Result<bool, Error> {
-        Ok(self.authorized.contains(name))
-    }
-
-    fn authorize(
+    fn handle_extranonce_subscribe_result(
         &mut self,
         _server_id: Option<usize>,
-        id: u64,
-        name: String,
-        password: String,
-    ) -> Result<json_rpc::Message, Error> {
-        match self.status(None)? {
-            ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.authorize".to_string())),
-            _ => {
-                self.sented_authorize_request.push((id, "user".to_string()));
-                Ok(client_to_server::Authorize { id, name, password }.into())
-            }
-        }
+        id: &Id,
+        _acknowledged: bool,
+    ) -> Result<(), Error> {
+        self.pending.remove(id);
+        Ok(())
     }
 
-    fn last_notify(
-        &self,
-        _server_id: Option<usize>,
-    ) -> Result<Option<server_to_client::Notify>, Error> {
-        Ok(self.last_notify.clone())
-    }
-
-    fn handle_error_message(
+    fn handle_error_response(
         &mut self,
         _server_id: Option<usize>,
-        message: Message,
-    ) -> Result<Option<json_rpc::Message>, Error> {
-        println!("{message:?}");
-        Ok(None)
-    }
-}
-
-fn initialize_client(client: Arc<Mutex<Client>>) {
-    loop {
-        {
-            let mut client_ = client.lock().unwrap();
-            match client_.status {
-                ClientStatus::Init => client_.send_configure(),
-                ClientStatus::Configured => client_.send_subscribe(),
-                ClientStatus::Subscribed => {
-                    client_.send_authorize();
-                    break;
-                }
-            }
-        }
-        thread::sleep(Duration::from_millis(1000));
+        id: &Id,
+        method: Method,
+        error: RpcError,
+    ) -> Result<(), Error> {
+        self.pending.remove(id);
+        eprintln!(
+            "CLIENT - {method} {id} rejected: {} {}",
+            error.code, error.message
+        );
+        Ok(())
     }
 
-    thread::sleep(Duration::from_millis(2000));
-    loop {
-        {
-            let mut client_ = client.lock().unwrap();
-            client_.send_submit();
-        }
-        thread::sleep(Duration::from_millis(2000));
+    fn handle_unknown_response(
+        &mut self,
+        _server_id: Option<usize>,
+        response: Response,
+    ) -> Result<(), Error> {
+        eprintln!("CLIENT - unexpected response {response}");
+        Ok(())
+    }
+
+    fn handle_unknown_request(
+        &mut self,
+        _server_id: Option<usize>,
+        request: json_rpc::Request,
+    ) -> Result<(), Error> {
+        eprintln!("CLIENT - unsupported request {request}");
+        Ok(())
     }
 }
 
 fn main() {
-    let listener = TcpListener::bind(ADDR).unwrap();
-    println!("Server listening on: {}", listener.local_addr().unwrap());
-    let socket = listener.local_addr().unwrap();
-
+    let listener = TcpListener::bind("127.0.0.1:0").expect("failed to bind");
+    let address = listener.local_addr().expect("bound address");
+    println!("Server listening on: {address}");
     thread::spawn(move || {
-        server_pool_listen(listener);
+        for stream in listener.incoming().map_while(Result::ok) {
+            thread::spawn(move || serve(stream));
+        }
     });
 
-    let client = Client::new(80, socket);
-    initialize_client(client);
-}
+    let stream = TcpStream::connect(address).expect("failed to connect");
+    let (incoming, outgoing) = connect(stream);
+    let mut client = Client::new(outgoing);
+    client.send(
+        ClientRequest::Configure,
+        Configure::with_version_rolling(Some(HexU32Be(0xffff_ffff)), Some(2)),
+    );
+    client.send(
+        ClientRequest::Subscribe,
+        Subscribe {
+            agent: "sv1-example/1.0".to_string(),
+            subscription_id: None,
+        },
+    );
+    client.send(
+        ClientRequest::Authorize,
+        Authorize {
+            worker_name: WORKER.to_string(),
+            password: "x".to_string(),
+        },
+    );
 
-mod utils {
-    use std::fmt::Write;
-
-    pub fn decode_hex(s: &str) -> Result<Vec<u8>, core::num::ParseIntError> {
-        let s = match s.strip_prefix("0x") {
-            Some(s) => s,
-            None => s,
-        };
-        (0..s.len())
-            .step_by(2)
-            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
-            .collect()
-    }
-
-    pub fn encode_hex(bytes: &[u8]) -> String {
-        let mut s = String::with_capacity(bytes.len() * 2);
-        for &b in bytes {
-            write!(&mut s, "{b:02x}").unwrap();
+    let deadline = Instant::now() + RUN_FOR;
+    let mut next_submit = Instant::now() + SUBMIT_INTERVAL;
+    while Instant::now() < deadline {
+        match incoming.recv_timeout(Duration::from_millis(100)) {
+            Ok(message) => {
+                println!("CLIENT <- {message}");
+                if let Err(e) = client.handle_message(None, message) {
+                    eprintln!("CLIENT - {e}");
+                }
+            }
+            Err(RecvTimeoutError::Timeout) => {}
+            Err(RecvTimeoutError::Disconnected) => {
+                eprintln!("CLIENT - connection closed");
+                exit(1);
+            }
         }
-        s
+        if Instant::now() >= next_submit {
+            client.submit();
+            next_submit += SUBMIT_INTERVAL;
+        }
     }
 
-    #[cfg(test)]
-    #[test]
-    fn test() {
-        let test_vec = vec![222, 173, 190, 239];
-        let hex_og = "deadbeef";
-        let hex_og_w_prefix = "0xdeadbeef";
-        // decode hex strings
-        let decoded = decode_hex(hex_og).unwrap();
-        let decoded_w_prefix = decode_hex(hex_og_w_prefix).unwrap();
-
-        assert_eq!(&decoded, &test_vec, "Hex not decoded correctly");
-        assert_eq!(
-            &decoded_w_prefix, &test_vec,
-            "Hex w/ prefix not decoded correctly"
-        );
-
-        // reencode
-        let reencoded = encode_hex(&decoded);
-        let reencoded_prefix = encode_hex(&decoded);
-
-        assert_eq!(&reencoded, hex_og, "Hex not encoded correctly");
-        assert_eq!(
-            &reencoded_prefix, &hex_og,
-            "Hex w/ prefix not encoded correctly"
-        );
-    }
+    println!(
+        "Ran for {} seconds; {} shares accepted",
+        RUN_FOR.as_secs(),
+        client.accepted
+    );
+    exit(if client.accepted > 0 { 0 } else { 1 });
 }

@@ -1,119 +1,67 @@
-//! https://www.jsonrpc.org/specification#response_object
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::{fmt, fmt::Display};
+//! SV1 message envelope: one newline-delimited JSON object.
+//!
+//! An object with a string `method` is a [`Request`]; it is a notification when its `id` is
+//! absent or null. Any other object is a [`Response`].
 
-#[derive(Clone, Serialize, Debug)]
-#[serde(untagged)]
+use crate::error::{DecodeError, DecodeErrorKind, ResponseError};
+use serde::{
+    de::{self, DeserializeOwned, IgnoredAny, MapAccess, Visitor},
+    ser::SerializeMap,
+    Deserialize, Deserializer, Serialize, Serializer,
+};
+use serde_json::Value;
+use std::fmt;
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum Message {
-    StandardRequest(StandardRequest),
-    Notification(Notification),
-    OkResponse(Response),
-    ErrorResponse(Response),
+    Request(Request),
+    Response(Response),
 }
 
-impl<'de> Deserialize<'de> for Message {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum MessageWire {
-            StandardRequest(StandardRequest),
-            Notification(Notification),
-            Response(Response),
-        }
-
-        Ok(match MessageWire::deserialize(deserializer)? {
-            MessageWire::StandardRequest(request) => Self::StandardRequest(request),
-            MessageWire::Notification(notification) => Self::Notification(notification),
-            MessageWire::Response(response) => response.into(),
-        })
-    }
+#[derive(Clone, PartialEq)]
+pub struct Request {
+    /// `None` makes this a notification, which never gets a reply.
+    pub id: Option<Id>,
+    pub method: Method,
+    pub params: Value,
 }
 
-impl Message {
-    // TODO: Remove this. Keeping this in to avoid upgrading the major version of the crate.
-    pub fn is_response(&self) -> bool {
-        match self {
-            Message::StandardRequest(_) => false,
-            Message::Notification(_) => false,
-            Message::OkResponse(_) => true,
-            Message::ErrorResponse(_) => true,
-        }
-    }
-}
-
-impl Display for Message {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Message::StandardRequest(sr) => write!(f, "{}", sr),
-            Message::Notification(n) => write!(f, "{}", n),
-            Message::OkResponse(r) => write!(f, "{}", r),
-            Message::ErrorResponse(r) => write!(f, "{}", r),
-        }
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
-pub struct StandardRequest {
-    pub id: u64,
-    pub method: String,
-    pub params: serde_json::Value,
-}
-
-impl fmt::Display for StandardRequest {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let params =
-            serde_json::to_string_pretty(&self.params).unwrap_or_else(|_| self.params.to_string());
-        write!(
-            f,
-            "{{ id: {}, method: {}, params: {} }}",
-            self.id, self.method, params
-        )
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct Notification {
-    pub method: String,
-    pub params: serde_json::Value,
-}
-
-impl fmt::Display for Notification {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let params =
-            serde_json::to_string_pretty(&self.params).unwrap_or_else(|_| self.params.to_string());
-
-        write!(f, "{{ method: \"{}\", params: {} }}", self.method, params)
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Response {
-    pub id: u64,
-    pub error: Option<JsonRpcError>,
-    pub result: serde_json::Value,
+    /// `None` for an error the peer could not correlate with a request.
+    pub id: Option<Id>,
+    pub result: Result<Value, RpcError>,
 }
 
-impl fmt::Display for Response {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let result =
-            serde_json::to_string_pretty(&self.result).unwrap_or_else(|_| self.result.to_string());
-
-        if let Some(err) = &self.error {
-            write!(
-                f,
-                "{{ id: {}, error: {:?}, result: {} }}",
-                self.id, err, result
-            )
-        } else {
-            write!(f, "{{ id: {}, result: {} }}", self.id, result)
-        }
-    }
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Method {
+    Configure,
+    Subscribe,
+    Authorize,
+    Submit,
+    ExtranonceSubscribe,
+    SuggestDifficulty,
+    Notify,
+    SetDifficulty,
+    SetExtranonce,
+    SetVersionMask,
+    Other(String),
 }
 
-/// An SV1 response error, serialized as `[code, message, data]`.
+/// A request ID: an unsigned integer, a negative integer, or a string.
+///
+/// Numeric `1` and string `"1"` are different IDs.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Id(IdRepr);
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+enum IdRepr {
+    Unsigned(u64),
+    Negative(i64),
+    String(String),
+}
+
+/// An SV1 error, serialized as `[code, message, data]`.
 ///
 /// The three-element format is used by the [original Stratum implementation][a] and the
 /// [NiceHash extranonce extension][b]. Deserialization additionally accepts `[code, message]`
@@ -122,48 +70,205 @@ impl fmt::Display for Response {
 /// [a]: https://github.com/slush0/stratum/blob/master/stratum/protocol.py
 /// [b]: https://github.com/nicehash/Specifications/blob/master/NiceHash_extranonce_subscribe_extension.txt
 #[derive(Clone, Debug, PartialEq)]
-pub struct JsonRpcError {
-    pub code: i32, // json do not specify precision which one should be used?
+pub struct RpcError {
+    pub code: i32,
     pub message: String,
-    pub data: Option<serde_json::Value>,
+    pub data: Option<Value>,
 }
 
-impl Serialize for JsonRpcError {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
+impl Message {
+    pub(crate) fn request(id: Option<Id>, method: Method, params: Value) -> Self {
+        Message::Request(Request { id, method, params })
+    }
+
+    pub(crate) fn notification(method: Method, params: Vec<Value>) -> Self {
+        Message::request(None, method, Value::Array(params))
+    }
+
+    pub fn decode(line: &str) -> Result<Message, DecodeError> {
+        let raw: RawEnvelope =
+            serde_json::from_str(line).map_err(|e| DecodeError::new(DecodeErrorKind::Json(e)))?;
+        raw.classify()
+    }
+}
+
+impl From<Response> for Message {
+    fn from(response: Response) -> Self {
+        Message::Response(response)
+    }
+}
+
+impl Response {
+    pub fn success(id: Id, result: impl Into<Value>) -> Self {
+        Response {
+            id: Some(id),
+            result: Ok(result.into()),
+        }
+    }
+
+    pub fn failure(id: Option<Id>, error: RpcError) -> Self {
+        Response {
+            id,
+            result: Err(error),
+        }
+    }
+
+    /// Returns the peer's error, or decodes the result as `T`.
+    pub fn result_as<T: DeserializeOwned>(&self) -> Result<T, ResponseError> {
+        match &self.result {
+            Ok(value) => T::deserialize(value).map_err(ResponseError::InvalidResult),
+            Err(error) => Err(ResponseError::Rpc(error.clone())),
+        }
+    }
+}
+
+impl Method {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Method::Configure => "mining.configure",
+            Method::Subscribe => "mining.subscribe",
+            Method::Authorize => "mining.authorize",
+            Method::Submit => "mining.submit",
+            Method::ExtranonceSubscribe => "mining.extranonce.subscribe",
+            Method::SuggestDifficulty => "mining.suggest_difficulty",
+            Method::Notify => "mining.notify",
+            Method::SetDifficulty => "mining.set_difficulty",
+            Method::SetExtranonce => "mining.set_extranonce",
+            Method::SetVersionMask => "mining.set_version_mask",
+            Method::Other(method) => method,
+        }
+    }
+
+    fn known(method: &str) -> Option<Method> {
+        Some(match method {
+            "mining.configure" => Method::Configure,
+            "mining.subscribe" => Method::Subscribe,
+            "mining.authorize" => Method::Authorize,
+            "mining.submit" => Method::Submit,
+            "mining.extranonce.subscribe" => Method::ExtranonceSubscribe,
+            "mining.suggest_difficulty" => Method::SuggestDifficulty,
+            "mining.notify" => Method::Notify,
+            "mining.set_difficulty" => Method::SetDifficulty,
+            "mining.set_extranonce" => Method::SetExtranonce,
+            "mining.set_version_mask" => Method::SetVersionMask,
+            _ => return None,
+        })
+    }
+}
+
+impl From<&str> for Method {
+    fn from(method: &str) -> Self {
+        Method::known(method).unwrap_or_else(|| Method::Other(method.to_string()))
+    }
+}
+
+impl From<String> for Method {
+    fn from(method: String) -> Self {
+        Method::known(&method).unwrap_or(Method::Other(method))
+    }
+}
+
+impl fmt::Display for Method {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl Id {
+    fn from_value(value: Value) -> Result<Id, &'static str> {
+        match value {
+            Value::Number(number) => {
+                if let Some(id) = number.as_u64() {
+                    Ok(Id(IdRepr::Unsigned(id)))
+                } else if let Some(id) = number.as_i64() {
+                    Ok(Id(IdRepr::Negative(id)))
+                } else {
+                    Err("id is not an integer")
+                }
+            }
+            Value::String(id) => Ok(Id(IdRepr::String(id))),
+            _ => Err("id is not a number or a string"),
+        }
+    }
+}
+
+impl From<u64> for Id {
+    fn from(id: u64) -> Self {
+        Id(IdRepr::Unsigned(id))
+    }
+}
+
+impl From<i64> for Id {
+    fn from(id: i64) -> Self {
+        match u64::try_from(id) {
+            Ok(id) => Id(IdRepr::Unsigned(id)),
+            Err(_) => Id(IdRepr::Negative(id)),
+        }
+    }
+}
+
+impl From<String> for Id {
+    fn from(id: String) -> Self {
+        Id(IdRepr::String(id))
+    }
+}
+
+impl From<&str> for Id {
+    fn from(id: &str) -> Self {
+        Id(IdRepr::String(id.to_string()))
+    }
+}
+
+impl fmt::Display for Id {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.0 {
+            IdRepr::Unsigned(id) => write!(f, "{id}"),
+            IdRepr::Negative(id) => write!(f, "{id}"),
+            IdRepr::String(id) => write!(f, "{id:?}"),
+        }
+    }
+}
+
+impl Serialize for Id {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match &self.0 {
+            IdRepr::Unsigned(id) => serializer.serialize_u64(*id),
+            IdRepr::Negative(id) => serializer.serialize_i64(*id),
+            IdRepr::String(id) => serializer.serialize_str(id),
+        }
+    }
+}
+
+impl Serialize for RpcError {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         (&self.code, &self.message, &self.data).serialize(serializer)
     }
 }
 
-impl<'de> Deserialize<'de> for JsonRpcError {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
+impl<'de> Deserialize<'de> for RpcError {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
         #[serde(untagged)]
-        enum JsonRpcErrorWire {
-            Legacy((i32, String, Option<serde_json::Value>)),
+        enum RpcErrorWire {
+            Legacy((i32, String, Option<Value>)),
             LegacyWithoutData((i32, String)),
             Object {
                 code: i32,
                 message: String,
-                data: Option<serde_json::Value>,
+                data: Option<Value>,
             },
         }
 
-        let (code, message, data) = match JsonRpcErrorWire::deserialize(deserializer)? {
-            JsonRpcErrorWire::Legacy((code, message, data))
-            | JsonRpcErrorWire::Object {
+        let (code, message, data) = match RpcErrorWire::deserialize(deserializer)? {
+            RpcErrorWire::Legacy((code, message, data))
+            | RpcErrorWire::Object {
                 code,
                 message,
                 data,
             } => (code, message, data),
-            JsonRpcErrorWire::LegacyWithoutData((code, message)) => (code, message, None),
+            RpcErrorWire::LegacyWithoutData((code, message)) => (code, message, None),
         };
-        Ok(Self {
+        Ok(RpcError {
             code,
             message,
             data,
@@ -171,160 +276,471 @@ impl<'de> Deserialize<'de> for JsonRpcError {
     }
 }
 
-impl From<Response> for Message {
-    fn from(res: Response) -> Self {
-        if res.error.is_some() {
-            Message::ErrorResponse(res)
-        } else {
-            Message::OkResponse(res)
+impl Serialize for Message {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Message::Request(request) => request.serialize(serializer),
+            Message::Response(response) => response.serialize(serializer),
         }
     }
 }
 
-impl From<StandardRequest> for Message {
-    fn from(sr: StandardRequest) -> Self {
-        Message::StandardRequest(sr)
+impl Serialize for Request {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut map = serializer.serialize_map(Some(3))?;
+        map.serialize_entry("id", &self.id)?;
+        map.serialize_entry("method", self.method.as_str())?;
+        map.serialize_entry("params", &self.params)?;
+        map.end()
     }
 }
 
-impl From<Notification> for Message {
-    fn from(n: Notification) -> Self {
-        Message::Notification(n)
+impl Serialize for Response {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let (result, error) = match &self.result {
+            Ok(result) => (result, None),
+            Err(error) => (&Value::Null, Some(error)),
+        };
+        let mut map = serializer.serialize_map(Some(3))?;
+        map.serialize_entry("id", &self.id)?;
+        map.serialize_entry("result", result)?;
+        map.serialize_entry("error", &error)?;
+        map.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for Message {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        RawEnvelope::deserialize(deserializer)?
+            .classify()
+            .map_err(de::Error::custom)
+    }
+}
+
+/// The reserved envelope members, each recorded only when present.
+#[derive(Default)]
+struct RawEnvelope {
+    id: Option<Value>,
+    method: Option<Value>,
+    params: Option<Value>,
+    result: Option<Value>,
+    error: Option<Value>,
+}
+
+impl RawEnvelope {
+    fn classify(self) -> Result<Message, DecodeError> {
+        let id = match self.id {
+            None | Some(Value::Null) => None,
+            Some(id) => Some(Id::from_value(id).map_err(|reason| {
+                DecodeError::about(None, None, DecodeErrorKind::InvalidEnvelope(reason))
+            })?),
+        };
+        let invalid =
+            |reason| DecodeError::about(id.clone(), None, DecodeErrorKind::InvalidEnvelope(reason));
+        match self.method {
+            Some(Value::String(method)) => {
+                let method = Method::from(method);
+                let Some(params) = self.params else {
+                    return Err(DecodeError::about(
+                        id,
+                        Some(method),
+                        DecodeErrorKind::InvalidEnvelope("missing params"),
+                    ));
+                };
+                Ok(Message::Request(Request { id, method, params }))
+            }
+            None | Some(Value::Null) => {
+                let result = match self.error {
+                    Some(error) if !error.is_null() => Err(serde_json::from_value(error)
+                        .map_err(|_| invalid("error is not an SV1 error"))?),
+                    _ => Ok(self.result.ok_or_else(|| invalid("missing result"))?),
+                };
+                Ok(Message::Response(Response { id, result }))
+            }
+            Some(_) => Err(invalid("method is not a string")),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for RawEnvelope {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_map(RawEnvelopeVisitor)
+    }
+}
+
+struct RawEnvelopeVisitor;
+
+impl<'de> Visitor<'de> for RawEnvelopeVisitor {
+    type Value = RawEnvelope;
+
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("an SV1 message object")
+    }
+
+    fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<RawEnvelope, A::Error> {
+        fn member<'de, A: MapAccess<'de>>(
+            map: &mut A,
+            slot: &mut Option<Value>,
+            name: &'static str,
+        ) -> Result<(), A::Error> {
+            if slot.is_some() {
+                return Err(de::Error::duplicate_field(name));
+            }
+            *slot = Some(map.next_value()?);
+            Ok(())
+        }
+
+        let mut raw = RawEnvelope::default();
+        while let Some(key) = map.next_key::<String>()? {
+            match key.as_str() {
+                "id" => member(&mut map, &mut raw.id, "id")?,
+                "method" => member(&mut map, &mut raw.method, "method")?,
+                "params" => member(&mut map, &mut raw.params, "params")?,
+                "result" => member(&mut map, &mut raw.result, "result")?,
+                "error" => member(&mut map, &mut raw.error, "error")?,
+                _ => {
+                    map.next_value::<IgnoredAny>()?;
+                }
+            }
+        }
+        Ok(raw)
+    }
+}
+
+impl fmt::Display for Message {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Message::Request(request) => request.fmt(f),
+            Message::Response(response) => response.fmt(f),
+        }
+    }
+}
+
+fn display_id(id: &Option<Id>) -> String {
+    id.as_ref().map_or("null".to_string(), Id::to_string)
+}
+
+impl fmt::Display for Request {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{{ id: {}, method: {}, params: {} }}",
+            display_id(&self.id),
+            self.method,
+            RedactedParams(self)
+        )
+    }
+}
+
+impl fmt::Debug for Request {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Request")
+            .field("id", &self.id)
+            .field("method", &self.method)
+            .field("params", &format_args!("{}", RedactedParams(self)))
+            .finish()
+    }
+}
+
+/// `mining.authorize` params carry the worker password.
+struct RedactedParams<'a>(&'a Request);
+
+impl fmt::Display for RedactedParams<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.0.method == Method::Authorize {
+            f.write_str("<redacted>")
+        } else {
+            write!(f, "{}", self.0.params)
+        }
+    }
+}
+
+impl fmt::Display for Response {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.result {
+            Ok(result) => write!(f, "{{ id: {}, result: {result} }}", display_id(&self.id)),
+            Err(error) => write!(
+                f,
+                "{{ id: {}, error: [{}, {:?}] }}",
+                display_id(&self.id),
+                error.code,
+                error.message
+            ),
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
-    #[test]
-    fn deserializes_legacy_sv1_error_array() {
-        let response: Response = serde_json::from_value(serde_json::json!({
-            "id": 42,
-            "result": null,
-            "error": [22, "Duplicate share", null],
-        }))
-        .unwrap();
-
-        assert_eq!(
-            response.error,
-            Some(JsonRpcError {
-                code: 22,
-                message: "Duplicate share".to_string(),
-                data: None,
-            })
-        );
+    fn decode(line: &str) -> Message {
+        Message::decode(line).unwrap_or_else(|e| panic!("{line}: {e}"))
     }
 
-    #[test]
-    fn deserializes_two_element_errors_and_serializes_three_elements() {
-        for code in 20..=25 {
-            let message: Message = serde_json::from_value(serde_json::json!({
-                "id": 42,
-                "result": null,
-                "error": [code, "Rejected"],
-            }))
-            .unwrap();
+    fn request(line: &str) -> Request {
+        match decode(line) {
+            Message::Request(request) => request,
+            other => panic!("{line}: not a request: {other:?}"),
+        }
+    }
 
-            let Message::ErrorResponse(response) = &message else {
-                panic!("a two-element error must remain an error response");
-            };
-            assert_eq!(
-                response.error,
-                Some(JsonRpcError {
-                    code,
-                    message: "Rejected".to_string(),
-                    data: None,
-                })
-            );
-            assert_eq!(
-                serde_json::to_value(&message).unwrap(),
-                serde_json::json!({
-                    "id": 42,
-                    "result": null,
-                    "error": [code, "Rejected", null],
-                })
-            );
-            assert!(matches!(
-                crate::methods::Method::try_from(message),
-                Ok(crate::methods::Method::ErrorMessage(_))
-            ));
+    fn response(line: &str) -> Response {
+        match decode(line) {
+            Message::Response(response) => response,
+            other => panic!("{line}: not a response: {other:?}"),
+        }
+    }
+
+    fn reject(line: &str) -> DecodeError {
+        match Message::decode(line) {
+            Ok(message) => panic!("{line}: unexpectedly decoded as {message:?}"),
+            Err(error) => error,
         }
     }
 
     #[test]
-    fn legacy_error_round_trip_preserves_additional_data() {
-        let wire = serde_json::json!([20, "Rejected", {"detail": "invalid share"}]);
-        let error: JsonRpcError = serde_json::from_value(wire.clone()).unwrap();
-        assert_eq!(
-            error.data,
-            Some(serde_json::json!({"detail": "invalid share"}))
-        );
-        assert_eq!(serde_json::to_value(error).unwrap(), wire);
-    }
-
-    #[test]
-    fn rejects_legacy_errors_with_invalid_types_or_arity() {
-        for wire in [
-            serde_json::json!([]),
-            serde_json::json!([20]),
-            serde_json::json!([20, "Rejected", null, null]),
-            serde_json::json!(["20", "Rejected"]),
-            serde_json::json!(["20", "Rejected", null]),
-            serde_json::json!([20.5, "Rejected"]),
-            serde_json::json!([20, 42]),
-            serde_json::json!([20, 42, null]),
+    fn method_classifies_requests() {
+        for (line, id) in [
+            (
+                r#"{"id":1,"method":"mining.subscribe","params":[]}"#,
+                Some(Id::from(1u64)),
+            ),
+            (
+                r#"{"jsonrpc":"2.0","id":1,"method":"mining.subscribe","params":[]}"#,
+                Some(Id::from(1u64)),
+            ),
+            (
+                r#"{"id":1,"method":"mining.subscribe","params":[],"error":null}"#,
+                Some(Id::from(1u64)),
+            ),
+            (
+                r#"{"id":"1","method":"mining.subscribe","params":[]}"#,
+                Some(Id::from("1")),
+            ),
+            (
+                r#"{"id":-3,"method":"mining.subscribe","params":[]}"#,
+                Some(Id::from(-3i64)),
+            ),
+            (
+                r#"{"id":18446744073709551615,"method":"mining.subscribe","params":[]}"#,
+                Some(Id::from(u64::MAX)),
+            ),
+            (r#"{"method":"mining.set_difficulty","params":[2]}"#, None),
+            (
+                r#"{"id":null,"method":"mining.set_difficulty","params":[2]}"#,
+                None,
+            ),
+            (
+                r#"{"id":null,"method":"mining.set_difficulty","params":[2],"result":null,"error":null}"#,
+                None,
+            ),
         ] {
-            assert!(
-                serde_json::from_value::<JsonRpcError>(wire.clone()).is_err(),
-                "invalid error unexpectedly accepted: {wire}"
+            assert_eq!(request(line).id, id, "{line}");
+        }
+    }
+
+    #[test]
+    fn null_params_are_kept() {
+        let request = request(r#"{"id":1,"method":"mining.extranonce.subscribe","params":null}"#);
+        assert_eq!(request.method, Method::ExtranonceSubscribe);
+        assert_eq!(request.params, Value::Null);
+    }
+
+    #[test]
+    fn responses() {
+        for (line, id, result) in [
+            (
+                r#"{"id":1,"result":true,"error":null}"#,
+                Some(1u64),
+                Ok(json!(true)),
+            ),
+            (r#"{"id":1,"result":true}"#, Some(1), Ok(json!(true))),
+            (r#"{"id":1,"result":null}"#, Some(1), Ok(Value::Null)),
+            (
+                r#"{"id":1,"result":true,"error":null,"method":null,"params":null}"#,
+                Some(1),
+                Ok(json!(true)),
+            ),
+            (
+                r#"{"id":1,"result":null,"error":[22,"Duplicate share",null]}"#,
+                Some(1),
+                Err(22),
+            ),
+            (
+                r#"{"id":1,"result":null,"error":[22,"Duplicate share"]}"#,
+                Some(1),
+                Err(22),
+            ),
+            (
+                r#"{"id":1,"result":null,"error":{"code":22,"message":"Duplicate share","data":null}}"#,
+                Some(1),
+                Err(22),
+            ),
+            (
+                r#"{"id":1,"error":[22,"Duplicate share",null]}"#,
+                Some(1),
+                Err(22),
+            ),
+            (
+                r#"{"id":null,"result":null,"error":[20,"Other/Unknown",null]}"#,
+                None,
+                Err(20),
+            ),
+            (
+                r#"{"id":3,"result":false,"error":[20,"Not supported.",null]}"#,
+                Some(3),
+                Err(20),
+            ),
+        ] {
+            let response = response(line);
+            assert_eq!(response.id, id.map(Id::from), "{line}");
+            assert_eq!(response.result.map_err(|e| e.code), result, "{line}");
+        }
+    }
+
+    #[test]
+    fn rejects_malformed_envelopes() {
+        for line in [
+            r#"{"id":1,"method":"mining.subscribe"}"#,
+            r#"{"id":1}"#,
+            r#"{"id":1,"error":null}"#,
+            r#"{"id":1.0,"method":"mining.subscribe","params":[]}"#,
+            r#"{"id":true,"method":"mining.subscribe","params":[]}"#,
+            r#"{"id":1,"method":5,"params":[]}"#,
+            r#"{"id":1,"id":2,"method":"mining.subscribe","params":[]}"#,
+            r#"{"id":1,"result":true,"error":[20]}"#,
+            r#"[{"id":1,"method":"mining.subscribe","params":[]}]"#,
+            r#"{"id":1,"method":"mining.subscribe","params":[]"#,
+        ] {
+            reject(line);
+        }
+    }
+
+    #[test]
+    fn errors_carry_only_a_validated_id() {
+        let error = reject(r#"{"id":7,"method":"mining.submit"}"#);
+        assert_eq!(error.id, Some(Id::from(7u64)));
+        assert_eq!(error.method, Some(Method::Submit));
+
+        let error = reject(r#"{"id":1.5,"method":"mining.submit","params":[]}"#);
+        assert_eq!(error.id, None);
+    }
+
+    #[test]
+    fn method_names_round_trip() {
+        for method in [
+            Method::Configure,
+            Method::Subscribe,
+            Method::Authorize,
+            Method::Submit,
+            Method::ExtranonceSubscribe,
+            Method::SuggestDifficulty,
+            Method::Notify,
+            Method::SetDifficulty,
+            Method::SetExtranonce,
+            Method::SetVersionMask,
+            Method::Other("client.reconnect".to_string()),
+        ] {
+            assert_eq!(Method::from(method.as_str()), method);
+            assert_eq!(Method::from(method.as_str().to_string()), method);
+        }
+    }
+
+    #[test]
+    fn encoding() {
+        let notification = Message::Request(Request {
+            id: None,
+            method: Method::SetVersionMask,
+            params: json!(["1fffe000"]),
+        });
+        assert_eq!(
+            serde_json::to_value(&notification).unwrap(),
+            json!({"id": null, "method": "mining.set_version_mask", "params": ["1fffe000"]})
+        );
+
+        let success = Message::Response(Response::success(Id::from("a"), true));
+        assert_eq!(
+            serde_json::to_value(&success).unwrap(),
+            json!({"id": "a", "result": true, "error": null})
+        );
+
+        let failure = Message::Response(Response::failure(
+            Some(Id::from(4u64)),
+            RpcError {
+                code: 23,
+                message: "Low difficulty share".to_string(),
+                data: None,
+            },
+        ));
+        assert_eq!(
+            serde_json::to_value(&failure).unwrap(),
+            json!({"id": 4, "result": null, "error": [23, "Low difficulty share", null]})
+        );
+
+        for message in [notification, success, failure] {
+            let line = serde_json::to_string(&message).unwrap();
+            assert_eq!(decode(&line), message, "{line}");
+            assert_eq!(
+                serde_json::from_str::<Message>(&line).unwrap(),
+                message,
+                "{line}"
             );
         }
     }
 
     #[test]
-    fn deserializes_json_rpc_error_object_for_compatibility() {
-        let response: Response = serde_json::from_value(serde_json::json!({
-            "id": 42,
-            "result": null,
-            "error": {
-                "code": 22,
-                "message": "Duplicate share",
-                "data": null,
-            },
-        }))
-        .unwrap();
-
-        assert_eq!(
-            response.error,
-            Some(JsonRpcError {
-                code: 22,
-                message: "Duplicate share".to_string(),
-                data: None,
-            })
-        );
+    fn ids_are_mirrored_exactly() {
+        for id in [
+            Id::from(1u64),
+            Id::from("1"),
+            Id::from(-1i64),
+            Id::from(u64::MAX),
+        ] {
+            let line = serde_json::to_string(&Response::success(id.clone(), true)).unwrap();
+            assert_eq!(response(&line).id, Some(id), "{line}");
+        }
+        assert_ne!(Id::from(1u64), Id::from("1"));
+        assert_eq!(Id::from(1u64), Id::from(1i64));
     }
 
     #[test]
-    fn message_classifies_response_from_error_field() {
-        let error: Message = serde_json::from_value(serde_json::json!({
-            "id": 42,
-            "result": null,
-            "error": [22, "Duplicate share", null],
-        }))
-        .unwrap();
-        assert!(matches!(&error, Message::ErrorResponse(_)));
+    fn result_as_checks_the_error_first() {
+        let response = Response::success(Id::from(1u64), json!([[], "08000002", 4]));
+        assert_eq!(
+            response
+                .result_as::<(Vec<(String, String)>, String, usize)>()
+                .unwrap(),
+            (vec![], "08000002".to_string(), 4)
+        );
         assert!(matches!(
-            crate::methods::Method::try_from(error),
-            Ok(crate::methods::Method::ErrorMessage(_))
+            response.result_as::<bool>(),
+            Err(ResponseError::InvalidResult(_))
         ));
 
-        let success: Message = serde_json::from_value(serde_json::json!({
-            "id": 43,
-            "result": true,
-            "error": null,
-        }))
-        .unwrap();
-        assert!(matches!(success, Message::OkResponse(_)));
+        let rejected = Response::failure(
+            Some(Id::from(1u64)),
+            RpcError {
+                code: 22,
+                message: "Duplicate share".to_string(),
+                data: None,
+            },
+        );
+        assert!(matches!(
+            rejected.result_as::<bool>(),
+            Err(ResponseError::Rpc(RpcError { code: 22, .. }))
+        ));
+    }
+
+    #[test]
+    fn authorize_params_are_redacted() {
+        let authorize = request(r#"{"id":2,"method":"mining.authorize","params":["w","hunter2"]}"#);
+        assert!(!authorize.to_string().contains("hunter2"));
+        assert!(!format!("{authorize:?}").contains("hunter2"));
+        assert!(!Message::Request(authorize).to_string().contains("hunter2"));
+
+        let subscribe = request(r#"{"id":1,"method":"mining.subscribe","params":["cgminer"]}"#);
+        assert!(subscribe.to_string().contains("cgminer"));
     }
 }

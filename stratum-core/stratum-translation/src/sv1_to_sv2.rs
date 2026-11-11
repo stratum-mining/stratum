@@ -1,7 +1,7 @@
 use crate::error::{Result, StratumTranslationError};
 use bitcoin::Target;
 use mining_sv2::{OpenExtendedMiningChannelOwned, SubmitSharesExtendedOwned};
-use v1::{client_to_server, utils::HexU32Be};
+use v1::{utils::HexU32Be, Submit};
 
 /// Builds an SV2 `OpenExtendedMiningChannel` message from the provided inputs.
 ///
@@ -48,7 +48,7 @@ pub fn build_sv2_open_extended_mining_channel(
 /// * `Ok(SubmitSharesExtended)` if the conversion is successful.
 /// * `Err(())` if any required field is missing or conversion fails.
 pub fn build_sv2_submit_shares_extended_from_sv1_submit(
-    submit: &client_to_server::Submit,
+    submit: &Submit,
     channel_id: u32,
     sequence_number: u32,
     job_version: u32,
@@ -62,7 +62,7 @@ pub fn build_sv2_submit_shares_extended_from_sv1_submit(
         _ => return Err(StratumTranslationError::IncompatibleVersionRollingMask),
     };
 
-    let extranonce: Vec<u8> = submit.extra_nonce2.clone().into();
+    let extranonce: Vec<u8> = submit.extranonce2.clone().into();
     let submit_share_extended = SubmitSharesExtendedOwned {
         channel_id,
         sequence_number,
@@ -71,7 +71,7 @@ pub fn build_sv2_submit_shares_extended_from_sv1_submit(
             .parse::<u32>()
             .map_err(|_| StratumTranslationError::InvalidJobId)?,
         nonce: submit.nonce.0,
-        ntime: submit.time.0,
+        ntime: submit.ntime.0,
         version,
         extranonce: extranonce
             .try_into()
@@ -83,20 +83,16 @@ pub fn build_sv2_submit_shares_extended_from_sv1_submit(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use v1::{
-        client_to_server::Submit,
-        utils::{HexU32Be, VERSION_ROLLING_MASK},
-    };
+    use v1::utils::{HexU32Be, VERSION_ROLLING_MASK};
 
     fn submit_template() -> Submit {
         Submit {
-            user_name: "w".to_string(),
+            worker_name: "w".to_string(),
             job_id: "1".to_string(),
-            extra_nonce2: v1::utils::Extranonce::try_from(vec![0, 1, 2, 3]).unwrap(),
-            time: HexU32Be(0),
+            extranonce2: v1::utils::Extranonce::try_from(vec![0, 1, 2, 3]).unwrap(),
+            ntime: HexU32Be(0),
             nonce: HexU32Be(0),
             version_bits: Some(HexU32Be(0)),
-            id: 0,
         }
     }
 
