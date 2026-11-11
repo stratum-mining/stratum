@@ -12,6 +12,9 @@ use std::{convert::TryFrom, ops::BitAnd};
 /// manipulated by the miner. Bits 0-4 and 29-31 are reserved and must not be rolled.
 pub const VERSION_ROLLING_MASK: u32 = 0x1FFFFFE0;
 
+/// The most bytes an [`Extranonce`] holds.
+pub(crate) const MAX_EXTRANONCE_LEN: usize = 32;
+
 /// Helper type that allows simple serialization and deserialization of byte vectors
 /// that are represented as hex strings in JSON.
 /// Extranonce must be less than or equal to 32 bytes.
@@ -76,8 +79,17 @@ fn hex_decode_with_padding(s: &str) -> Result<Vec<u8>, Error> {
     hex_decode(s)
 }
 
+/// Fails before decoding when `value` holds more than `max_bytes` bytes of hex.
+fn check_hex_len(value: &str, max_bytes: usize) -> Result<(), Error> {
+    if value.len() > 2 * max_bytes {
+        return Err(Error::InvalidHexLen(value.len()));
+    }
+    Ok(())
+}
+
 /// Decodes an extranonce without left-padding odd-length hex.
 pub(crate) fn extranonce_from_hex(value: &str) -> Result<Extranonce, Error> {
+    check_hex_len(value, MAX_EXTRANONCE_LEN)?;
     Extranonce::try_from(hex_decode(value)?)
 }
 
@@ -86,6 +98,7 @@ impl TryFrom<&str> for Extranonce {
     type Error = error::Error;
 
     fn try_from(value: &str) -> Result<Self, Error> {
+        check_hex_len(value, MAX_EXTRANONCE_LEN)?;
         Ok(Extranonce(B032Owned::try_from(hex_decode_with_padding(
             value,
         )?)?))
@@ -134,7 +147,7 @@ impl TryFrom<&str> for HexU32Be {
     fn try_from(value: &str) -> Result<Self, Error> {
         let expected_len = 8;
         if value.len() > expected_len {
-            return Err(Error::InvalidHexLen(value.to_string()));
+            return Err(Error::InvalidHexLen(value.len()));
         }
 
         let delta_len = expected_len - value.len();
@@ -145,7 +158,7 @@ impl TryFrom<&str> for HexU32Be {
         prefix.push_str(value);
         let parsed_bytes: [u8; 4] = hex_decode(&prefix)?
             .try_into()
-            .map_err(|_| Error::InvalidHexLen(prefix.clone()))?;
+            .map_err(|_| Error::InvalidHexLen(prefix.len()))?;
         Ok(HexU32Be(u32::from_be_bytes(parsed_bytes)))
     }
 }
@@ -186,9 +199,13 @@ impl TryFrom<&str> for PrevHash {
     type Error = Error;
 
     fn try_from(value: &str) -> Result<Self, Error> {
+        if value.len() != 64 {
+            return Err(Error::InvalidHexLen(value.len()));
+        }
         let mut bytes = hex_decode(value)?;
         reverse_words(&mut bytes);
-        Ok(PrevHash(U256Owned::try_from(bytes)?))
+        let bytes: [u8; 32] = bytes.try_into().expect("64 hex characters are 32 bytes");
+        Ok(PrevHash(bytes.into()))
     }
 }
 
@@ -271,6 +288,9 @@ impl TryFrom<&str> for MerkleNode {
     type Error = Error;
 
     fn try_from(value: &str) -> Result<Self, Error> {
+        if value.len() != 64 {
+            return Err(Error::InvalidHexLen(value.len()));
+        }
         let merkle = U256Owned::try_from(hex_decode(value)?).map_err(error::Error::from)?;
         Ok(MerkleNode(merkle))
     }
@@ -377,12 +397,14 @@ pub(crate) fn min_bit_count(value: &Value, field: &'static str) -> Result<u32, P
     }
 }
 
+/// A size larger than [`MAX_EXTRANONCE_LEN`] could not be carried by a `mining.submit`.
 pub(crate) fn extranonce2_size_param(size: &Number) -> Result<usize, ParamError> {
     size.as_u64()
         .and_then(|size| usize::try_from(size).ok())
+        .filter(|size| *size <= MAX_EXTRANONCE_LEN)
         .ok_or(ParamError::new(
             "extranonce2_size",
-            "not an unsigned integer",
+            "not an integer up to 32",
         ))
 }
 
@@ -413,6 +435,29 @@ mod tests {
         }
 
         be_hex == back_to_hex && be_hex == value_to_string
+    }
+
+    #[test]
+    fn oversized_hex_is_rejected_before_decoding() {
+        let not_hex = "zz".repeat(1000);
+        assert!(matches!(
+            PrevHash::try_from(not_hex.as_str()),
+            Err(Error::InvalidHexLen(2000))
+        ));
+        assert!(matches!(
+            MerkleNode::try_from(not_hex.as_str()),
+            Err(Error::InvalidHexLen(2000))
+        ));
+        assert!(matches!(
+            Extranonce::try_from(not_hex.as_str()),
+            Err(Error::InvalidHexLen(2000))
+        ));
+        assert!(matches!(
+            extranonce_from_hex(not_hex.as_str()),
+            Err(Error::InvalidHexLen(2000))
+        ));
+        assert!(Extranonce::try_from("ab".repeat(32).as_str()).is_ok());
+        assert!(!Error::InvalidHexLen(9).to_string().contains('z'));
     }
 
     #[test]

@@ -792,7 +792,7 @@ mod tests {
                 "extranonce 4",
                 "mask 1fffe000",
                 "notify bf",
-                "unknown request client.reconnect",
+                "unknown request \"client.reconnect\"",
             ]
         );
     }

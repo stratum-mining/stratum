@@ -162,6 +162,9 @@ impl From<ServerNotification> for Message {
     }
 }
 
+/// A block's merkle branch has at most one entry per level of a 2^32-transaction tree.
+const MAX_MERKLE_BRANCH_LEN: usize = 32;
+
 impl Notify {
     fn from_params(params: &Value) -> Result<Self, ParamError> {
         let [Value::String(job_id), Value::String(prev_hash), Value::String(coinbase1), Value::String(coinbase2), Value::Array(merkle_branch), Value::String(version), Value::String(nbits), Value::String(ntime), Value::Bool(clean_jobs)] =
@@ -169,6 +172,9 @@ impl Notify {
         else {
             return Err(ParamError::new("params", "unexpected notify params"));
         };
+        if merkle_branch.len() > MAX_MERKLE_BRANCH_LEN {
+            return Err(ParamError::new("merkle_branch", "longer than 32 entries"));
+        }
         let merkle_branch = merkle_branch
             .iter()
             .map(|node| {

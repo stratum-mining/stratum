@@ -689,3 +689,85 @@ fn server_response_encoding() {
         json!({"id": "s4", "error": [23, "Low difficulty share", null], "result": null})
     );
 }
+
+#[test]
+fn raw_configure_hides_the_connection_url() {
+    let line = r#"{"id":7,"method":"mining.configure","params":[["info"],{"info.connection-url":"stratum+tcp://user:secret@pool.example","info.hw-version":"S19"}]}"#;
+    let message = decode(line);
+    for formatted in [message.to_string(), format!("{message:?}")] {
+        assert!(!formatted.contains("secret"), "{formatted}");
+        assert!(formatted.contains("S19"), "{formatted}");
+    }
+}
+
+#[test]
+fn peer_strings_are_escaped_in_display() {
+    let line = r#"{"id":1,"method":"evil\nmethod","params":["a\nb"]}"#;
+    let message = decode(line);
+    assert!(!message.to_string().contains('\n'));
+    let error = try_client_request(line).unwrap_err();
+    assert!(!error.to_string().contains('\n'));
+    let line = r#"{"id":"x\ny","method":"mining.submit","params":[]}"#;
+    assert!(!try_client_request(line)
+        .unwrap_err()
+        .to_string()
+        .contains('\n'));
+}
+
+#[test]
+fn decode_errors_do_not_grow_with_the_message() {
+    let long = "m".repeat(1000);
+    let error = try_client_request(&format!(
+        r#"{{"id":"{long}","method":"{long}","params":[]}}"#
+    ))
+    .unwrap_err();
+    assert!(matches!(error.kind, DecodeErrorKind::UnknownMethod));
+    assert_eq!(error.id, None);
+    assert_eq!(error.method, None);
+}
+
+#[test]
+fn extranonce2_size_fits_a_submit() {
+    for (size, accepted) in [(32, true), (33, false), (u64::MAX, false)] {
+        let line = format!(
+            r#"{{"id":null,"method":"mining.set_extranonce","params":["08000002",{size}]}}"#
+        );
+        let Message::Request(request) = decode(&line) else {
+            panic!("not a request");
+        };
+        assert_eq!(
+            ServerNotification::try_from(request).is_ok(),
+            accepted,
+            "{line}"
+        );
+
+        let line = format!(r#"{{"id":1,"result":[[],"08000002",{size}],"error":null}}"#);
+        assert_eq!(
+            server_response(&line)
+                .result_as::<SubscribeResult>()
+                .is_ok(),
+            accepted,
+            "{line}"
+        );
+    }
+}
+
+#[test]
+fn merkle_branch_is_at_most_32_entries() {
+    let node = format!("\"{}\"", "00".repeat(32));
+    for (entries, accepted) in [(32, true), (33, false)] {
+        let branch = vec![node.as_str(); entries].join(",");
+        let line = format!(
+            r#"{{"id":null,"method":"mining.notify","params":["bf","{prev}","01","02",[{branch}],"20000000","1705ae3a","647025b5",true]}}"#,
+            prev = "00".repeat(32)
+        );
+        let Message::Request(request) = decode(&line) else {
+            panic!("not a request");
+        };
+        assert_eq!(
+            ServerNotification::try_from(request).is_ok(),
+            accepted,
+            "{entries} entries"
+        );
+    }
+}

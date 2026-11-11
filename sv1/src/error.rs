@@ -6,8 +6,8 @@ pub enum Error {
     BadBytesConvert(binary_sv2::Error),
     /// Errors on bad hex decode/encode.
     HexError(HexToBytesError),
-    /// Errors when a hex string has invalid length (input too short or too long).
-    InvalidHexLen(String),
+    /// A hex string has an invalid length, in characters.
+    InvalidHexLen(usize),
     Decode(DecodeError),
     Response(ResponseError),
 }
@@ -20,7 +20,7 @@ impl std::fmt::Display for Error {
                 "Bad U256 or B032 conversion (U256 length must be exactly 32 bytes; B032 length must be <= 32 bytes): {e:?}"
             ),
             Error::HexError(ref e) => write!(f, "Bad hex encode/decode: `{e}`"),
-            Error::InvalidHexLen(ref val) => write!(f, "Hex string length is invalid: `{val}`"),
+            Error::InvalidHexLen(len) => write!(f, "Hex string has an invalid length of {len}"),
             Error::Decode(e) => e.fmt(f),
             Error::Response(e) => e.fmt(f),
         }
@@ -52,6 +52,9 @@ impl From<ResponseError> for Error {
         Error::Response(e)
     }
 }
+
+/// The longest ID or method name a [`DecodeError`] keeps.
+const MAX_ECHOED_LEN: usize = 64;
 
 /// A message that could not be decoded.
 ///
@@ -114,12 +117,18 @@ impl DecodeError {
         DecodeError::about(None, None, kind)
     }
 
+    /// Keeps the ID and method only while they are short, so the error stays small whatever the
+    /// size of the message.
     pub(crate) fn about(
         id: Option<crate::json_rpc::Id>,
         method: Option<crate::json_rpc::Method>,
         kind: DecodeErrorKind,
     ) -> Self {
-        DecodeError { id, method, kind }
+        DecodeError {
+            id: id.filter(|id| id.text_len() <= MAX_ECHOED_LEN),
+            method: method.filter(|method| method.as_str().len() <= MAX_ECHOED_LEN),
+            kind,
+        }
     }
 }
 
@@ -161,7 +170,7 @@ pub enum ResponseError {
 impl std::fmt::Display for ResponseError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            ResponseError::Rpc(e) => write!(f, "peer error {}: {}", e.code, e.message),
+            ResponseError::Rpc(e) => write!(f, "peer error {}: {:?}", e.code, e.message),
             ResponseError::InvalidResult(e) => write!(f, "unexpected result: {e}"),
         }
     }

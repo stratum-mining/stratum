@@ -168,13 +168,25 @@ impl From<String> for Method {
     }
 }
 
+/// Unknown method names come from the peer, so they are escaped.
 impl fmt::Display for Method {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())
+        match self {
+            Method::Other(method) => write!(f, "{method:?}"),
+            known => f.write_str(known.as_str()),
+        }
     }
 }
 
 impl Id {
+    /// The length of a string ID; numeric IDs count as their longest decimal form.
+    pub(crate) fn text_len(&self) -> usize {
+        match &self.0 {
+            IdRepr::String(id) => id.len(),
+            IdRepr::Unsigned(_) | IdRepr::Negative(_) => 20,
+        }
+    }
+
     fn from_value(value: Value) -> Result<Id, &'static str> {
         match value {
             Value::Number(number) => {
@@ -442,15 +454,25 @@ impl fmt::Debug for Request {
     }
 }
 
-/// `mining.authorize` params carry the worker password.
+/// `mining.authorize` params carry the worker password, and a configure `info.connection-url`
+/// may carry credentials.
 struct RedactedParams<'a>(&'a Request);
+
+const CONNECTION_URL: &str = "/1/info.connection-url";
 
 impl fmt::Display for RedactedParams<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.0.method == Method::Authorize {
-            f.write_str("<redacted>")
-        } else {
-            write!(f, "{}", self.0.params)
+        let params = &self.0.params;
+        match self.0.method {
+            Method::Authorize => f.write_str("<redacted>"),
+            Method::Configure if params.pointer(CONNECTION_URL).is_some() => {
+                let mut params = params.clone();
+                if let Some(url) = params.pointer_mut(CONNECTION_URL) {
+                    *url = Value::from("<redacted>");
+                }
+                write!(f, "{params}")
+            }
+            _ => write!(f, "{params}"),
         }
     }
 }
