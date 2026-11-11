@@ -1,7 +1,5 @@
 use framing_sv2::header::Header;
-use parsers_sv2::{
-    parse_message_frame_with_tlvs, AnyMessage, TemplateDistribution, TemplateDistributionOwned, Tlv,
-};
+use parsers_sv2::{AnyMessage, TemplateDistributionOwned, Tlv};
 use template_distribution_sv2::*;
 
 use crate::error::HandlerErrorType;
@@ -40,19 +38,8 @@ pub trait HandleTemplateDistributionMessagesFromServerOwnedSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-        if negotiated_extensions.is_empty() {
-            let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
-                .try_into()
-                .map_err(Self::Error::parse_error)?;
-            return self.handle_template_distribution_message_from_server(
-                server_id,
-                parsed.into_owned(),
-                None,
-            );
-        }
-        let (parsed, tlv_fields) =
-            parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                .map_err(Self::Error::parse_error)?;
+        let (parsed, tlv_fields) = crate::decode_frame(header, payload, &negotiated_extensions)
+            .map_err(Self::Error::parse_error)?;
         match parsed {
             AnyMessage::TemplateDistribution(parsed) => self
                 .handle_template_distribution_message_from_server(
@@ -170,21 +157,8 @@ pub trait HandleTemplateDistributionMessagesFromServerOwnedAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-            if negotiated_extensions.is_empty() {
-                let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
-                    .try_into()
-                    .map_err(Self::Error::parse_error)?;
-                return self
-                    .handle_template_distribution_message_from_server(
-                        server_id,
-                        parsed.into_owned(),
-                        None,
-                    )
-                    .await;
-            }
-            let (parsed, tlv_fields) =
-                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                    .map_err(Self::Error::parse_error)?;
+            let (parsed, tlv_fields) = crate::decode_frame(header, payload, &negotiated_extensions)
+                .map_err(Self::Error::parse_error)?;
             match parsed {
                 AnyMessage::TemplateDistribution(parsed) => {
                     self.handle_template_distribution_message_from_server(
@@ -307,19 +281,8 @@ pub trait HandleTemplateDistributionMessagesFromClientOwnedSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-        if negotiated_extensions.is_empty() {
-            let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
-                .try_into()
-                .map_err(Self::Error::parse_error)?;
-            return self.handle_template_distribution_message_from_client(
-                client_id,
-                parsed.into_owned(),
-                None,
-            );
-        }
-        let (parsed, tlv_fields) =
-            parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                .map_err(Self::Error::parse_error)?;
+        let (parsed, tlv_fields) = crate::decode_frame(header, payload, &negotiated_extensions)
+            .map_err(Self::Error::parse_error)?;
         match parsed {
             AnyMessage::TemplateDistribution(parsed) => self
                 .handle_template_distribution_message_from_client(
@@ -431,21 +394,8 @@ pub trait HandleTemplateDistributionMessagesFromClientOwnedAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-            if negotiated_extensions.is_empty() {
-                let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
-                    .try_into()
-                    .map_err(Self::Error::parse_error)?;
-                return self
-                    .handle_template_distribution_message_from_client(
-                        client_id,
-                        parsed.into_owned(),
-                        None,
-                    )
-                    .await;
-            }
-            let (parsed, tlv_fields) =
-                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                    .map_err(Self::Error::parse_error)?;
+            let (parsed, tlv_fields) = crate::decode_frame(header, payload, &negotiated_extensions)
+                .map_err(Self::Error::parse_error)?;
             match parsed {
                 AnyMessage::TemplateDistribution(parsed) => {
                     self.handle_template_distribution_message_from_client(

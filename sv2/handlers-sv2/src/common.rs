@@ -1,6 +1,6 @@
 use common_messages_sv2::*;
 use framing_sv2::header::Header;
-use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, CommonMessages, Tlv};
+use parsers_sv2::{AnyMessage, CommonMessages, Tlv};
 
 use crate::error::HandlerErrorType;
 
@@ -38,15 +38,8 @@ pub trait HandleCommonMessagesFromServerSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-        if negotiated_extensions.is_empty() {
-            let parsed: CommonMessages<'_> = (header.msg_type(), payload)
-                .try_into()
-                .map_err(Self::Error::parse_error)?;
-            return self.handle_common_message_from_server(server_id, parsed, None);
-        }
-        let (message, tlv_fields) =
-            parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                .map_err(Self::Error::parse_error)?;
+        let (message, tlv_fields) = crate::decode_frame(header, payload, &negotiated_extensions)
+            .map_err(Self::Error::parse_error)?;
         match message {
             AnyMessage::Common(parsed) => {
                 self.handle_common_message_from_server(server_id, parsed, tlv_fields.as_deref())
@@ -154,17 +147,8 @@ pub trait HandleCommonMessagesFromServerAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-            if negotiated_extensions.is_empty() {
-                let parsed: CommonMessages<'_> = (header.msg_type(), payload)
-                    .try_into()
-                    .map_err(Self::Error::parse_error)?;
-                return self
-                    .handle_common_message_from_server(server_id, parsed, None)
-                    .await;
-            }
-            let (parsed, tlv_fields) =
-                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                    .map_err(Self::Error::parse_error)?;
+            let (parsed, tlv_fields) = crate::decode_frame(header, payload, &negotiated_extensions)
+                .map_err(Self::Error::parse_error)?;
             match parsed {
                 AnyMessage::Common(parsed) => {
                     self.handle_common_message_from_server(server_id, parsed, tlv_fields.as_deref())
@@ -280,15 +264,8 @@ pub trait HandleCommonMessagesFromClientSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-        if negotiated_extensions.is_empty() {
-            let parsed: CommonMessages<'_> = (header.msg_type(), payload)
-                .try_into()
-                .map_err(Self::Error::parse_error)?;
-            return self.handle_common_message_from_client(client_id, parsed, None);
-        }
-        let (parsed, tlv_fields) =
-            parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                .map_err(Self::Error::parse_error)?;
+        let (parsed, tlv_fields) = crate::decode_frame(header, payload, &negotiated_extensions)
+            .map_err(Self::Error::parse_error)?;
         match parsed {
             AnyMessage::Common(parsed) => {
                 self.handle_common_message_from_client(client_id, parsed, tlv_fields.as_deref())
@@ -379,17 +356,8 @@ pub trait HandleCommonMessagesFromClientAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-            if negotiated_extensions.is_empty() {
-                let parsed: CommonMessages<'_> = (header.msg_type(), payload)
-                    .try_into()
-                    .map_err(Self::Error::parse_error)?;
-                return self
-                    .handle_common_message_from_client(client_id, parsed, None)
-                    .await;
-            }
-            let (parsed, tlv_fields) =
-                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                    .map_err(Self::Error::parse_error)?;
+            let (parsed, tlv_fields) = crate::decode_frame(header, payload, &negotiated_extensions)
+                .map_err(Self::Error::parse_error)?;
             match parsed {
                 AnyMessage::Common(parsed) => {
                     self.handle_common_message_from_client(client_id, parsed, tlv_fields.as_deref())

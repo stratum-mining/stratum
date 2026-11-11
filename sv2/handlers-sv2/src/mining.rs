@@ -1,7 +1,7 @@
 use crate::error::HandlerErrorType;
 use framing_sv2::header::Header;
 use mining_sv2::*;
-use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, Mining, Tlv};
+use parsers_sv2::{AnyMessage, Mining, Tlv};
 
 /// Synchronous handler trait for processing mining messages received from servers.
 ///
@@ -37,15 +37,8 @@ pub trait HandleMiningMessagesFromServerSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-        if negotiated_extensions.is_empty() {
-            let parsed: Mining<'_> = (header.msg_type(), payload)
-                .try_into()
-                .map_err(Self::Error::parse_error)?;
-            return self.handle_mining_message_from_server(server_id, parsed, None);
-        }
-        let (parsed, tlv_fields) =
-            parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                .map_err(Self::Error::parse_error)?;
+        let (parsed, tlv_fields) = crate::decode_frame(header, payload, &negotiated_extensions)
+            .map_err(Self::Error::parse_error)?;
         match parsed {
             AnyMessage::Mining(parsed) => {
                 self.handle_mining_message_from_server(server_id, parsed, tlv_fields.as_deref())
@@ -283,17 +276,8 @@ pub trait HandleMiningMessagesFromServerAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-            if negotiated_extensions.is_empty() {
-                let parsed: Mining<'_> = (header.msg_type(), payload)
-                    .try_into()
-                    .map_err(Self::Error::parse_error)?;
-                return self
-                    .handle_mining_message_from_server(server_id, parsed, None)
-                    .await;
-            }
-            let (parsed, tlv_fields) =
-                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                    .map_err(Self::Error::parse_error)?;
+            let (parsed, tlv_fields) = crate::decode_frame(header, payload, &negotiated_extensions)
+                .map_err(Self::Error::parse_error)?;
             match parsed {
                 AnyMessage::Mining(parsed) => {
                     self.handle_mining_message_from_server(server_id, parsed, tlv_fields.as_deref())
@@ -556,15 +540,8 @@ pub trait HandleMiningMessagesFromClientSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-        if negotiated_extensions.is_empty() {
-            let parsed: Mining<'_> = (header.msg_type(), payload)
-                .try_into()
-                .map_err(Self::Error::parse_error)?;
-            return self.handle_mining_message_from_client(client_id, parsed, None);
-        }
-        let (parsed, tlv_fields) =
-            parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                .map_err(Self::Error::parse_error)?;
+        let (parsed, tlv_fields) = crate::decode_frame(header, payload, &negotiated_extensions)
+            .map_err(Self::Error::parse_error)?;
         match parsed {
             AnyMessage::Mining(parsed) => {
                 self.handle_mining_message_from_client(client_id, parsed, tlv_fields.as_deref())
@@ -753,17 +730,8 @@ pub trait HandleMiningMessagesFromClientAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-            if negotiated_extensions.is_empty() {
-                let parsed: Mining<'_> = (header.msg_type(), payload)
-                    .try_into()
-                    .map_err(Self::Error::parse_error)?;
-                return self
-                    .handle_mining_message_from_client(client_id, parsed, None)
-                    .await;
-            }
-            let (parsed, tlv_fields) =
-                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                    .map_err(Self::Error::parse_error)?;
+            let (parsed, tlv_fields) = crate::decode_frame(header, payload, &negotiated_extensions)
+                .map_err(Self::Error::parse_error)?;
             match parsed {
                 AnyMessage::Mining(parsed) => {
                     self.handle_mining_message_from_client(client_id, parsed, tlv_fields.as_deref())
