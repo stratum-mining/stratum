@@ -1,16 +1,7 @@
 use crate::error::HandlerErrorType;
 use framing_sv2::header::Header;
-use mining_sv2::{
-    CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel,
-    OpenExtendedMiningChannelSuccess, OpenMiningChannelError, OpenStandardMiningChannel,
-    OpenStandardMiningChannelSuccess, SetCustomMiningJob, SetCustomMiningJobError,
-    SetCustomMiningJobSuccess, SetExtranoncePrefix, SetGroupChannel, SetNewPrevHash, SetTarget,
-    SubmitSharesError, SubmitSharesExtended, SubmitSharesStandard, SubmitSharesSuccess,
-    UpdateChannel, UpdateChannelError,
-};
-use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, Mining, Tlv};
-
 use mining_sv2::*;
+use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, Mining, Tlv};
 
 #[derive(PartialEq, Eq, Copy, Clone)]
 pub enum SupportedChannelTypes {
