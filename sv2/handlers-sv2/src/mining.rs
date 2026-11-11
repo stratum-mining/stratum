@@ -3,13 +3,6 @@ use framing_sv2::header::Header;
 use mining_sv2::*;
 use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, Mining, Tlv};
 
-#[derive(PartialEq, Eq, Copy, Clone)]
-pub enum SupportedChannelTypes {
-    Standard,
-    Extended,
-    Group,
-    GroupAndExtended,
-}
 /// Synchronous handler trait for processing mining messages received from servers.
 ///
 /// The server ID identifies which server a message originated from.
@@ -23,7 +16,6 @@ pub enum SupportedChannelTypes {
 pub trait HandleMiningMessagesFromServerSync {
     type Error: HandlerErrorType;
 
-    fn get_channel_type_for_server(&self, server_id: Option<usize>) -> SupportedChannelTypes;
     fn is_work_selection_enabled_for_server(&self, server_id: Option<usize>) -> bool;
 
     /// Returns the list of negotiated extension_types with a server.
@@ -77,33 +69,16 @@ pub trait HandleMiningMessagesFromServerSync {
         message: Mining,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
-        let (channel_type, work_selection) = (
-            self.get_channel_type_for_server(server_id),
-            self.is_work_selection_enabled_for_server(server_id),
-        );
+        let work_selection = self.is_work_selection_enabled_for_server(server_id);
 
         use Mining::*;
         match message {
-            OpenStandardMiningChannelSuccess(m) => match channel_type {
-                SupportedChannelTypes::Standard
-                | SupportedChannelTypes::Group
-                | SupportedChannelTypes::GroupAndExtended => {
-                    self.handle_open_standard_mining_channel_success(server_id, m, tlv_fields)
-                }
-                _ => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS,
-                )),
-            },
-            OpenExtendedMiningChannelSuccess(m) => match channel_type {
-                SupportedChannelTypes::Extended | SupportedChannelTypes::GroupAndExtended => {
-                    self.handle_open_extended_mining_channel_success(server_id, m, tlv_fields)
-                }
-                _ => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCESS,
-                )),
-            },
+            OpenStandardMiningChannelSuccess(m) => {
+                self.handle_open_standard_mining_channel_success(server_id, m, tlv_fields)
+            }
+            OpenExtendedMiningChannelSuccess(m) => {
+                self.handle_open_extended_mining_channel_success(server_id, m, tlv_fields)
+            }
 
             OpenMiningChannelError(m) => {
                 self.handle_open_mining_channel_error(server_id, m, tlv_fields)
@@ -114,62 +89,31 @@ pub trait HandleMiningMessagesFromServerSync {
             SubmitSharesSuccess(m) => self.handle_submit_shares_success(server_id, m, tlv_fields),
             SubmitSharesError(m) => self.handle_submit_shares_error(server_id, m, tlv_fields),
 
-            NewMiningJob(m) => match channel_type {
-                SupportedChannelTypes::Standard => {
-                    self.handle_new_mining_job(server_id, m, tlv_fields)
-                }
-                _ => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_NEW_MINING_JOB,
-                )),
-            },
-            NewExtendedMiningJob(m) => match channel_type {
-                SupportedChannelTypes::Extended
-                | SupportedChannelTypes::Group
-                | SupportedChannelTypes::GroupAndExtended => {
-                    self.handle_new_extended_mining_job(server_id, m, tlv_fields)
-                }
-                _ => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB,
-                )),
-            },
+            NewMiningJob(m) => self.handle_new_mining_job(server_id, m, tlv_fields),
+            NewExtendedMiningJob(m) => {
+                self.handle_new_extended_mining_job(server_id, m, tlv_fields)
+            }
 
             SetNewPrevHash(m) => self.handle_set_new_prev_hash(server_id, m, tlv_fields),
 
-            SetCustomMiningJobSuccess(m) => match (channel_type, work_selection) {
-                (SupportedChannelTypes::Extended, true)
-                | (SupportedChannelTypes::GroupAndExtended, true) => {
-                    self.handle_set_custom_mining_job_success(server_id, m, tlv_fields)
-                }
-                _ => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS,
-                )),
-            },
-            SetCustomMiningJobError(m) => match (channel_type, work_selection) {
-                (SupportedChannelTypes::Extended, true)
-                | (SupportedChannelTypes::Group, true)
-                | (SupportedChannelTypes::GroupAndExtended, true) => {
-                    self.handle_set_custom_mining_job_error(server_id, m, tlv_fields)
-                }
-                _ => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR,
-                )),
-            },
+            SetCustomMiningJobSuccess(m) if work_selection => {
+                self.handle_set_custom_mining_job_success(server_id, m, tlv_fields)
+            }
+            SetCustomMiningJobSuccess(_) => Err(Self::Error::unexpected_message(
+                0,
+                MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS,
+            )),
+            SetCustomMiningJobError(m) if work_selection => {
+                self.handle_set_custom_mining_job_error(server_id, m, tlv_fields)
+            }
+            SetCustomMiningJobError(_) => Err(Self::Error::unexpected_message(
+                0,
+                MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR,
+            )),
 
             SetTarget(m) => self.handle_set_target(server_id, m, tlv_fields),
 
-            SetGroupChannel(m) => match channel_type {
-                SupportedChannelTypes::Group | SupportedChannelTypes::GroupAndExtended => {
-                    self.handle_set_group_channel(server_id, m, tlv_fields)
-                }
-                _ => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_SET_GROUP_CHANNEL,
-                )),
-            },
+            SetGroupChannel(m) => self.handle_set_group_channel(server_id, m, tlv_fields),
             SubmitSharesExtended(_) => Err(Self::Error::unexpected_message(
                 0,
                 MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
@@ -317,7 +261,6 @@ pub trait HandleMiningMessagesFromServerSync {
 pub trait HandleMiningMessagesFromServerAsync {
     type Error: HandlerErrorType;
 
-    fn get_channel_type_for_server(&self, server_id: Option<usize>) -> SupportedChannelTypes;
     fn is_work_selection_enabled_for_server(&self, server_id: Option<usize>) -> bool;
 
     /// Returns the list of negotiated extension_types with a server.
@@ -376,36 +319,19 @@ pub trait HandleMiningMessagesFromServerAsync {
         message: Mining,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
-        let (channel_type, work_selection) = (
-            self.get_channel_type_for_server(server_id),
-            self.is_work_selection_enabled_for_server(server_id),
-        );
+        let work_selection = self.is_work_selection_enabled_for_server(server_id);
 
         async move {
             use Mining::*;
             match message {
-                OpenStandardMiningChannelSuccess(m) => match channel_type {
-                    SupportedChannelTypes::Standard
-                    | SupportedChannelTypes::Group
-                    | SupportedChannelTypes::GroupAndExtended => {
-                        self.handle_open_standard_mining_channel_success(server_id, m, tlv_fields)
-                            .await
-                    }
-                    _ => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS,
-                    )),
-                },
-                OpenExtendedMiningChannelSuccess(m) => match channel_type {
-                    SupportedChannelTypes::Extended | SupportedChannelTypes::GroupAndExtended => {
-                        self.handle_open_extended_mining_channel_success(server_id, m, tlv_fields)
-                            .await
-                    }
-                    _ => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCESS,
-                    )),
-                },
+                OpenStandardMiningChannelSuccess(m) => {
+                    self.handle_open_standard_mining_channel_success(server_id, m, tlv_fields)
+                        .await
+                }
+                OpenExtendedMiningChannelSuccess(m) => {
+                    self.handle_open_extended_mining_channel_success(server_id, m, tlv_fields)
+                        .await
+                }
                 OpenMiningChannelError(m) => {
                     self.handle_open_mining_channel_error(server_id, m, tlv_fields)
                         .await
@@ -428,69 +354,40 @@ pub trait HandleMiningMessagesFromServerAsync {
                         .await
                 }
 
-                NewMiningJob(m) => match channel_type {
-                    SupportedChannelTypes::Standard => {
-                        self.handle_new_mining_job(server_id, m, tlv_fields).await
-                    }
-                    _ => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_NEW_MINING_JOB,
-                    )),
-                },
-                NewExtendedMiningJob(m) => match channel_type {
-                    SupportedChannelTypes::Extended
-                    | SupportedChannelTypes::Group
-                    | SupportedChannelTypes::GroupAndExtended => {
-                        self.handle_new_extended_mining_job(server_id, m, tlv_fields)
-                            .await
-                    }
-                    _ => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB,
-                    )),
-                },
+                NewMiningJob(m) => self.handle_new_mining_job(server_id, m, tlv_fields).await,
+                NewExtendedMiningJob(m) => {
+                    self.handle_new_extended_mining_job(server_id, m, tlv_fields)
+                        .await
+                }
 
                 SetNewPrevHash(m) => {
                     self.handle_set_new_prev_hash(server_id, m, tlv_fields)
                         .await
                 }
 
-                SetCustomMiningJobSuccess(m) => match (channel_type, work_selection) {
-                    (SupportedChannelTypes::Extended, true)
-                    | (SupportedChannelTypes::GroupAndExtended, true) => {
-                        self.handle_set_custom_mining_job_success(server_id, m, tlv_fields)
-                            .await
-                    }
-                    _ => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS,
-                    )),
-                },
-                SetCustomMiningJobError(m) => match (channel_type, work_selection) {
-                    (SupportedChannelTypes::Extended, true)
-                    | (SupportedChannelTypes::Group, true)
-                    | (SupportedChannelTypes::GroupAndExtended, true) => {
-                        self.handle_set_custom_mining_job_error(server_id, m, tlv_fields)
-                            .await
-                    }
-                    _ => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR,
-                    )),
-                },
+                SetCustomMiningJobSuccess(m) if work_selection => {
+                    self.handle_set_custom_mining_job_success(server_id, m, tlv_fields)
+                        .await
+                }
+                SetCustomMiningJobSuccess(_) => Err(Self::Error::unexpected_message(
+                    0,
+                    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS,
+                )),
+                SetCustomMiningJobError(m) if work_selection => {
+                    self.handle_set_custom_mining_job_error(server_id, m, tlv_fields)
+                        .await
+                }
+                SetCustomMiningJobError(_) => Err(Self::Error::unexpected_message(
+                    0,
+                    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR,
+                )),
 
                 SetTarget(m) => self.handle_set_target(server_id, m, tlv_fields).await,
 
-                SetGroupChannel(m) => match channel_type {
-                    SupportedChannelTypes::Group | SupportedChannelTypes::GroupAndExtended => {
-                        self.handle_set_group_channel(server_id, m, tlv_fields)
-                            .await
-                    }
-                    _ => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_SET_GROUP_CHANNEL,
-                    )),
-                },
+                SetGroupChannel(m) => {
+                    self.handle_set_group_channel(server_id, m, tlv_fields)
+                        .await
+                }
                 SubmitSharesExtended(_) => Err(Self::Error::unexpected_message(
                     0,
                     MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
@@ -638,7 +535,6 @@ pub trait HandleMiningMessagesFromServerAsync {
 pub trait HandleMiningMessagesFromClientSync {
     type Error: HandlerErrorType;
 
-    fn get_channel_type_for_client(&self, client_id: Option<usize>) -> SupportedChannelTypes;
     fn is_work_selection_enabled_for_client(&self, client_id: Option<usize>) -> bool;
 
     /// Returns the list of negotiated extension_types with a client.
@@ -691,65 +587,27 @@ pub trait HandleMiningMessagesFromClientSync {
         message: Mining,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
-        let (channel_type, work_selection) = (
-            self.get_channel_type_for_client(client_id),
-            self.is_work_selection_enabled_for_client(client_id),
-        );
+        let work_selection = self.is_work_selection_enabled_for_client(client_id);
 
         use Mining::*;
         match message {
-            OpenStandardMiningChannel(m) => match channel_type {
-                SupportedChannelTypes::Standard
-                | SupportedChannelTypes::Group
-                | SupportedChannelTypes::GroupAndExtended => {
-                    self.handle_open_standard_mining_channel(client_id, m, tlv_fields)
-                }
-                SupportedChannelTypes::Extended => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
-                )),
-            },
-            OpenExtendedMiningChannel(m) => match channel_type {
-                SupportedChannelTypes::Extended | SupportedChannelTypes::GroupAndExtended => {
-                    self.handle_open_extended_mining_channel(client_id, m, tlv_fields)
-                }
-                _ => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
-                )),
-            },
+            OpenStandardMiningChannel(m) => {
+                self.handle_open_standard_mining_channel(client_id, m, tlv_fields)
+            }
+            OpenExtendedMiningChannel(m) => {
+                self.handle_open_extended_mining_channel(client_id, m, tlv_fields)
+            }
             UpdateChannel(m) => self.handle_update_channel(client_id, m, tlv_fields),
 
-            SubmitSharesStandard(m) => match channel_type {
-                SupportedChannelTypes::Standard
-                | SupportedChannelTypes::Group
-                | SupportedChannelTypes::GroupAndExtended => {
-                    self.handle_submit_shares_standard(client_id, m, tlv_fields)
-                }
-                SupportedChannelTypes::Extended => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_SUBMIT_SHARES_STANDARD,
-                )),
-            },
-            SubmitSharesExtended(m) => match channel_type {
-                SupportedChannelTypes::Extended | SupportedChannelTypes::GroupAndExtended => {
-                    self.handle_submit_shares_extended(client_id, m, tlv_fields)
-                }
-                _ => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
-                )),
-            },
-            SetCustomMiningJob(m) => match (channel_type, work_selection) {
-                (SupportedChannelTypes::Extended, true)
-                | (SupportedChannelTypes::GroupAndExtended, true) => {
-                    self.handle_set_custom_mining_job(client_id, m, tlv_fields)
-                }
-                _ => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB,
-                )),
-            },
+            SubmitSharesStandard(m) => self.handle_submit_shares_standard(client_id, m, tlv_fields),
+            SubmitSharesExtended(m) => self.handle_submit_shares_extended(client_id, m, tlv_fields),
+            SetCustomMiningJob(m) if work_selection => {
+                self.handle_set_custom_mining_job(client_id, m, tlv_fields)
+            }
+            SetCustomMiningJob(_) => Err(Self::Error::unexpected_message(
+                0,
+                MESSAGE_TYPE_SET_CUSTOM_MINING_JOB,
+            )),
             CloseChannel(m) => self.handle_close_channel(client_id, m, tlv_fields),
             NewExtendedMiningJob(_) => Err(Self::Error::unexpected_message(
                 0,
@@ -873,7 +731,6 @@ pub trait HandleMiningMessagesFromClientSync {
 pub trait HandleMiningMessagesFromClientAsync {
     type Error: HandlerErrorType;
 
-    fn get_channel_type_for_client(&self, client_id: Option<usize>) -> SupportedChannelTypes;
     fn is_work_selection_enabled_for_client(&self, client_id: Option<usize>) -> bool;
 
     /// Returns the list of negotiated extension types for a client.
@@ -932,71 +789,37 @@ pub trait HandleMiningMessagesFromClientAsync {
         message: Mining,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
-        let (channel_type, work_selection) = (
-            self.get_channel_type_for_client(client_id),
-            self.is_work_selection_enabled_for_client(client_id),
-        );
+        let work_selection = self.is_work_selection_enabled_for_client(client_id);
 
         async move {
             use Mining::*;
             match message {
-                OpenStandardMiningChannel(m) => match channel_type {
-                    SupportedChannelTypes::Standard
-                    | SupportedChannelTypes::Group
-                    | SupportedChannelTypes::GroupAndExtended => {
-                        self.handle_open_standard_mining_channel(client_id, m, tlv_fields)
-                            .await
-                    }
-                    SupportedChannelTypes::Extended => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
-                    )),
-                },
-                OpenExtendedMiningChannel(m) => match channel_type {
-                    SupportedChannelTypes::Extended | SupportedChannelTypes::GroupAndExtended => {
-                        self.handle_open_extended_mining_channel(client_id, m, tlv_fields)
-                            .await
-                    }
-                    _ => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
-                    )),
-                },
+                OpenStandardMiningChannel(m) => {
+                    self.handle_open_standard_mining_channel(client_id, m, tlv_fields)
+                        .await
+                }
+                OpenExtendedMiningChannel(m) => {
+                    self.handle_open_extended_mining_channel(client_id, m, tlv_fields)
+                        .await
+                }
                 UpdateChannel(m) => self.handle_update_channel(client_id, m, tlv_fields).await,
 
-                SubmitSharesStandard(m) => match channel_type {
-                    SupportedChannelTypes::Standard
-                    | SupportedChannelTypes::Group
-                    | SupportedChannelTypes::GroupAndExtended => {
-                        self.handle_submit_shares_standard(client_id, m, tlv_fields)
-                            .await
-                    }
-                    SupportedChannelTypes::Extended => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_SUBMIT_SHARES_STANDARD,
-                    )),
-                },
-                SubmitSharesExtended(m) => match channel_type {
-                    SupportedChannelTypes::Extended | SupportedChannelTypes::GroupAndExtended => {
-                        self.handle_submit_shares_extended(client_id, m, tlv_fields)
-                            .await
-                    }
-                    _ => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
-                    )),
-                },
-                SetCustomMiningJob(m) => match (channel_type, work_selection) {
-                    (SupportedChannelTypes::Extended, true)
-                    | (SupportedChannelTypes::GroupAndExtended, true) => {
-                        self.handle_set_custom_mining_job(client_id, m, tlv_fields)
-                            .await
-                    }
-                    _ => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_SET_CUSTOM_MINING_JOB,
-                    )),
-                },
+                SubmitSharesStandard(m) => {
+                    self.handle_submit_shares_standard(client_id, m, tlv_fields)
+                        .await
+                }
+                SubmitSharesExtended(m) => {
+                    self.handle_submit_shares_extended(client_id, m, tlv_fields)
+                        .await
+                }
+                SetCustomMiningJob(m) if work_selection => {
+                    self.handle_set_custom_mining_job(client_id, m, tlv_fields)
+                        .await
+                }
+                SetCustomMiningJob(_) => Err(Self::Error::unexpected_message(
+                    0,
+                    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB,
+                )),
                 CloseChannel(m) => self.handle_close_channel(client_id, m, tlv_fields).await,
                 NewExtendedMiningJob(_) => Err(Self::Error::unexpected_message(
                     0,
