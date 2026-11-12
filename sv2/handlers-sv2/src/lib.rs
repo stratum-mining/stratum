@@ -12,6 +12,22 @@ mod template_distribution_owned;
 
 pub use error::HandlerErrorType;
 
+use framing_sv2::header::Header;
+use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, ParserError, Tlv};
+
+/// Decodes a frame through the header-checked `AnyMessage` parser, reading the TLV suffix only
+/// when extensions were negotiated.
+fn decode_frame<'a>(
+    header: Header,
+    payload: &'a mut [u8],
+    negotiated_extensions: &[u16],
+) -> Result<(AnyMessage<'a>, Option<Vec<Tlv>>), ParserError> {
+    if negotiated_extensions.is_empty() {
+        return Ok((AnyMessage::try_from((header, payload))?, None));
+    }
+    parse_message_frame_with_tlvs(header, payload, negotiated_extensions)
+}
+
 pub use common::{
     HandleCommonMessagesFromClientAsync, HandleCommonMessagesFromClientSync,
     HandleCommonMessagesFromServerAsync, HandleCommonMessagesFromServerSync,
@@ -19,7 +35,7 @@ pub use common::{
 
 pub use mining::{
     HandleMiningMessagesFromClientAsync, HandleMiningMessagesFromClientSync,
-    HandleMiningMessagesFromServerAsync, HandleMiningMessagesFromServerSync, SupportedChannelTypes,
+    HandleMiningMessagesFromServerAsync, HandleMiningMessagesFromServerSync,
 };
 
 pub use template_distribution::{

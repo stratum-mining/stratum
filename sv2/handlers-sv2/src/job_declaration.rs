@@ -1,11 +1,6 @@
 use framing_sv2::header::Header;
-use job_declaration_sv2::{
-    MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
-    MESSAGE_TYPE_DECLARE_MINING_JOB, MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
-    MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
-    MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PUSH_SOLUTION, *,
-};
-use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, JobDeclaration, Tlv};
+use job_declaration_sv2::*;
+use parsers_sv2::{AnyMessage, JobDeclaration, Tlv};
 
 use crate::error::HandlerErrorType;
 
@@ -18,7 +13,7 @@ use crate::error::HandlerErrorType;
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_server()`.
 pub trait HandleJobDeclarationMessagesFromServerSync {
@@ -43,15 +38,8 @@ pub trait HandleJobDeclarationMessagesFromServerSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-        if negotiated_extensions.is_empty() {
-            let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
-                .try_into()
-                .map_err(Self::Error::parse_error)?;
-            return self.handle_job_declaration_message_from_server(server_id, parsed, None);
-        }
-        let (parsed, tlv_fields) =
-            parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                .map_err(Self::Error::parse_error)?;
+        let (parsed, tlv_fields) = crate::decode_frame(header, payload, &negotiated_extensions)
+            .map_err(Self::Error::parse_error)?;
         match parsed {
             AnyMessage::JobDeclaration(parsed) => self.handle_job_declaration_message_from_server(
                 server_id,
@@ -149,7 +137,7 @@ pub trait HandleJobDeclarationMessagesFromServerSync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_server()`.
 #[trait_variant::make(Send)]
@@ -176,17 +164,8 @@ pub trait HandleJobDeclarationMessagesFromServerAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-            if negotiated_extensions.is_empty() {
-                let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
-                    .try_into()
-                    .map_err(Self::Error::parse_error)?;
-                return self
-                    .handle_job_declaration_message_from_server(server_id, parsed, None)
-                    .await;
-            }
-            let (parsed, tlv_fields) =
-                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                    .map_err(Self::Error::parse_error)?;
+            let (parsed, tlv_fields) = crate::decode_frame(header, payload, &negotiated_extensions)
+                .map_err(Self::Error::parse_error)?;
             match parsed {
                 AnyMessage::JobDeclaration(parsed) => {
                     self.handle_job_declaration_message_from_server(
@@ -294,7 +273,7 @@ pub trait HandleJobDeclarationMessagesFromServerAsync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_client()`.
 pub trait HandleJobDeclarationMessagesFromClientSync {
@@ -319,15 +298,8 @@ pub trait HandleJobDeclarationMessagesFromClientSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-        if negotiated_extensions.is_empty() {
-            let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
-                .try_into()
-                .map_err(Self::Error::parse_error)?;
-            return self.handle_job_declaration_message_from_client(client_id, parsed, None);
-        }
-        let (parsed, tlv_fields) =
-            parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                .map_err(Self::Error::parse_error)?;
+        let (parsed, tlv_fields) = crate::decode_frame(header, payload, &negotiated_extensions)
+            .map_err(Self::Error::parse_error)?;
         match parsed {
             AnyMessage::JobDeclaration(parsed) => self.handle_job_declaration_message_from_client(
                 client_id,
@@ -423,7 +395,7 @@ pub trait HandleJobDeclarationMessagesFromClientSync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_client()`.
 #[trait_variant::make(Send)]
@@ -450,17 +422,8 @@ pub trait HandleJobDeclarationMessagesFromClientAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-            if negotiated_extensions.is_empty() {
-                let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
-                    .try_into()
-                    .map_err(Self::Error::parse_error)?;
-                return self
-                    .handle_job_declaration_message_from_client(client_id, parsed, None)
-                    .await;
-            }
-            let (parsed, tlv_fields) =
-                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                    .map_err(Self::Error::parse_error)?;
+            let (parsed, tlv_fields) = crate::decode_frame(header, payload, &negotiated_extensions)
+                .map_err(Self::Error::parse_error)?;
             match parsed {
                 AnyMessage::JobDeclaration(parsed) => {
                     self.handle_job_declaration_message_from_client(
