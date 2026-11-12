@@ -34,7 +34,7 @@
 //! ## Responder authentication
 //!
 //! The responder is only authenticated when the [`Initiator`] is given the responder's authority
-//! public key, which it uses to verify the certificate received during the handshake. An
+//! public key, which it uses to verify the certificate formed during the handshake. An
 //! [`Initiator`] built without one, through `Initiator::without_pk` or `Initiator::new` with
 //! `None`, accepts any responder and yields an encrypted but unauthenticated session that the
 //! crate does not distinguish from an authenticated one. Always pin the authority key for
@@ -49,7 +49,7 @@
 //! [`Responder::from_authority_kp`] instead sign a certificate on every handshake and need the
 //! authority private key on the server; they are meant for development and testing.
 //!
-//! [`SignatureNoiseMessage`] is the certificate itself: the issuer encodes the version and the
+//! The certificate travels as a [`SignatureNoiseMessage`]: the issuer encodes the version and the
 //! validity window with its `From` conversion into bytes, signs them over the server's static key
 //! with [`SignatureNoiseMessage::sign_with_rng`], and hands the 74 bytes to the server.
 
@@ -215,4 +215,4 @@ impl NoiseDecryptor {
 pub use error::Error;
 pub use initiator::Initiator;
 pub use responder::Responder;
-pub use signature_message::SignatureNoiseMessage;
+pub use signature_message::{CertificateError, SignatureNoiseMessage};

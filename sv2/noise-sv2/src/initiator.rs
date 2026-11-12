@@ -149,10 +149,11 @@ impl Initiator {
     /// Creates a new [`Initiator`] instance with an optional responder authority public key.
     ///
     /// If the responder authority public key is provided, the initiator uses this key to
-    /// authenticate the responder during the handshake: the certificate received in
-    /// [`Self::step_2`] must be signed by this key and be inside its validity window, otherwise
-    /// the handshake fails with [`Error::InvalidCertificate`]. The initial initiator state is
-    /// instantiated with the ephemeral key pair and handshake hash.
+    /// authenticate the responder during the handshake: the certificate formed by the
+    /// [`SignatureNoiseMessage`] received in [`Self::step_2`] and the responder's static key must
+    /// carry a supported version, be signed by this key and be inside its validity window,
+    /// otherwise the handshake fails with [`Error::InvalidCertificate`]. The initial initiator
+    /// state is instantiated with the ephemeral key pair and handshake hash.
     ///
     /// # Security
     ///
@@ -292,13 +293,15 @@ impl Initiator {
     /// The next 80 bytes of the message contain the responder's static public key, encrypted and
     /// authenticated. The method decrypts this segment and derives another shared secret using the
     /// responder's static public key, further securing the handshake state. Finally, the method
-    /// decrypts the certificate included in the message and, if this [`Initiator`] was built with
-    /// a responder authority public key, verifies it to ensure the responder's authenticity.
+    /// decrypts the [`SignatureNoiseMessage`] included in the message and, if this [`Initiator`]
+    /// was built with a responder authority public key, verifies the certificate it forms with the
+    /// responder's static public key to ensure the responder's authenticity.
     ///
     /// On success, this method returns a [`NoiseEngine`] instance initialized with session ciphers
     /// for secure communication. If the provided `message` has an incorrect length, it returns an
-    /// [`Error::InvalidMessageLength`]. If decryption or signature verification fails, it returns
-    /// an [`Error::InvalidCertificate`].
+    /// [`Error::InvalidMessageLength`]. If the certificate fails verification, it returns an
+    /// [`Error::InvalidCertificate`] carrying the [`SignatureNoiseMessage`] and the check it
+    /// failed.
     ///
     /// # Security
     ///
@@ -381,7 +384,8 @@ impl Initiator {
         self.mix_key(&ecdh_static);
         ecdh_static.zeroize();
 
-        // Decrypt and verify the SignatureNoiseMessage
+        // Decrypt the SignatureNoiseMessage and verify the certificate it forms with the
+        // responder's static key
         let mut to_decrypt = message[ELLSWIFT_ENCODING_SIZE + ENCRYPTED_ELLSWIFT_ENCODING_SIZE
             ..INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE]
             .to_vec();
@@ -397,29 +401,33 @@ impl Initiator {
             .0
             .serialize();
         let rs_pk_xonly = XOnlyPublicKey::from_slice(&rs_pub_key).unwrap();
-        if signature_message.verify_with_now(&rs_pk_xonly, &self.responder_authority_pk, now) {
-            let (mut temp_k1, mut temp_k2) = Self::hkdf_2(self.get_ck(), &[]);
-            let c1 = ChaCha20Poly1305::new(Key::from_slice(&temp_k1[..]));
-            let c2 = ChaCha20Poly1305::new(Key::from_slice(&temp_k2[..]));
-            let c1: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k1, c1);
-            let c2: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k2, c2);
-            let mut encryptor = c1;
-            let mut decryptor = c2;
-            encryptor.erase_k();
-            decryptor.erase_k();
-            // The ciphers keep the only copies of the session keys from here on; `erase_k` above
-            // wiped the copies the `Cipher`s carried, and these are the ones the handshake used.
-            temp_k1.zeroize();
-            temp_k2.zeroize();
-            let engine = crate::NoiseEngine {
-                encryptor,
-                decryptor,
-            };
-            self.erase();
-            Ok(engine)
-        } else {
-            Err(Error::InvalidCertificate(plaintext.into()))
+        if let Err(reason) =
+            signature_message.verify_with_now(&rs_pk_xonly, &self.responder_authority_pk, now)
+        {
+            return Err(Error::InvalidCertificate {
+                signature_noise_message: signature_message,
+                reason,
+            });
         }
+        let (mut temp_k1, mut temp_k2) = Self::hkdf_2(self.get_ck(), &[]);
+        let c1 = ChaCha20Poly1305::new(Key::from_slice(&temp_k1[..]));
+        let c2 = ChaCha20Poly1305::new(Key::from_slice(&temp_k2[..]));
+        let c1: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k1, c1);
+        let c2: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k2, c2);
+        let mut encryptor = c1;
+        let mut decryptor = c2;
+        encryptor.erase_k();
+        decryptor.erase_k();
+        // The ciphers keep the only copies of the session keys from here on; `erase_k` above
+        // wiped the copies the `Cipher`s carried, and these are the ones the handshake used.
+        temp_k1.zeroize();
+        temp_k2.zeroize();
+        let engine = crate::NoiseEngine {
+            encryptor,
+            decryptor,
+        };
+        self.erase();
+        Ok(engine)
     }
 
     // Securely erases sensitive data from the [`Initiator`] memory.
