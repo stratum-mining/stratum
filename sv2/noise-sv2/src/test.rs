@@ -52,25 +52,18 @@ fn test_1_with_rng() {
 #[cfg(feature = "std")]
 #[cfg_attr(miri, ignore)]
 fn pre_issued_certificate_is_sent_verbatim() {
-    use crate::{
-        signature_message::SignatureNoiseMessage, Error, CERTIFICATE_VERSION,
-        SIGNATURE_NOISE_MESSAGE_SIZE,
-    };
+    use crate::{signature_message::SignatureNoiseMessage, Error};
 
     // Issued where the authority private key lives; the responder never sees that key.
     let authority = Responder::generate_key();
     let server_static = Responder::generate_key();
     let issue = |valid_from: u32, not_valid_after: u32| {
-        let mut certificate = [0u8; SIGNATURE_NOISE_MESSAGE_SIZE];
-        certificate[0..2].copy_from_slice(&CERTIFICATE_VERSION.to_le_bytes());
-        certificate[2..6].copy_from_slice(&valid_from.to_le_bytes());
-        certificate[6..10].copy_from_slice(&not_valid_after.to_le_bytes());
         SignatureNoiseMessage::sign(
-            &mut certificate,
+            valid_from,
+            not_valid_after,
             &server_static.x_only_public_key().0,
             &authority,
-        );
-        certificate
+        )
     };
     let handshake = |certificate| {
         let mut initiator = Initiator::new(Some(authority.public_key().into()));
@@ -104,9 +97,9 @@ fn pre_issued_certificate_is_sent_verbatim() {
     // So is one that the authority issued for another static key, which is what pairing the
     // wrong key file with a certificate amounts to.
     let other_static = Responder::generate_key();
-    let mut for_another_key = issue(now - 60, now + 60);
-    SignatureNoiseMessage::sign(
-        &mut for_another_key,
+    let for_another_key = SignatureNoiseMessage::sign(
+        now - 60,
+        now + 60,
         &other_static.x_only_public_key().0,
         &authority,
     );

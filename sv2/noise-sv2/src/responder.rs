@@ -97,9 +97,9 @@ enum CertificateSource {
         authority: Keypair,
         cert_validity: u32,
     },
-    // Send these bytes verbatim; they were issued where the authority private key is kept. See
+    // Send this certificate verbatim; it was issued where the authority private key is kept. See
     // [`Responder::from_certificate`].
-    PreIssued([u8; SIGNATURE_NOISE_MESSAGE_SIZE]),
+    PreIssued(SignatureNoiseMessage),
 }
 
 impl core::fmt::Debug for Responder {
@@ -210,7 +210,7 @@ impl Responder {
     /// Creates a new [`Responder`] from its static keypair `s` and a certificate issued for it in
     /// advance.
     ///
-    /// `certificate` is the 74-byte `SIGNATURE_NOISE_MESSAGE` (spec 4.5.2): the certificate
+    /// `certificate` is the `SIGNATURE_NOISE_MESSAGE` (spec 4.5.2): the certificate
     /// version, the validity window and the authority's Schnorr signature over those fields and
     /// the x-only public key of `s` (spec 4.5.3). [`Self::step_1`] sends it verbatim, so the
     /// validity window is the one the issuer chose and nothing on this host can extend it.
@@ -224,10 +224,7 @@ impl Responder {
     /// authority, or one outside its validity window, is sent as is and rejected by every
     /// initiator that pins the authority public key.
     #[cfg(feature = "std")]
-    pub fn from_certificate(
-        s: Keypair,
-        certificate: [u8; SIGNATURE_NOISE_MESSAGE_SIZE],
-    ) -> Box<Self> {
+    pub fn from_certificate(s: Keypair, certificate: SignatureNoiseMessage) -> Box<Self> {
         Self::from_certificate_with_rng(s, certificate, &mut rand::thread_rng())
     }
 
@@ -242,7 +239,7 @@ impl Responder {
     #[inline]
     pub fn from_certificate_with_rng<R: rand::Rng + rand::CryptoRng + ?Sized>(
         s: Keypair,
-        certificate: [u8; SIGNATURE_NOISE_MESSAGE_SIZE],
+        certificate: SignatureNoiseMessage,
         rng: &mut R,
     ) -> Box<Self> {
         Self::build(s, CertificateSource::PreIssued(certificate), rng)
@@ -430,19 +427,20 @@ impl Responder {
         ecdh_static.zeroize();
 
         // 7. appends `EncryptAndHash(SIGNATURE_NOISE_MESSAGE)` to the buffer
-        let signature_noise_message = match &self.certificate {
+        let signature_noise_message: [u8; SIGNATURE_NOISE_MESSAGE_SIZE] = match &self.certificate {
             CertificateSource::SignAtHandshake {
                 authority,
                 cert_validity,
-            } => self.get_signature(
-                crate::CERTIFICATE_VERSION,
+            } => SignatureNoiseMessage::sign_with_rng(
                 now,
                 now.saturating_add(*cert_validity),
+                &self.s.x_only_public_key().0,
                 authority,
                 rng,
             ),
             CertificateSource::PreIssued(certificate) => *certificate,
-        };
+        }
+        .into();
         let mut signature_part = Vec::with_capacity(ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE);
         signature_part.extend_from_slice(&signature_noise_message[..]);
         Self::encrypt_and_hash(self, &mut signature_part)?;
@@ -474,44 +472,6 @@ impl Responder {
         };
         self.erase();
         Ok((to_send, engine))
-    }
-
-    // Generates a signature noise message for the responder's certificate.
-    //
-    // This method creates a signature noise message that includes the protocol version,
-    // certificate validity period, and a cryptographic signature. The signature is created using
-    // the responder's static public key and the `authority` keypair, ensuring that the responder's
-    // identity and certificate validity are cryptographically verifiable.
-    #[inline]
-    fn get_signature<R: rand::Rng + rand::CryptoRng>(
-        &self,
-        version: u16,
-        valid_from: u32,
-        not_valid_after: u32,
-        authority: &Keypair,
-        rng: &mut R,
-    ) -> [u8; 74] {
-        let mut ret = [0; 74];
-        let version = version.to_le_bytes();
-        let valid_from = valid_from.to_le_bytes();
-        let not_valid_after = not_valid_after.to_le_bytes();
-        ret[0] = version[0];
-        ret[1] = version[1];
-        ret[2] = valid_from[0];
-        ret[3] = valid_from[1];
-        ret[4] = valid_from[2];
-        ret[5] = valid_from[3];
-        ret[6] = not_valid_after[0];
-        ret[7] = not_valid_after[1];
-        ret[8] = not_valid_after[2];
-        ret[9] = not_valid_after[3];
-        SignatureNoiseMessage::sign_with_rng(
-            &mut ret,
-            &self.s.x_only_public_key().0,
-            authority,
-            rng,
-        );
-        ret
     }
 
     // Securely erases sensitive data in the responder's memory.
