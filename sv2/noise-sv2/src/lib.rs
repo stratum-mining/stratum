@@ -48,6 +48,10 @@
 //! certificate over it, signed where the authority private key is kept. [`Responder::new`] and
 //! [`Responder::from_authority_kp`] instead sign a certificate on every handshake and need the
 //! authority private key on the server; they are meant for development and testing.
+//!
+//! [`SignatureNoiseMessage`] is the certificate itself: the issuer encodes the version and the
+//! validity window with its `From` conversion into bytes, signs them over the server's static key
+//! with [`SignatureNoiseMessage::sign_with_rng`], and hands the 74 bytes to the server.
 
 #![cfg_attr(all(not(feature = "std"), not(test)), no_std)]
 
@@ -106,6 +110,11 @@ pub const INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE: usize = ELLSWIFT_ENCODING_S
 /// Certificate format version implemented by this crate. Certificates signed
 /// for any other version are rejected during verification.
 pub const CERTIFICATE_VERSION: u16 = 0;
+
+/// Clock drift, in seconds, tolerated on both edges of a certificate's validity window by
+/// [`SignatureNoiseMessage::verify_with_now`], so that peers whose clocks disagree slightly still
+/// complete the handshake. See <https://github.com/stratum-mining/stratum/issues/2015>.
+pub const CERTIFICATE_TIME_LEEWAY: u32 = 10;
 
 /// If protocolName is less than or equal to 32 bytes in length, use
 /// protocolName with zero bytes appended to make 32 bytes. Otherwise, apply
@@ -206,3 +215,4 @@ impl NoiseDecryptor {
 pub use error::Error;
 pub use initiator::Initiator;
 pub use responder::Responder;
+pub use signature_message::SignatureNoiseMessage;

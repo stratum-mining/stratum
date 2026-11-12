@@ -7,19 +7,19 @@
 // using Schnorr signatures over the [`secp256k1`] elliptic curve. It encapsulates signed messages
 // along with versioning and validity timestamps. The following capabilities are supported:
 //
-// - Conversion of raw byte arrays into structured [`SignatureNoiseMessage`] instances.
+// - Conversion between the 74-byte wire layout and structured [`SignatureNoiseMessage`] instances.
 // - Message signing using Schnorr signatures and the [`secp256k1`] curve.
 // - Verification of signed messages, ensuring they fall within valid time periods and are signed by
 //   an authorized public key.
 //
 // ## Usage
 //
-// The [`SignatureNoiseMessage`] is used by both the [`crate::Responder`] and [`crate::Initiator`]
-// roles. The [`crate::Responder`] uses the `sign` method to generate a Schnorr signature over the
-// initial message sent by the initiator. The [`crate::Initiator`] uses the `verify` method to
-// check the validity of the signed message from the responder, comparing it against the provided
-// public key and optional authority key, while ensuring the message falls within the specified
-// validity period.
+// The [`SignatureNoiseMessage`] is the certificate a [`crate::Responder`] presents. Whoever holds
+// the authority key, the responder itself or a separate issuer, uses the `sign` method to produce
+// a Schnorr signature over the version, the validity period and the responder's static public
+// key. The [`crate::Initiator`] uses the `verify` method to check the validity of the signed
+// message from the responder, comparing it against the provided public key and optional authority
+// key, while ensuring the message falls within the specified validity period.
 
 use core::convert::TryInto;
 use core::fmt;
@@ -35,13 +35,13 @@ use secp256k1::{hashes::sha256, schnorr::Signature, Keypair, Message, Secp256k1,
 /// a specified time window, using Schnorr signatures over the `secp256k1` elliptic curve.
 #[derive(Debug, PartialEq, Eq)]
 pub struct SignatureNoiseMessage {
-    // Version of the protocol being used.
+    /// Certificate format version; only [`crate::CERTIFICATE_VERSION`] verifies.
     pub version: u16,
-    // Start of the validity period for the message, expressed as a Unix timestamp.
+    /// Start of the validity period for the message, expressed as a Unix timestamp.
     pub valid_from: u32,
-    // End of the validity period for the message, expressed as a Unix timestamp.
+    /// End of the validity period for the message, expressed as a Unix timestamp.
     pub not_valid_after: u32,
-    // 64-byte Schnorr signature that authenticates the message.
+    /// 64-byte Schnorr signature that authenticates the message.
     pub signature: [u8; 64],
 }
 
@@ -62,12 +62,22 @@ impl fmt::Display for SignatureNoiseMessage {
         write!(f, " }}")
     }
 }
+impl From<SignatureNoiseMessage> for [u8; 74] {
+    /// Encodes a [`SignatureNoiseMessage`] in the 74-byte layout the handshake carries: the
+    /// little-endian `version`, `valid_from` and `not_valid_after`, then the signature. The inverse
+    /// of the conversion from bytes.
+    fn from(value: SignatureNoiseMessage) -> Self {
+        let (header, signature) = value.split();
+        let mut encoded = [0; 74];
+        encoded[0..10].copy_from_slice(&header);
+        encoded[10..74].copy_from_slice(&signature);
+        encoded
+    }
+}
+
 impl From<[u8; 74]> for SignatureNoiseMessage {
-    // Converts a 74-byte array into a [`SignatureNoiseMessage`].
-    //
-    // Allows a raw 74-byte array to be converted into a [`SignatureNoiseMessage`], extracting the
-    // version, validity periods, and signature from the provided data. Panics if the byte array
-    // cannot be correctly converted into the struct fields.
+    /// Decodes the 74-byte layout the handshake carries: the little-endian `version`, `valid_from`
+    /// and `not_valid_after`, then the signature.
     fn from(value: [u8; 74]) -> Self {
         let version = u16::from_le_bytes(value[0..2].try_into().unwrap());
         let valid_from = u32::from_le_bytes(value[2..6].try_into().unwrap());
@@ -83,14 +93,8 @@ impl From<[u8; 74]> for SignatureNoiseMessage {
 }
 
 impl SignatureNoiseMessage {
-    // Verifies the [`SignatureNoiseMessage`] against the provided public key and an optional
-    // authority public key. The verification checks that the message is currently valid
-    // (i.e., within the `valid_from` and `not_valid_after` time window) and that the signature
-    // is correctly signed by the authority.
-    //
-    // If an authority public key is not provided, only the certificate version is checked; the
-    // signature and the validity window are ignored and the message is accepted as is.
-    #[allow(dead_code)]
+    /// Verifies the [`SignatureNoiseMessage`] against the provided public key and an optional
+    /// authority public key at the current system time. See [`Self::verify_with_now`].
     #[cfg(feature = "std")]
     pub fn verify(self, pk: &XOnlyPublicKey, authority_pk: &Option<XOnlyPublicKey>) -> bool {
         let now = std::time::SystemTime::now()
@@ -101,7 +105,7 @@ impl SignatureNoiseMessage {
     }
 
     /// Verifies the validity and authenticity of the `SignatureNoiseMessage` at a given timestamp
-    /// with 10 seconds of tolerance.
+    /// with [`crate::CERTIFICATE_TIME_LEEWAY`] seconds of tolerance.
     ///
     /// With an authority public key, the message must carry the supported certificate version,
     /// `now` must fall inside its validity window, and its signature over the responder's static
@@ -121,9 +125,7 @@ impl SignatureNoiseMessage {
         authority_pk: &Option<XOnlyPublicKey>,
         now: u32,
     ) -> bool {
-        // Allow the local clock to drift up to 10 seconds ahead or behind.
-        // See https://github.com/stratum-mining/stratum/issues/2015
-        const TIME_LEEWAY: u32 = 10;
+        use crate::CERTIFICATE_TIME_LEEWAY as TIME_LEEWAY;
 
         if self.version != crate::CERTIFICATE_VERSION {
             return false;
@@ -153,12 +155,11 @@ impl SignatureNoiseMessage {
         }
     }
 
-    // Signs a [`SignatureNoiseMessage`] using the provided keypair (`kp`).
-    //
-    // Creates a Schnorr signature for the message, combining the version, validity period, and
-    // the static public key of the server (`static_pk`). The resulting signature is then written
-    // into the provided message buffer (`msg`).
-    #[allow(dead_code)]
+    /// Signs a [`SignatureNoiseMessage`] using the provided keypair (`kp`).
+    ///
+    /// `msg` holds the encoded message, as produced by the conversion into `[u8; 74]`; its first 10
+    /// bytes (version and validity period) are signed together with the static public key of the
+    /// server (`static_pk`), and the resulting signature is written into its remaining 64 bytes.
     #[cfg(feature = "std")]
     pub fn sign(msg: &mut [u8; 74], static_pk: &XOnlyPublicKey, kp: &Keypair) {
         Self::sign_with_rng(msg, static_pk, kp, &mut rand::thread_rng());
@@ -213,6 +214,19 @@ impl SignatureNoiseMessage {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn byte_encoding_round_trips() {
+        let mut encoded = [0u8; 74];
+        for (i, b) in encoded.iter_mut().enumerate() {
+            *b = i as u8;
+        }
+        let message = SignatureNoiseMessage::from(encoded);
+        assert_eq!(message.version, u16::from_le_bytes([0, 1]));
+        assert_eq!(message.valid_from, u32::from_le_bytes([2, 3, 4, 5]));
+        assert_eq!(message.not_valid_after, u32::from_le_bytes([6, 7, 8, 9]));
+        assert_eq!(<[u8; 74]>::from(message), encoded);
+    }
 
     #[test]
     #[cfg(feature = "std")]
