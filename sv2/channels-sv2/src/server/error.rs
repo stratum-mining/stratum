@@ -23,13 +23,17 @@ pub enum ExtendedChannelError {
     OpenChannelInvalidMaxTarget(&'static str),
     /// See [`Self::OpenChannelInvalidMaxTarget`]; the channel is left unchanged.
     UpdateChannelInvalidMaxTarget(&'static str),
-    /// A target handed to `set_target` is zero, see [`Self::OpenChannelInvalidMaxTarget`]; the
-    /// channel is left unchanged.
+    /// A target handed to `set_target` is zero (see [`Self::OpenChannelInvalidMaxTarget`]) or
+    /// above the `max_target` most recently accepted for the channel, which a `SetTarget` MUST
+    /// NOT exceed (Sv2 spec §5.3.21); the channel is left unchanged.
     InvalidTarget,
     RequestedMinExtranonceSizeTooLarge(&'static str),
     JobFactoryError(JobFactoryError),
     ChainTipNotSet,
     TemplateIdNotFound,
+    /// No future job carries the `job_id` handed to
+    /// [`ExtendedChannel::activate_future_job`](super::extended::ExtendedChannel::activate_future_job);
+    /// the channel is left unchanged.
     JobIdNotFound,
     ExtranoncePrefixTooLarge,
     ScriptSigSizeTooLarge,
@@ -48,8 +52,15 @@ pub enum GroupChannelError {
     FullExtranonceSizeMismatch,
     ChainTipNotSet,
     TemplateIdNotFound,
+    /// No future job carries the `job_id` handed to
+    /// [`GroupChannel::activate_future_job`](super::group::GroupChannel::activate_future_job);
+    /// the group channel is left unchanged.
+    JobIdNotFound,
     JobFactoryError(JobFactoryError),
     ScriptSigSizeTooLarge,
+    /// An immediately-active job carried an `ntime_start` below the `ntime_start` of the chain tip
+    /// it is mined against; the job is discarded and the group channel left unchanged.
+    JobNtimeStartBelowChainTip,
 }
 
 /// Errors that can occur while operating a standard channel on the server side.
@@ -73,10 +84,15 @@ pub enum StandardChannelError {
     OpenChannelInvalidMaxTarget(&'static str),
     /// See [`Self::OpenChannelInvalidMaxTarget`]; the channel is left unchanged.
     UpdateChannelInvalidMaxTarget(&'static str),
-    /// A target handed to `set_target` is zero, see [`Self::OpenChannelInvalidMaxTarget`]; the
-    /// channel is left unchanged.
+    /// A target handed to `set_target` is zero (see [`Self::OpenChannelInvalidMaxTarget`]) or
+    /// above the `max_target` most recently accepted for the channel, which a `SetTarget` MUST
+    /// NOT exceed (Sv2 spec §5.3.21); the channel is left unchanged.
     InvalidTarget,
     TemplateIdNotFound,
+    /// No future job carries the `job_id` handed to
+    /// [`StandardChannel::activate_future_job`](super::standard::StandardChannel::activate_future_job);
+    /// the channel is left unchanged.
+    JobIdNotFound,
     ExtranoncePrefixTooLarge,
     JobFactoryError(JobFactoryError),
     ChainTipNotSet,

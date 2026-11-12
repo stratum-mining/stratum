@@ -24,7 +24,7 @@ message. The message framing is outlined below ([according to Sv2 specs
 Some bits of the `extension_type` field can also be repurposed for signaling on how the frame
 should be handled across channels.
 
-The least significant bit of `extension_type` (i.e.bit 15, 0-indexed, aka `channel_msg`) indicates
+The most significant bit of `extension_type` (i.e. bit 15, 0-indexed, aka `channel_msg`) indicates
 a message which is specific to a channel, whereas if the most significant bit is unset, the message
 is to be interpreted by the immediate receiving device.
 
@@ -62,7 +62,7 @@ This crate can be built with the following feature flags:
 
 This crate provides an example demonstrating how to serialize and deserialize Sv2 message frames:
 
-1. **[Sv2 Frame](https://github.com/stratum-mining/stratum/blob/main/protocols/v2/framing-sv2/examples/sv2_frame.rs)**:
+1. **[Sv2 Frame](https://github.com/stratum-mining/stratum/blob/main/sv2/framing-sv2/examples/sv2_frame.rs)**:
    Constructs, serializes, and deserialize a regular Sv2 message frame (`MessageFrame`).
 
 ### Benches

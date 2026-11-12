@@ -27,15 +27,19 @@ pub const VERSION_ROLLING_MASK: u32 = 0x1fffffe0;
 /// 2 hours in the future is consensus-invalid.
 ///
 /// Share validation enforces `share.ntime <= ntime_start + MAX_FUTURE_BLOCK_TIME`, where
-/// `ntime_start` is the referenced job's (the chain tip's for jobs built or activated under it),
-/// anchoring the consensus allowance at the receipt of the message that supplied it
+/// `ntime_start` is the referenced job's as the miner was told it on the wire (the chain tip's
+/// for jobs built from a template or activated under it, the application's own for a prebuilt
+/// job), anchoring the consensus allowance at the receipt of the message that supplied it
 /// (`ntime_start` ≈ wall time when that message arrived, since this crate is `no_std`-compatible
 /// and has no clock). The Sv2 spec imposes no protocol-level upper bound on `ntime`, leaving it to
 /// consensus and to server policy: embedding applications that have a time source can
 /// additionally enforce a tighter tolerance. The bound equals the consensus limit at receipt and
 /// becomes conservative as the job ages; a false rejection would require a >2h-old job *and* a
 /// miner stamping wall time instead of rolling from the job's `ntime_start` — a known, negligible
-/// edge.
+/// edge. It holds only because the `ntime_start` validated against is the one on the wire: a job
+/// validated against an older `ntime_start` than the miner was given (a job stamped with the
+/// time it was produced, validated against a chain tip over two hours old) would refuse every
+/// share rolled from the wire value, which is why a prebuilt job carries its own `ntime_start`.
 pub const MAX_FUTURE_BLOCK_TIME: u32 = 2 * 60 * 60;
 
 /// Worst-case chain-tip lifetime, in minutes, assumed when bounding the accepted-share dedup

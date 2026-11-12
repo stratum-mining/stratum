@@ -122,7 +122,29 @@ impl Fixed for f32 {
     const SIZE: usize = 4;
 }
 
-impl_sv2_for_unsigned!(f32);
+/// `F32` values are decoded without validation, preserving the exact wire bits so applications can
+/// inspect protocol violations. Serialization rejects values the protocol forbids: NaN,
+/// infinities, and negative values (including `-0.0`).
+impl<'a> Sv2DataType<'a> for f32 {
+    fn from_bytes_(data: &'a mut [u8]) -> Result<Self, Error> {
+        Self::size_hint(data, 0)?;
+        let bytes: &[u8; Self::SIZE] = data[0..Self::SIZE]
+            .try_into()
+            .expect("Try to decode a copy data type from a buffer that do not have enough bytes");
+        Ok(Self::from_le_bytes(*bytes))
+    }
+
+    fn to_slice(&'a self, dst: &mut [u8]) -> Result<usize, Error> {
+        if dst.len() < Self::SIZE {
+            return Err(Error::WriteError(Self::SIZE, dst.len()));
+        }
+        if !self.is_finite() || self.is_sign_negative() {
+            return Err(Error::InvalidF32(self.to_bits()));
+        }
+        dst[0..Self::SIZE].copy_from_slice(&self.to_le_bytes());
+        Ok(Self::SIZE)
+    }
+}
 
 /// Represents a 24-bit unsigned integer (`U24`), supporting SV2 serialization and deserialization.
 /// Only first 3 bytes of a u32 is considered to get the SV2 value, and rest are ignored (in little

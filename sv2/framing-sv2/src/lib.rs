@@ -46,7 +46,7 @@
 //!
 //! See the example for more information:
 //!
-//! - [Sv2 Frame Example](https://github.com/stratum-mining/stratum/blob/main/protocols/v2/framing-sv2/examples/sv2_frame.rs)
+//! - [Sv2 Frame Example](https://github.com/stratum-mining/stratum/blob/main/sv2/framing-sv2/examples/sv2_frame.rs)
 
 #![no_std]
 

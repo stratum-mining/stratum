@@ -6,7 +6,7 @@
 extern crate alloc;
 use super::{HashMap, MAX_FUTURE_JOBS, MAX_PAST_JOBS};
 use crate::{
-    bip141::try_strip_bip141,
+    bip141::{coinbase_witness, marker_flag_len, try_strip_bip141},
     chain_tip::ChainTip,
     client::{
         error::ExtendedChannelError,
@@ -25,7 +25,7 @@ use bitcoin::{
     consensus::{serialize, Decodable},
     hashes::sha256d::Hash,
     transaction::Version,
-    CompactTarget, OutPoint, Sequence, Target, Transaction, TxIn, TxOut, Witness,
+    CompactTarget, OutPoint, Sequence, Target, Transaction, TxIn, TxOut,
 };
 use mining_sv2::{
     NewExtendedMiningJobOwned, SetCustomMiningJobOwned, SetCustomMiningJobSuccess,
@@ -82,6 +82,9 @@ pub struct ExtendedChannel {
     rollable_extranonce_size: u16,
     target: Target,
     nominal_hashrate: f32,
+    /// Version-rolling capability the channel was opened with, mirroring the
+    /// `REQUIRES_VERSION_ROLLING` setup flag. Share validation follows each job's
+    /// `version_rolling_allowed`; custom jobs declared through this channel advertise this value.
     version_rolling: bool,
     // future jobs are indexed with job_id (u32)
     future_jobs: HashMap<u32, ExtendedJob>,
@@ -108,6 +111,12 @@ pub struct ExtendedChannel {
 
 impl ExtendedChannel {
     /// Constructs a new [`ExtendedChannel`].
+    ///
+    /// `version_rolling` is the capability the channel was opened with (what the embedder
+    /// requires), mirroring the `REQUIRES_VERSION_ROLLING` setup flag. It does not prohibit
+    /// rolling on received jobs: [`validate_share`](Self::validate_share) enforces each job's
+    /// `version_rolling_allowed`. Custom jobs declared through this channel advertise
+    /// `version_rolling`, since `SetCustomMiningJob` carries no version-rolling flag.
     ///
     /// `max_past_jobs` caps the past jobs retained under the current chain tip. `None` and
     /// `Some(0)` both select [`MAX_PAST_JOBS`].
@@ -187,7 +196,11 @@ impl ExtendedChannel {
         self.extranonce_prefix.upstream_prefix_len()
     }
 
-    /// Returns `true` if the channel supports version rolling as per [BIP 323](https://github.com/bitcoin/bips/blob/master/bip-0323.mediawiki).
+    /// Returns the version-rolling capability the channel was opened with, mirroring the
+    /// `REQUIRES_VERSION_ROLLING` setup flag (what the embedder requires).
+    ///
+    /// Share validation enforces each job's `version_rolling_allowed`, independently of this
+    /// value. Custom jobs declared through this channel advertise this value.
     pub fn is_version_rolling(&self) -> bool {
         self.version_rolling
     }
@@ -420,6 +433,8 @@ impl ExtendedChannel {
     /// Handles a [`NewExtendedMiningJob`](mining_sv2::NewExtendedMiningJob) message received from upstream.
     ///
     /// The message could be either directed at this channel, or at a group channel it belongs to.
+    /// Its `version_rolling_allowed` is stored as advertised, without comparison to the channel's
+    /// capability; an embedder requiring rolling must handle a stricter job itself.
     ///
     /// - If [`NewExtendedMiningJob::ntime_start`](mining_sv2::NewExtendedMiningJob::ntime_start) is empty, the job is considered a future job and
     ///   added to the future jobs list (see [`get_future_jobs`](ExtendedChannel::get_future_jobs)).
@@ -563,9 +578,7 @@ impl ExtendedChannel {
             previous_output: OutPoint::null(),
             script_sig: script_sig.into(),
             sequence: Sequence(set_custom_mining_job.coinbase_tx_input_n_sequence),
-            witness: Witness::from(vec![vec![0; 32]]), /* note: 32 bytes of zeros is only safe to
-                                                        * assume now, this could change in future
-                                                        * soft forks */
+            witness: coinbase_witness(&deserialized_outputs),
         };
 
         let coinbase = Transaction {
@@ -578,7 +591,7 @@ impl ExtendedChannel {
         let serialized_coinbase = serialize(&coinbase);
 
         let prefix_index = 4 // tx version
-            + 2 // segwit
+            + marker_flag_len(&coinbase.input[0].witness) // segwit marker and flag, if any
             + 1 // number of inputs
             + 32 // prev OutPoint
             + 4 // index
@@ -591,11 +604,12 @@ impl ExtendedChannel {
 
         let coinbase_tx_suffix = serialized_coinbase[suffix_index..].to_vec();
 
-        // strip bip141 bytes from coinbase_tx_prefix and coinbase_tx_suffix
+        // strip bip141 bytes from coinbase_tx_prefix and coinbase_tx_suffix; a coinbase without
+        // a witness commitment carries none, so its bytes are used as they are
         let (coinbase_tx_prefix_stripped_bip141, coinbase_tx_suffix_stripped_bip141) =
             try_strip_bip141(&coinbase_tx_prefix, &coinbase_tx_suffix)
                 .map_err(ExtendedChannelError::FailedToTryToStripBip141)?
-                .ok_or(ExtendedChannelError::FailedToStripBip141)?;
+                .unwrap_or_else(|| (coinbase_tx_prefix.clone(), coinbase_tx_suffix.clone()));
 
         let new_extended_mining_job = NewExtendedMiningJobOwned {
             channel_id: set_custom_mining_job.channel_id,
@@ -804,7 +818,11 @@ impl ExtendedChannel {
     ///   activated from the future queue, or the value its own message advertised for an
     ///   immediately-active job; see [`MAX_FUTURE_BLOCK_TIME`] for why this upper bound is
     ///   clockless).
-    /// - Indicates whether a block was found from the share.
+    /// - Indicates whether a block was found from the share. A block may still miss the job
+    ///   target (a legitimate state on networks whose target is easier than the channel's
+    ///   share target). Credited work is a threshold the hash met, never the hash's own
+    ///   difficulty: the job difficulty when the hash meets the job target, otherwise the
+    ///   network difficulty.
     /// - Maintains local share accounting for later reconciliation with upstream acknowledgements.
     ///   Duplicate detection is bounded at [`MAX_SEEN_SHARES`](crate::client::MAX_SEEN_SHARES)
     ///   validated shares per `prev_hash` (oldest evicted first), so an evicted share can be
@@ -971,12 +989,21 @@ impl ExtendedChannel {
                     ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE,
                 ));
             }
+            // credit a threshold, never the hash's own difficulty: the job difficulty when the
+            // hash meets the job target, otherwise the network difficulty (the network target
+            // may be easier than the job target, e.g. on regtest/testnet)
+            let block_work = if share_hash_target < job_target {
+                job_target.difficulty_float()
+            } else {
+                network_target.difficulty_float()
+            };
             self.share_accounting.track_validated_share(
                 share.sequence_number,
                 share_hash.to_raw_hash(),
-                job_target.difficulty_float(),
+                block_work,
             );
             self.share_accounting.increment_blocks_found();
+            self.share_accounting.update_best_diff(share_hash_as_diff);
             return Ok(ShareValidationResult::BlockFound(share_hash.to_raw_hash()));
         }
 
@@ -1025,10 +1052,14 @@ mod tests {
         },
     };
     use binary_sv2::Sv2OptionOwned as Sv2Option;
-    use bitcoin::Target;
+    use bitcoin::{
+        consensus::{deserialize, serialize},
+        Amount, ScriptBuf, Target, Transaction, TxOut,
+    };
     use mining_sv2::{
-        NewExtendedMiningJobOwned as NewExtendedMiningJob, SetNewPrevHashOwned as SetNewPrevHashMp,
-        SubmitSharesExtendedOwned as SubmitSharesExtended,
+        NewExtendedMiningJobOwned as NewExtendedMiningJob,
+        SetCustomMiningJobOwned as SetCustomMiningJob, SetCustomMiningJobSuccess,
+        SetNewPrevHashOwned as SetNewPrevHashMp, SubmitSharesExtendedOwned as SubmitSharesExtended,
         ERROR_CODE_SUBMIT_SHARES_INVALID_NON_ROLLABLE_VERSION_BIT,
     };
     use std::convert::TryInto;
@@ -1642,7 +1673,11 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
-        let target = Target::from_le_bytes([0xff; 32]);
+        // a channel target harder than the network target (7fffff..) but met by the pre-mined
+        // block hash (155d3f07..), so the block earns the job difficulty, not the network one
+        let mut target_bytes = [0u8; 32];
+        target_bytes[31] = 0x40;
+        let target = Target::from_le_bytes(target_bytes);
         let nominal_hashrate = 1.0;
         let version_rolling = true;
         let rollable_extranonce_size = 8u16;
@@ -1722,6 +1757,13 @@ mod tests {
 
         assert!(matches!(res, Ok(ShareValidationResult::BlockFound(_))));
         assert_eq!(channel.get_share_accounting().get_blocks_found(), 1);
+        // the hash also meets the job target, so the block earns the job difficulty
+        assert_eq!(
+            channel.get_share_accounting().get_validated_work_sum(),
+            target.difficulty_float()
+        );
+        // a block is the best share the channel has seen
+        assert!(channel.get_share_accounting().get_best_diff() > 0.0);
 
         // re-submitting the same valid block must be rejected as duplicate
         let res = channel.validate_share(share_valid_block);
@@ -1730,6 +1772,109 @@ mod tests {
             ShareValidationError::DuplicateShare(_)
         ));
         assert_eq!(channel.get_share_accounting().get_blocks_found(), 1);
+    }
+
+    #[test]
+    fn test_share_validation_block_found_below_job_target_earns_network_difficulty() {
+        // reuses the pre-mined share from test_share_validation_block_found: its hash
+        // 155d3f07a6fb97038dab34f71813b3f32e883c2d4ab4c75f606e1139d50eaebf meets the network
+        // target but misses this channel's target of 1, so it earns the network difficulty, not
+        // the astronomical job difficulty
+        let channel_id = 1;
+        let user_identity = "user_identity".to_string();
+        let extranonce_prefix = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        ]
+        .to_vec();
+        let mut tiny_target_bytes = [0u8; 32];
+        tiny_target_bytes[0] = 1;
+        let tiny_target = Target::from_le_bytes(tiny_target_bytes);
+        let nominal_hashrate = 1.0;
+        let version_rolling = true;
+        let rollable_extranonce_size = 8u16;
+
+        let mut channel = ExtendedChannel::new(
+            channel_id,
+            user_identity,
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
+            tiny_target,
+            nominal_hashrate,
+            version_rolling,
+            rollable_extranonce_size,
+            None,
+        )
+        .unwrap();
+
+        let future_job = NewExtendedMiningJob {
+            channel_id: 1,
+            job_id: 1,
+            ntime_start: Sv2Option::new(None),
+            version: 536870912,
+            version_rolling_allowed: true,
+            coinbase_tx_prefix: vec![
+                2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 34, 82, 0,
+            ]
+            .try_into()
+            .unwrap(),
+            coinbase_tx_suffix: vec![
+                255, 255, 255, 255, 2, 0, 242, 5, 42, 1, 0, 0, 0, 22, 0, 20, 235, 225, 183, 220,
+                194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 0, 0, 0,
+                0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209, 222,
+                253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180, 139,
+                235, 216, 54, 151, 78, 140, 249, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ]
+            .try_into()
+            .unwrap(),
+            merkle_path: vec![].try_into().unwrap(),
+        };
+
+        channel
+            .on_new_extended_mining_job(future_job.clone())
+            .unwrap();
+
+        // network target: 7fffff0000000000000000000000000000000000000000000000000000000000
+        let nbits = 545259519;
+        let prev_hash = [
+            200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144, 205,
+            88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
+        ];
+        let ntime: u32 = 1745596970;
+        let set_new_prev_hash = SetNewPrevHashMp {
+            channel_id,
+            job_id: future_job.job_id,
+            prev_hash: prev_hash.into(),
+            nbits,
+            ntime_start: ntime,
+        };
+
+        channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
+
+        let share_valid_block = SubmitSharesExtended {
+            channel_id,
+            sequence_number: 0,
+            job_id: 1,
+            nonce: 741057,
+            ntime: 1745596971,
+            version: 536870912,
+            extranonce: vec![1, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap(),
+        };
+
+        let res = channel.validate_share(share_valid_block);
+        let Ok(ShareValidationResult::BlockFound(share_hash)) = res else {
+            panic!("a network-valid block must still be propagated");
+        };
+
+        // the hash misses the job target, so the block earns the network difficulty
+        let raw_share_hash: [u8; 32] = *share_hash.as_ref();
+        assert!(Target::from_le_bytes(raw_share_hash) > tiny_target);
+        let network_difficulty =
+            Target::from_compact(bitcoin::CompactTarget::from_consensus(nbits)).difficulty_float();
+        assert_eq!(
+            channel.get_share_accounting().get_validated_work_sum(),
+            network_difficulty
+        );
     }
 
     #[test]
@@ -3703,5 +3848,75 @@ mod tests {
             channel.validate_share(share(2, 0)),
             Err(ShareValidationError::Stale(_))
         ));
+    }
+
+    #[test]
+    fn test_custom_job_success_without_witness_commitment() {
+        // the outputs carry no witness commitment, so the coinbase is built without a witness
+        // and serializes without the bip141 marker and flag; the job's prefix and suffix must
+        // still split it exactly around the extranonce
+        let mut channel = ExtendedChannel::new(
+            1,
+            "user_identity".to_string(),
+            ExtranoncePrefix::from_wire(vec![1; 24]).unwrap(),
+            Target::from_le_bytes([0xff; 32]),
+            1.0,
+            true,
+            8,
+            None,
+        )
+        .unwrap();
+        channel
+            .on_chain_tip_update(ChainTip::new([0u8; 32].into(), 503543726, 1746839905))
+            .unwrap();
+
+        let mut script_bytes = vec![0]; // SegWit version 0
+        script_bytes.push(20); // Push 20 bytes (length of pubkey hash)
+        script_bytes.extend_from_slice(&[
+            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
+            8, 252,
+        ]);
+        let coinbase_outputs = vec![TxOut {
+            value: Amount::from_sat(5_000_000_000),
+            script_pubkey: ScriptBuf::from(script_bytes),
+        }];
+        let coinbase_prefix = vec![0xab; 4];
+
+        let set_custom_mining_job = SetCustomMiningJob {
+            channel_id: 1,
+            request_id: 1,
+            token: vec![0].try_into().unwrap(),
+            version: 536870912,
+            prev_hash: [0u8; 32].into(),
+            ntime_start: 1746839905,
+            nbits: 503543726,
+            coinbase_tx_version: 2,
+            coinbase_prefix: coinbase_prefix.clone().try_into().unwrap(),
+            coinbase_tx_input_n_sequence: 4294967295,
+            coinbase_tx_outputs: serialize(&coinbase_outputs).try_into().unwrap(),
+            coinbase_tx_locktime: 0,
+            merkle_path: vec![].try_into().unwrap(),
+        };
+        let set_custom_mining_job_success = SetCustomMiningJobSuccess {
+            channel_id: 1,
+            request_id: 1,
+            job_id: 1,
+        };
+        channel
+            .on_set_custom_mining_job_success(set_custom_mining_job, set_custom_mining_job_success)
+            .unwrap();
+
+        let job_message = &channel.get_active_job().unwrap().job_message;
+        let full_extranonce = vec![0xee; channel.get_full_extranonce_size()];
+        let mut serialized_coinbase = job_message.coinbase_tx_prefix.to_owned_bytes();
+        serialized_coinbase.extend(&full_extranonce);
+        serialized_coinbase.extend(job_message.coinbase_tx_suffix.as_bytes());
+        let coinbase: Transaction = deserialize(&serialized_coinbase).unwrap();
+
+        assert_eq!(
+            coinbase.input[0].script_sig.as_bytes(),
+            [coinbase_prefix, full_extranonce].concat()
+        );
+        assert_eq!(coinbase.output, coinbase_outputs);
     }
 }

@@ -4,10 +4,11 @@
 //!
 //! These generators produce **wire-format-valid** byte sequences, not
 //! protocol-semantically valid messages. The output MUST always be parseable
-//! by the corresponding `from_bytes` implementation for each type. Field
-//! values may be intentionally non-spec-compliant, since the reference
-//! implementation does not enforce protocol-level semantic constraints during
-//! serialization or deserialization.
+//! by the corresponding `from_bytes` implementation and serializable by the
+//! corresponding `to_bytes` implementation for each type. Field values may be
+//! intentionally non-spec-compliant, except where the reference implementation
+//! enforces a protocol-level constraint during serialization, as it does for
+//! `F32` (NaN, ±Infinity, and negative values are rejected).
 //!
 //! If parsing fails, it may indicate a bug in the SRI implementation or an
 //! issue in the generators themselves.
@@ -56,9 +57,16 @@ pub fn gen_u64(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
     Ok(u.arbitrary::<u64>()?.to_le_bytes().to_vec())
 }
 
-/// Generates an `f32` in little-endian wire format.
+/// Generates a finite, non-negative `f32` in little-endian wire format.
+///
+/// Invalid values are covered by raw-bytes fuzzing, while generator mode needs values that the
+/// serializer accepts.
 pub fn gen_f32(u: &mut Unstructured) -> arbitrary::Result<Vec<u8>> {
-    Ok(u.arbitrary::<f32>()?.to_le_bytes().to_vec())
+    let mut bits = u.arbitrary::<u32>()? & 0x7fff_ffff;
+    if bits & 0x7f80_0000 == 0x7f80_0000 {
+        bits &= 0x007f_ffff;
+    }
+    Ok(f32::from_bits(bits).to_le_bytes().to_vec())
 }
 
 // the bool type has a weird behavior where we should only look at the
