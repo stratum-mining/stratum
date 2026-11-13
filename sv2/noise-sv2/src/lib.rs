@@ -34,11 +34,25 @@
 //! ## Responder authentication
 //!
 //! The responder is only authenticated when the [`Initiator`] is given the responder's authority
-//! public key, which it uses to verify the certificate received during the handshake. An
+//! public key, which it uses to verify the certificate formed during the handshake. An
 //! [`Initiator`] built without one, through `Initiator::without_pk` or `Initiator::new` with
-//! `None`, accepts any responder and yields an encrypted but unauthenticated session that the
-//! crate does not distinguish from an authenticated one. Always pin the authority key for
-//! connections that cross a network boundary.
+//! `None`, accepts any responder and yields an encrypted but unauthenticated session: the
+//! handshake still succeeds, and only the missing [`NoiseEngine::certificate`] tells it apart
+//! from an authenticated one. Always pin the authority key for connections that cross a network
+//! boundary.
+//!
+//! ## Authority key custody
+//!
+//! Clients pin the authority public key, and neither the spec nor this crate defines revocation,
+//! so a leaked authority private key impersonates the operator for as long as any client trusts it.
+//! [`Responder::from_certificate`] lets an internet-facing server hold only its static key and a
+//! certificate over it, signed where the authority private key is kept. [`Responder::new`] and
+//! [`Responder::from_authority_kp`] instead sign a certificate on every handshake and need the
+//! authority private key on the server; they are meant for development and testing.
+//!
+//! The certificate travels as a [`SignatureNoiseMessage`]: the issuer encodes the version and the
+//! validity window with its `From` conversion into bytes, signs them over the server's static key
+//! with [`SignatureNoiseMessage::sign_with_rng`], and hands the 74 bytes to the server.
 
 #![cfg_attr(all(not(feature = "std"), not(test)), no_std)]
 
@@ -98,6 +112,11 @@ pub const INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE: usize = ELLSWIFT_ENCODING_S
 /// for any other version are rejected during verification.
 pub const CERTIFICATE_VERSION: u16 = 0;
 
+/// Clock drift, in seconds, tolerated on both edges of a certificate's validity window by
+/// [`SignatureNoiseMessage::verify_with_now`], so that peers whose clocks disagree slightly still
+/// complete the handshake. See <https://github.com/stratum-mining/stratum/issues/2015>.
+pub const CERTIFICATE_TIME_LEEWAY: u32 = 10;
+
 /// If protocolName is less than or equal to 32 bytes in length, use
 /// protocolName with zero bytes appended to make 32 bytes. Otherwise, apply
 /// HASH to it. For name = "Noise_NX_Secp256k1+EllSwift_ChaChaPoly_SHA256", we
@@ -126,6 +145,9 @@ pub struct NoiseEngine {
 
     // Cipher to decrypt incoming messages.
     decryptor: Cipher<ChaCha20Poly1305>,
+
+    // The responder's certificate, kept only when it was verified against an authority key.
+    certificate: Option<Certificate>,
 }
 
 impl core::fmt::Debug for NoiseEngine {
@@ -135,6 +157,16 @@ impl core::fmt::Debug for NoiseEngine {
 }
 
 impl NoiseEngine {
+    /// The responder's certificate, verified against the authority public key the [`Initiator`]
+    /// was built with.
+    ///
+    /// `None` on the [`Responder`] side, and on an [`Initiator`] built without an authority key
+    /// (see `Initiator::without_pk`), whose session is not authenticated. Read it before
+    /// [`Self::into_split`], which drops it.
+    pub fn certificate(&self) -> Option<&Certificate> {
+        self.certificate.as_ref()
+    }
+
     /// Encrypts a message (`msg`) in place using the stored cipher.
     pub fn encrypt<T: Buffer>(&mut self, msg: &mut T) -> Result<(), AeadError> {
         self.encryptor.encrypt(msg)
@@ -197,3 +229,4 @@ impl NoiseDecryptor {
 pub use error::Error;
 pub use initiator::Initiator;
 pub use responder::Responder;
+pub use signature_message::{Certificate, CertificateError, SignatureNoiseMessage};

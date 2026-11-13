@@ -45,7 +45,7 @@ use crate::{
     cipher_state::{Cipher, CipherState},
     error::Error,
     handshake::HandshakeOp,
-    signature_message::SignatureNoiseMessage,
+    signature_message::{Certificate, SignatureNoiseMessage},
     AeadError, NoiseEngine, ELLSWIFT_ENCODING_SIZE, ENCRYPTED_ELLSWIFT_ENCODING_SIZE,
     ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
     SIGNATURE_NOISE_MESSAGE_SIZE,
@@ -149,16 +149,17 @@ impl Initiator {
     /// Creates a new [`Initiator`] instance with an optional responder authority public key.
     ///
     /// If the responder authority public key is provided, the initiator uses this key to
-    /// authenticate the responder during the handshake: the certificate received in
-    /// [`Self::step_2`] must be signed by this key and be inside its validity window, otherwise
-    /// the handshake fails with [`Error::InvalidCertificate`]. The initial initiator state is
-    /// instantiated with the ephemeral key pair and handshake hash.
+    /// authenticate the responder during the handshake: the certificate formed by the
+    /// [`SignatureNoiseMessage`] received in [`Self::step_2`] and the responder's static key must
+    /// carry a supported version, be signed by this key and be inside its validity window,
+    /// otherwise the handshake fails with [`Error::InvalidCertificate`]. The initial initiator
+    /// state is instantiated with the ephemeral key pair and handshake hash.
     ///
     /// # Security
     ///
     /// Passing `None` disables responder authentication. The handshake then accepts any peer,
-    /// and the resulting session is encrypted but not authenticated. It is also indistinguishable
-    /// from an authenticated one, since [`Self::step_2`] returns `Ok` in both cases. Prefer
+    /// and the resulting session is encrypted but not authenticated: [`Self::step_2`] still
+    /// returns `Ok`, and only the missing [`NoiseEngine::certificate`] tells it apart. Prefer
     /// [`Self::without_pk`] when this is intended, so that the choice is visible at the call site,
     /// and read its documentation for the consequences.
     #[cfg(feature = "std")]
@@ -232,9 +233,8 @@ impl Initiator {
     /// eavesdropping, but an active attacker on the path can impersonate the responder or sit
     /// between the two roles and read or rewrite every message.
     ///
-    /// Nothing in the returned [`NoiseEngine`] records that the responder was not authenticated,
-    /// and [`Self::step_2`] returns `Ok` exactly as it does for a verified session. Callers that
-    /// need to tell the two apart must track which constructor they used.
+    /// [`Self::step_2`] returns `Ok` as it does for a verified session; the only difference is
+    /// that the returned [`NoiseEngine`] has no [`NoiseEngine::certificate`].
     ///
     /// Only use this constructor when the initiator and responder are on the same trusted network
     /// and the responder has no authority key to pin. Whenever the responder's authority public
@@ -292,19 +292,21 @@ impl Initiator {
     /// The next 80 bytes of the message contain the responder's static public key, encrypted and
     /// authenticated. The method decrypts this segment and derives another shared secret using the
     /// responder's static public key, further securing the handshake state. Finally, the method
-    /// decrypts the certificate included in the message and, if this [`Initiator`] was built with
-    /// a responder authority public key, verifies it to ensure the responder's authenticity.
+    /// decrypts the [`SignatureNoiseMessage`] included in the message and, if this [`Initiator`]
+    /// was built with a responder authority public key, verifies the certificate it forms with the
+    /// responder's static public key to ensure the responder's authenticity.
     ///
     /// On success, this method returns a [`NoiseEngine`] instance initialized with session ciphers
     /// for secure communication. If the provided `message` has an incorrect length, it returns an
-    /// [`Error::InvalidMessageLength`]. If decryption or signature verification fails, it returns
-    /// an [`Error::InvalidCertificate`].
+    /// [`Error::InvalidMessageLength`]. If the certificate fails verification, it returns an
+    /// [`Error::InvalidCertificate`] carrying the [`SignatureNoiseMessage`] and the check it
+    /// failed. The verified certificate is available from [`NoiseEngine::certificate`].
     ///
     /// # Security
     ///
     /// Without a responder authority public key (see [`Self::without_pk`]) the certificate is
     /// accepted unverified, and `Ok` does not mean the responder was authenticated. The returned
-    /// [`NoiseEngine`] carries no indication of which case applies.
+    /// [`NoiseEngine`] then has no [`NoiseEngine::certificate`].
     ///
     /// On success the remaining handshake secrets, including the ephemeral keypair, are erased,
     /// so the [`Initiator`] cannot be used for another handshake.
@@ -381,7 +383,8 @@ impl Initiator {
         self.mix_key(&ecdh_static);
         ecdh_static.zeroize();
 
-        // Decrypt and verify the SignatureNoiseMessage
+        // Decrypt the SignatureNoiseMessage and verify the certificate it forms with the
+        // responder's static key
         let mut to_decrypt = message[ELLSWIFT_ENCODING_SIZE + ENCRYPTED_ELLSWIFT_ENCODING_SIZE
             ..INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE]
             .to_vec();
@@ -397,29 +400,40 @@ impl Initiator {
             .0
             .serialize();
         let rs_pk_xonly = XOnlyPublicKey::from_slice(&rs_pub_key).unwrap();
-        if signature_message.verify_with_now(&rs_pk_xonly, &self.responder_authority_pk, now) {
-            let (mut temp_k1, mut temp_k2) = Self::hkdf_2(self.get_ck(), &[]);
-            let c1 = ChaCha20Poly1305::new(Key::from_slice(&temp_k1[..]));
-            let c2 = ChaCha20Poly1305::new(Key::from_slice(&temp_k2[..]));
-            let c1: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k1, c1);
-            let c2: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k2, c2);
-            let mut encryptor = c1;
-            let mut decryptor = c2;
-            encryptor.erase_k();
-            decryptor.erase_k();
-            // The ciphers keep the only copies of the session keys from here on; `erase_k` above
-            // wiped the copies the `Cipher`s carried, and these are the ones the handshake used.
-            temp_k1.zeroize();
-            temp_k2.zeroize();
-            let engine = crate::NoiseEngine {
-                encryptor,
-                decryptor,
-            };
-            self.erase();
-            Ok(engine)
-        } else {
-            Err(Error::InvalidCertificate(plaintext.into()))
+        if let Err(reason) =
+            signature_message.verify_with_now(&rs_pk_xonly, &self.responder_authority_pk, now)
+        {
+            return Err(Error::InvalidCertificate {
+                signature_noise_message: signature_message,
+                reason,
+            });
         }
+        let (mut temp_k1, mut temp_k2) = Self::hkdf_2(self.get_ck(), &[]);
+        let c1 = ChaCha20Poly1305::new(Key::from_slice(&temp_k1[..]));
+        let c2 = ChaCha20Poly1305::new(Key::from_slice(&temp_k2[..]));
+        let c1: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k1, c1);
+        let c2: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k2, c2);
+        let mut encryptor = c1;
+        let mut decryptor = c2;
+        encryptor.erase_k();
+        decryptor.erase_k();
+        // The ciphers keep the only copies of the session keys from here on; `erase_k` above
+        // wiped the copies the `Cipher`s carried, and these are the ones the handshake used.
+        temp_k1.zeroize();
+        temp_k2.zeroize();
+        let engine = crate::NoiseEngine {
+            encryptor,
+            decryptor,
+            certificate: self
+                .responder_authority_pk
+                .map(|authority_pubkey| Certificate {
+                    signature_noise_message: signature_message,
+                    server_static_pubkey: rs_pk_xonly,
+                    authority_pubkey,
+                }),
+        };
+        self.erase();
+        Ok(engine)
     }
 
     // Securely erases sensitive data from the [`Initiator`] memory.
