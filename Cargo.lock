@@ -250,7 +250,7 @@ dependencies = [
 
 [[package]]
 name = "channels_sv2"
-version = "9.0.0"
+version = "10.0.0"
 dependencies = [
  "binary_sv2",
  "bitcoin",
@@ -1162,7 +1162,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stratum-core"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "binary_sv2",
  "bitcoin",
@@ -1184,7 +1184,7 @@ dependencies = [
 
 [[package]]
 name = "stratum_translation"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "binary_sv2",
  "bitcoin",
