@@ -285,7 +285,7 @@ dependencies = [
 
 [[package]]
 name = "codec_sv2"
-version = "8.1.0"
+version = "9.0.0"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
@@ -736,7 +736,7 @@ dependencies = [
 
 [[package]]
 name = "noise_sv2"
-version = "2.2.0"
+version = "3.0.0"
 dependencies = [
  "chacha20poly1305",
  "criterion",
@@ -1162,7 +1162,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stratum-core"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "binary_sv2",
  "bitcoin",

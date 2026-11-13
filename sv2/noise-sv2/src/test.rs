@@ -94,3 +94,44 @@ fn pre_issued_certificate_is_sent_verbatim() {
         Err(Error::InvalidCertificate(_))
     ));
 }
+
+#[test]
+#[cfg(feature = "std")]
+#[cfg_attr(miri, ignore)]
+fn unpinned_initiator_still_rejects_an_unsupported_certificate_version() {
+    use crate::{signature_message::SignatureNoiseMessage, Error, CERTIFICATE_VERSION};
+
+    let certificate = SignatureNoiseMessage {
+        version: CERTIFICATE_VERSION + 1,
+        valid_from: 0,
+        not_valid_after: u32::MAX,
+        signature: [0; 64],
+    };
+    let mut initiator = Initiator::without_pk().unwrap();
+    let mut responder = Responder::from_certificate(Responder::generate_key(), certificate);
+    let first_message = initiator.step_0().unwrap();
+    let (second_message, _) = responder.step_1(first_message).unwrap();
+    assert!(matches!(
+        initiator.step_2(second_message),
+        Err(Error::InvalidCertificate(_))
+    ));
+}
+
+#[test]
+#[cfg(feature = "std")]
+#[cfg_attr(miri, ignore)]
+fn unpinned_initiator_accepts_an_unverified_certificate_of_the_supported_version() {
+    use crate::{signature_message::SignatureNoiseMessage, CERTIFICATE_VERSION};
+
+    let certificate = SignatureNoiseMessage {
+        version: CERTIFICATE_VERSION,
+        valid_from: 0,
+        not_valid_after: u32::MAX,
+        signature: [0; 64],
+    };
+    let mut initiator = Initiator::without_pk().unwrap();
+    let mut responder = Responder::from_certificate(Responder::generate_key(), certificate);
+    let first_message = initiator.step_0().unwrap();
+    let (second_message, _) = responder.step_1(first_message).unwrap();
+    assert!(initiator.step_2(second_message).is_ok());
+}

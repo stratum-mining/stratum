@@ -18,8 +18,8 @@
 // the authority key, the responder itself or a separate issuer, uses the `sign` method to produce
 // the message: a Schnorr signature over the version, the validity period and the responder's
 // static public key. The [`crate::Initiator`] uses the `verify` method to check the signed
-// message from the responder, comparing it against the provided public key and optional authority
-// key, while ensuring the message falls within the specified validity period.
+// message from the responder, comparing it against the provided public key and authority key,
+// while ensuring the message falls within the specified validity period.
 
 use core::convert::TryInto;
 use core::fmt;
@@ -97,14 +97,10 @@ impl From<[u8; SIGNATURE_NOISE_MESSAGE_SIZE]> for SignatureNoiseMessage {
 }
 
 impl SignatureNoiseMessage {
-    /// Verifies the [`SignatureNoiseMessage`] against the responder's static public key and an
-    /// optional authority public key at the current system time. See [`Self::verify_with_now`].
+    /// Verifies the [`SignatureNoiseMessage`] against the responder's static public key and the
+    /// authority public key at the current system time. See [`Self::verify_with_now`].
     #[cfg(feature = "std")]
-    pub fn verify(
-        &self,
-        static_pk: &XOnlyPublicKey,
-        authority_pk: &Option<XOnlyPublicKey>,
-    ) -> bool {
+    pub fn verify(&self, static_pk: &XOnlyPublicKey, authority_pk: &XOnlyPublicKey) -> bool {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -115,14 +111,9 @@ impl SignatureNoiseMessage {
     /// Verifies the validity and authenticity of the `SignatureNoiseMessage` at a given timestamp
     /// with [`CERTIFICATE_TIME_LEEWAY`] seconds of tolerance.
     ///
-    /// With an authority public key, the message must carry the supported certificate version,
-    /// `now` must fall inside its validity window, and its signature over the responder's static
-    /// key `static_pk` must verify against the authority key.
-    ///
-    /// # Security
-    ///
-    /// Without an authority public key, only the certificate version is checked and the message is
-    /// otherwise accepted unverified, so `true` does not mean the responder was authenticated.
+    /// The message must carry the supported certificate version, `now` must fall inside its
+    /// validity window, and its signature over the responder's static key `static_pk` must verify
+    /// against `authority_pk`.
     ///
     /// The current system time should be provided to avoid relying on `std` and allow `no_std`
     /// environments to use another source of time.
@@ -130,16 +121,12 @@ impl SignatureNoiseMessage {
     pub fn verify_with_now(
         &self,
         static_pk: &XOnlyPublicKey,
-        authority_pk: &Option<XOnlyPublicKey>,
+        authority_pk: &XOnlyPublicKey,
         now: u32,
     ) -> bool {
         if self.version != CERTIFICATE_VERSION {
             return false;
         }
-
-        let Some(authority_pk) = authority_pk else {
-            return true;
-        };
 
         // Use saturating ops to cap edges (valid_from ≥ 0, not_valid_after ≤ u32::MAX),
         // preventing wrap-around and subtle validation bugs with untrusted timestamps.
@@ -248,11 +235,7 @@ mod test {
 
         let mut certificate =
             SignatureNoiseMessage::sign_with_rng(100, 200, &static_pk, &authority, &mut rng);
-        assert!(certificate.verify_with_now(
-            &static_pk,
-            &Some(authority.x_only_public_key().0),
-            150
-        ));
+        assert!(certificate.verify_with_now(&static_pk, &authority.x_only_public_key().0, 150));
 
         // The same certificate, validly signed for a version this crate does not support.
         certificate.version = CERTIFICATE_VERSION + 1;
@@ -261,10 +244,6 @@ mod test {
         certificate.signature = *secp
             .sign_schnorr_with_rng(&m, &authority, &mut rng)
             .as_ref();
-        assert!(!certificate.verify_with_now(
-            &static_pk,
-            &Some(authority.x_only_public_key().0),
-            150
-        ));
+        assert!(!certificate.verify_with_now(&static_pk, &authority.x_only_public_key().0, 150));
     }
 }
