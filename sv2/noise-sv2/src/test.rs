@@ -6,7 +6,7 @@ use crate::{handshake::HandshakeOp, initiator::Initiator, responder::Responder};
 fn test_1() {
     let key_pair = Responder::generate_key();
 
-    let mut initiator = Initiator::new(Some(key_pair.public_key().into()));
+    let mut initiator = Initiator::new(key_pair.public_key().into());
     let mut responder = Responder::new(key_pair, 31449600);
     let first_message = initiator.step_0().unwrap();
     let (second_message, mut responder_engine) = responder.step_1(first_message).unwrap();
@@ -25,7 +25,7 @@ fn test_1_with_rng() {
     let key_pair = Responder::generate_key_with_rng(&mut rand::thread_rng());
 
     let mut initiator: Box<Initiator> =
-        Initiator::new_with_rng(Some(key_pair.public_key().into()), &mut rand::thread_rng());
+        Initiator::new_with_rng(key_pair.public_key().into(), &mut rand::thread_rng());
     let mut responder = Responder::new_with_rng(key_pair, 31449600, &mut rand::thread_rng());
     let first_message = initiator.step_0().unwrap();
     let now = std::time::SystemTime::now()
@@ -51,6 +51,24 @@ fn test_1_with_rng() {
 #[test]
 #[cfg(feature = "std")]
 #[cfg_attr(miri, ignore)]
+fn initiator_rejects_a_certificate_from_another_authority() {
+    use crate::Error;
+
+    let authority = Responder::generate_key();
+    let other_authority = Responder::generate_key();
+    let mut initiator = Initiator::new(other_authority.public_key().into());
+    let mut responder = Responder::new(authority, 60);
+    let first_message = initiator.step_0().unwrap();
+    let (second_message, _) = responder.step_1(first_message).unwrap();
+    assert!(matches!(
+        initiator.step_2(second_message),
+        Err(Error::InvalidCertificate(_))
+    ));
+}
+
+#[test]
+#[cfg(feature = "std")]
+#[cfg_attr(miri, ignore)]
 fn pre_issued_certificate_is_sent_verbatim() {
     use crate::{signature_message::SignatureNoiseMessage, Error};
 
@@ -66,7 +84,7 @@ fn pre_issued_certificate_is_sent_verbatim() {
         )
     };
     let handshake = |certificate| {
-        let mut initiator = Initiator::new(Some(authority.public_key().into()));
+        let mut initiator = Initiator::new(authority.public_key().into());
         let mut responder = Responder::from_certificate(server_static, certificate);
         let first_message = initiator.step_0().unwrap();
         let (second_message, responder_engine) = responder.step_1(first_message).unwrap();
@@ -93,45 +111,4 @@ fn pre_issued_certificate_is_sent_verbatim() {
         handshake(issue(now - 120, now - 60)),
         Err(Error::InvalidCertificate(_))
     ));
-}
-
-#[test]
-#[cfg(feature = "std")]
-#[cfg_attr(miri, ignore)]
-fn unpinned_initiator_still_rejects_an_unsupported_certificate_version() {
-    use crate::{signature_message::SignatureNoiseMessage, Error, CERTIFICATE_VERSION};
-
-    let certificate = SignatureNoiseMessage {
-        version: CERTIFICATE_VERSION + 1,
-        valid_from: 0,
-        not_valid_after: u32::MAX,
-        signature: [0; 64],
-    };
-    let mut initiator = Initiator::without_pk().unwrap();
-    let mut responder = Responder::from_certificate(Responder::generate_key(), certificate);
-    let first_message = initiator.step_0().unwrap();
-    let (second_message, _) = responder.step_1(first_message).unwrap();
-    assert!(matches!(
-        initiator.step_2(second_message),
-        Err(Error::InvalidCertificate(_))
-    ));
-}
-
-#[test]
-#[cfg(feature = "std")]
-#[cfg_attr(miri, ignore)]
-fn unpinned_initiator_accepts_an_unverified_certificate_of_the_supported_version() {
-    use crate::{signature_message::SignatureNoiseMessage, CERTIFICATE_VERSION};
-
-    let certificate = SignatureNoiseMessage {
-        version: CERTIFICATE_VERSION,
-        valid_from: 0,
-        not_valid_after: u32::MAX,
-        signature: [0; 64],
-    };
-    let mut initiator = Initiator::without_pk().unwrap();
-    let mut responder = Responder::from_certificate(Responder::generate_key(), certificate);
-    let first_message = initiator.step_0().unwrap();
-    let (second_message, _) = responder.step_1(first_message).unwrap();
-    assert!(initiator.step_2(second_message).is_ok());
 }
