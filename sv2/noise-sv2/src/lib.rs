@@ -33,12 +33,9 @@
 //!
 //! ## Responder authentication
 //!
-//! The responder is only authenticated when the [`Initiator`] is given the responder's authority
-//! public key, which it uses to verify the certificate received during the handshake. An
-//! [`Initiator`] built without one, through `Initiator::without_pk` or `Initiator::new` with
-//! `None`, accepts any responder and yields an encrypted but unauthenticated session that the
-//! crate does not distinguish from an authenticated one. Always pin the authority key for
-//! connections that cross a network boundary.
+//! Every [`Initiator`] pins the responder's authority public key and verifies the certificate
+//! received during the handshake against it, as the Sv2 spec requires (section 4.5.3). The crate
+//! offers no handshake that skips that step: a session is authenticated or not established.
 //!
 //! ## Authority key custody
 //!
