@@ -83,7 +83,8 @@ pub struct Initiator {
     // shared secret with the responder.
     e: Keypair,
     // Optional authority public key of the responder, used to verify the responder's certificate
-    // during the handshake. `None` skips that verification entirely.
+    // during the handshake. `None` skips that verification; only the certificate version is
+    // still checked.
     #[allow(unused)]
     responder_authority_pk: Option<XOnlyPublicKey>,
 }
@@ -228,9 +229,10 @@ impl Initiator {
     ///
     /// The responder's certificate is not verified: its signature, its validity window and the
     /// authority that issued it are all ignored, so any peer that completes the Noise NX
-    /// handshake is accepted. The session is still encrypted, which protects against passive
-    /// eavesdropping, but an active attacker on the path can impersonate the responder or sit
-    /// between the two roles and read or rewrite every message.
+    /// handshake with a certificate of the supported version is accepted. The session is still
+    /// encrypted, which protects against passive eavesdropping, but an active attacker on the
+    /// path can impersonate the responder or sit between the two roles and read or rewrite every
+    /// message.
     ///
     /// Nothing in the returned [`NoiseEngine`] records that the responder was not authenticated,
     /// and [`Self::step_2`] returns `Ok` exactly as it does for a verified session. Callers that
@@ -302,9 +304,10 @@ impl Initiator {
     ///
     /// # Security
     ///
-    /// Without a responder authority public key (see [`Self::without_pk`]) the certificate is
-    /// accepted unverified, and `Ok` does not mean the responder was authenticated. The returned
-    /// [`NoiseEngine`] carries no indication of which case applies.
+    /// Without a responder authority public key (see [`Self::without_pk`]) only the certificate
+    /// version is checked; the certificate is otherwise accepted unverified, and `Ok` does not
+    /// mean the responder was authenticated. The returned [`NoiseEngine`] carries no indication
+    /// of which case applies.
     ///
     /// On success the remaining handshake secrets, including the ephemeral keypair, are erased,
     /// so the [`Initiator`] cannot be used for another handshake.
@@ -397,7 +400,15 @@ impl Initiator {
             .0
             .serialize();
         let rs_pk_xonly = XOnlyPublicKey::from_slice(&rs_pub_key).unwrap();
-        if signature_message.verify_with_now(&rs_pk_xonly, &self.responder_authority_pk, now) {
+        // Without an authority key there is nothing to verify the certificate against (see
+        // `without_pk`), and only its format version is checked.
+        let accepted = match &self.responder_authority_pk {
+            Some(authority_pk) => {
+                signature_message.verify_with_now(&rs_pk_xonly, authority_pk, now)
+            }
+            None => signature_message.version == crate::CERTIFICATE_VERSION,
+        };
+        if accepted {
             let (mut temp_k1, mut temp_k2) = Self::hkdf_2(self.get_ck(), &[]);
             let c1 = ChaCha20Poly1305::new(Key::from_slice(&temp_k1[..]));
             let c2 = ChaCha20Poly1305::new(Key::from_slice(&temp_k2[..]));
