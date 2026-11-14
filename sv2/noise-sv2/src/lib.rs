@@ -33,12 +33,22 @@
 //!
 //! ## Responder authentication
 //!
-//! The responder is only authenticated when the [`Initiator`] is given the responder's authority
-//! public key, which it uses to verify the certificate received during the handshake. An
-//! [`Initiator`] built without one, through `Initiator::without_pk` or `Initiator::new` with
-//! `None`, accepts any responder and yields an encrypted but unauthenticated session that the
-//! crate does not distinguish from an authenticated one. Always pin the authority key for
-//! connections that cross a network boundary.
+//! Every [`Initiator`] pins the responder's authority public key and verifies the certificate
+//! received during the handshake against it, as the Sv2 spec requires (section 4.5.3). The crate
+//! offers no handshake that skips that step: a session is authenticated or not established.
+//!
+//! ## Authority key custody
+//!
+//! Clients pin the authority public key, and neither the spec nor this crate defines revocation,
+//! so a leaked authority private key impersonates the operator for as long as any client trusts it.
+//! [`Responder::from_certificate`] lets an internet-facing server hold only its static key and a
+//! certificate over it, signed where the authority private key is kept. [`Responder::new`] and
+//! [`Responder::from_authority_kp`] instead sign a certificate on every handshake and need the
+//! authority private key on the server; they are meant for development and testing.
+//!
+//! [`SignatureNoiseMessage`] is the certificate itself: the issuer signs a validity window over the
+//! server's static key with [`SignatureNoiseMessage::sign_with_rng`] and hands the result to the
+//! server; its `From` conversions give the 74 bytes the handshake carries and back.
 
 #![cfg_attr(all(not(feature = "std"), not(test)), no_std)]
 
@@ -97,6 +107,11 @@ pub const INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE: usize = ELLSWIFT_ENCODING_S
 /// Certificate format version implemented by this crate. Certificates signed
 /// for any other version are rejected during verification.
 pub const CERTIFICATE_VERSION: u16 = 0;
+
+/// Clock drift, in seconds, tolerated on both edges of a certificate's validity window by
+/// [`SignatureNoiseMessage::verify_with_now`], so that peers whose clocks disagree slightly still
+/// complete the handshake. See <https://github.com/stratum-mining/stratum/issues/2015>.
+pub const CERTIFICATE_TIME_LEEWAY: u32 = 10;
 
 /// If protocolName is less than or equal to 32 bytes in length, use
 /// protocolName with zero bytes appended to make 32 bytes. Otherwise, apply
@@ -197,3 +212,4 @@ impl NoiseDecryptor {
 pub use error::Error;
 pub use initiator::Initiator;
 pub use responder::Responder;
+pub use signature_message::SignatureNoiseMessage;

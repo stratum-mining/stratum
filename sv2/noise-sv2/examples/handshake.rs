@@ -42,10 +42,10 @@ fn main() {
     let responder_key_pair = generate_key();
 
     #[cfg(feature = "std")]
-    let mut initiator = Initiator::new(Some(responder_key_pair.public_key().into()));
+    let mut initiator = Initiator::new(responder_key_pair.public_key().into());
     #[cfg(not(feature = "std"))]
     let mut initiator = Initiator::new_with_rng(
-        Some(responder_key_pair.public_key().into()),
+        responder_key_pair.public_key().into(),
         &mut rand::thread_rng(),
     );
     #[cfg(feature = "std")]
