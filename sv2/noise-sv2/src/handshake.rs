@@ -32,10 +32,10 @@
 
 use alloc::{string::String, vec::Vec};
 
+use crate::aed_cipher::ChaCha20Poly1305;
 use crate::{
     aed_cipher::AeadCipher, cipher_state::CipherState, AeadError, NOISE_HASHED_PROTOCOL_NAME_CHACHA,
 };
-use chacha20poly1305::ChaCha20Poly1305;
 use secp256k1::{
     ecdh::SharedSecret,
     hashes::{sha256::Hash as Sha256Hash, Hash},

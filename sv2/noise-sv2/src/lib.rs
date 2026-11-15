@@ -45,9 +45,10 @@
 #[macro_use]
 extern crate alloc;
 
-pub use chacha20poly1305::aead::Buffer as AeadBuffer;
-pub use chacha20poly1305::aead::Error as AeadError;
-use chacha20poly1305::{aead::Buffer, ChaCha20Poly1305};
+pub use aead::Buffer as AeadBuffer;
+use aead::Buffer;
+pub use aead::Error as AeadError;
+use aed_cipher::ChaCha20Poly1305;
 use cipher_state::Cipher;
 mod aed_cipher;
 mod cipher_state;

@@ -37,6 +37,7 @@
 use core::time::Duration;
 use zeroize::Zeroize;
 
+use crate::aed_cipher::{AeadCipher, ChaCha20Poly1305};
 use crate::{
     cipher_state::{Cipher, CipherState},
     error::Error,
@@ -50,7 +51,6 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use chacha20poly1305::{ChaCha20Poly1305, Key, KeyInit};
 use secp256k1::{ellswift::ElligatorSwift, Keypair, Secp256k1, SecretKey};
 
 /// Represents the state and operations of the responder in the Noise NX protocol handshake.
@@ -357,8 +357,8 @@ impl Responder {
         //    initiator to responder, and the second for messages in the other direction:
         let ck = Self::get_ck(self);
         let (mut temp_k1, mut temp_k2) = Self::hkdf_2(ck, &[]);
-        let c1 = ChaCha20Poly1305::new(Key::from_slice(&temp_k1[..]));
-        let c2 = ChaCha20Poly1305::new(Key::from_slice(&temp_k2[..]));
+        let c1 = ChaCha20Poly1305::from_key(temp_k1);
+        let c2 = ChaCha20Poly1305::from_key(temp_k2);
         let c1: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k1, c1);
         let c2: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k2, c2);
         let to_send = out;

@@ -1,6 +1,6 @@
 [package]
 name = "noise_sv2"
-version = "2.1.0"
+version = "2.1.1"
 authors = ["The Stratum V2 Developers"]
 edition = "2021"
 readme = "README.md"
@@ -14,12 +14,13 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 [dependencies]
 secp256k1 = { workspace = true, features = ["hashes", "alloc", "rand"] }
 rand = { workspace = true, default-features = false }
-chacha20poly1305 = { workspace = true }
+aead = { workspace = true }
+chacha20-poly1305 = { workspace = true }
 zeroize = { workspace = true }
 
 [features]
 default = ["std"]
-std = ["rand/std", "rand/std_rng", "secp256k1/rand-std"]
+std = ["chacha20-poly1305/std", "rand/std", "rand/std_rng", "secp256k1/rand-std"]
 
 [dev-dependencies]
 quickcheck = { workspace = true }
