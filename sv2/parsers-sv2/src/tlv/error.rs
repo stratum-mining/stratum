@@ -23,6 +23,11 @@ pub enum TlvError {
     /// Contains the value length.
     ValueTooLong(usize),
 
+    /// The frame payload does not fit the 24-bit Sv2 frame length.
+    ///
+    /// Contains the payload length.
+    FramePayloadTooLong(usize),
+
     /// The TLV's `length` field does not match the length of its value.
     LengthMismatch {
         /// Length the `length` field declares.
@@ -47,6 +52,12 @@ impl fmt::Display for TlvError {
                 "TLV value is {} bytes long, the length field holds at most {}",
                 len,
                 u16::MAX
+            ),
+            TlvError::FramePayloadTooLong(len) => write!(
+                f,
+                "Frame payload is {} bytes long, the length field holds at most {}",
+                len,
+                framing_sv2::SV2_FRAME_MAX_PAYLOAD_SIZE
             ),
             TlvError::LengthMismatch { declared, actual } => write!(
                 f,

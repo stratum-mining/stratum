@@ -3,6 +3,7 @@
 use super::{iter::TlvIter, Tlv, TlvError};
 use crate::binary_sv2::{GetSize, Serialize};
 use alloc::vec::Vec;
+use framing_sv2::{SV2_FRAME_HEADER_SIZE, SV2_FRAME_MAX_PAYLOAD_SIZE};
 
 extern crate alloc;
 
@@ -120,12 +121,17 @@ impl<'a> TlvList<'a> {
         };
         payload.extend_from_slice(tlv_bytes);
 
+        // Reject frames whose payload does not fit the 24-bit length field.
+        let payload_len = payload.len();
+        if payload_len > SV2_FRAME_MAX_PAYLOAD_SIZE {
+            return Err(TlvError::FramePayloadTooLong(payload_len));
+        }
+
         // Calculate payload length
-        let msg_length = payload.len() as u32;
+        let msg_length = payload_len as u32;
 
         // Construct complete frame bytes (header + payload)
-        let header_size = 6; // 2 bytes ext_type + 1 byte msg_type + 3 bytes length
-        let mut frame_bytes = Vec::with_capacity(header_size + payload.len());
+        let mut frame_bytes = Vec::with_capacity(SV2_FRAME_HEADER_SIZE + payload.len());
         frame_bytes.extend_from_slice(&extension_type.to_le_bytes());
         frame_bytes.push(message_type);
         frame_bytes.extend_from_slice(&msg_length.to_le_bytes()[..3]);
@@ -306,5 +312,40 @@ mod tests {
         let list = TlvList::from_bytes(&[] as &[u8]);
         let tlvs = list.to_vec();
         assert_eq!(tlvs.len(), 0);
+    }
+
+    #[test]
+    fn test_build_frame_bytes_with_tlvs_enforces_max_frame_payload_size() {
+        use crate::{ChannelEndpointChanged, CommonMessagesOwned};
+
+        // size is 4 byte (u32)
+        let message =
+            CommonMessagesOwned::ChannelEndpointChanged(ChannelEndpointChanged { channel_id: 0 });
+
+        // Exactly the maximum payload size should succeed.
+        let tlv_bytes = vec![0u8; SV2_FRAME_MAX_PAYLOAD_SIZE - message.get_size()];
+        let tlv_list = TlvList::from_bytes(&tlv_bytes);
+
+        let frame = tlv_list
+            .build_frame_bytes_with_tlvs(message.clone())
+            .expect("maximum frame payload should be accepted");
+
+        let declared_length = u32::from_le_bytes([frame[3], frame[4], frame[5], 0]) as usize;
+
+        assert_eq!(declared_length, SV2_FRAME_MAX_PAYLOAD_SIZE);
+        assert_eq!(
+            frame.len(),
+            SV2_FRAME_HEADER_SIZE + SV2_FRAME_MAX_PAYLOAD_SIZE
+        );
+
+        // Exceeding the maximum by one byte should return an error.
+        let tlv_bytes = vec![0u8; SV2_FRAME_MAX_PAYLOAD_SIZE - message.get_size() + 1];
+        let tlv_list = TlvList::from_bytes(&tlv_bytes);
+
+        assert!(matches!(
+            tlv_list.build_frame_bytes_with_tlvs(message),
+            Err(TlvError::FramePayloadTooLong(len))
+                if len == SV2_FRAME_MAX_PAYLOAD_SIZE + 1
+        ));
     }
 }
