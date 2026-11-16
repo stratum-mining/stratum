@@ -5,7 +5,7 @@
 
 use crate::error::{DecodeError, DecodeErrorKind};
 use serde::{
-    de::{self, IgnoredAny, MapAccess, Visitor},
+    de::{self, DeserializeOwned, IgnoredAny, MapAccess, Visitor},
     ser::SerializeMap,
     Deserialize, Deserializer, Serialize, Serializer,
 };
@@ -50,9 +50,13 @@ pub enum Method {
 
 /// A request ID: an unsigned integer, a negative integer, or a string.
 ///
-/// Numeric `1` and string `"1"` are different IDs.
+/// Numeric `1` and string `"1"` are different IDs. A string ID longer than 64 bytes is rejected
+/// when decoding, so an ID is always small enough to keep and to echo.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Id(IdRepr);
+
+/// The longest string ID a decoded message carries.
+const MAX_ID_LEN: usize = 64;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum IdRepr {
@@ -114,6 +118,24 @@ impl Response {
     }
 }
 
+/// The longest message kept from a result that does not have the expected shape.
+const MAX_RESULT_ERROR_LEN: usize = 128;
+
+/// Decodes `value` as `T`.
+///
+/// serde_json quotes a mismatched string in its error, so the message is cut to keep the error
+/// small whatever the size of the value.
+pub(crate) fn decode_value<T: DeserializeOwned>(value: &Value) -> Result<T, serde_json::Error> {
+    T::deserialize(value).map_err(|error| {
+        let message: String = error
+            .to_string()
+            .chars()
+            .take(MAX_RESULT_ERROR_LEN)
+            .collect();
+        de::Error::custom(message)
+    })
+}
+
 impl Method {
     pub fn as_str(&self) -> &str {
         match self {
@@ -160,9 +182,13 @@ impl From<String> for Method {
     }
 }
 
+/// Unknown method names come from the peer, so they are escaped.
 impl fmt::Display for Method {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())
+        match self {
+            Method::Other(method) => write!(f, "{method:?}"),
+            known => f.write_str(known.as_str()),
+        }
     }
 }
 
@@ -178,6 +204,7 @@ impl Id {
                     Err("id is not an integer")
                 }
             }
+            Value::String(id) if id.len() > MAX_ID_LEN => Err("id is longer than 64 bytes"),
             Value::String(id) => Ok(Id(IdRepr::String(id))),
             _ => Err("id is not a number or a string"),
         }
@@ -356,7 +383,7 @@ impl RawEnvelope {
 
 impl<'de> Deserialize<'de> for RawEnvelope {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        deserializer.deserialize_map(RawEnvelopeVisitor)
+        deserializer.deserialize_any(RawEnvelopeVisitor)
     }
 }
 
@@ -367,6 +394,11 @@ impl<'de> Visitor<'de> for RawEnvelopeVisitor {
 
     fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("an SV1 message object")
+    }
+
+    /// A string is rejected without being quoted, so the error stays small whatever its size.
+    fn visit_str<E: de::Error>(self, _: &str) -> Result<RawEnvelope, E> {
+        Err(E::invalid_type(de::Unexpected::Other("string"), &self))
     }
 
     fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<RawEnvelope, A::Error> {
@@ -434,15 +466,25 @@ impl fmt::Debug for Request {
     }
 }
 
-/// `mining.authorize` params carry the worker password.
+/// `mining.authorize` params carry the worker password, and a configure `info.connection-url`
+/// may carry credentials.
 struct RedactedParams<'a>(&'a Request);
+
+const CONNECTION_URL: &str = "/1/info.connection-url";
 
 impl fmt::Display for RedactedParams<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.0.method == Method::Authorize {
-            f.write_str("<redacted>")
-        } else {
-            write!(f, "{}", self.0.params)
+        let params = &self.0.params;
+        match self.0.method {
+            Method::Authorize => f.write_str("<redacted>"),
+            Method::Configure if params.pointer(CONNECTION_URL).is_some() => {
+                let mut params = params.clone();
+                if let Some(url) = params.pointer_mut(CONNECTION_URL) {
+                    *url = Value::from("<redacted>");
+                }
+                write!(f, "{params}")
+            }
+            _ => write!(f, "{params}"),
         }
     }
 }
@@ -608,6 +650,22 @@ mod tests {
         ] {
             reject(line);
         }
+    }
+
+    #[test]
+    fn errors_do_not_quote_peer_strings() {
+        let long = "a".repeat(1000);
+        let line = format!("\"{long}\"");
+        let error = reject(&line);
+        assert!(matches!(error.kind, DecodeErrorKind::Json(_)));
+        assert!(error.to_string().len() < 200);
+        assert!(format!("{error:?}").len() < 200);
+        let error = serde_json::from_str::<Message>(&line).unwrap_err();
+        assert!(error.to_string().len() < 200);
+
+        let error = decode_value::<bool>(&Value::String(long)).unwrap_err();
+        assert!(error.to_string().len() < 200);
+        assert!(format!("{error:?}").len() < 200);
     }
 
     #[test]

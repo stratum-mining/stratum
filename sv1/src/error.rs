@@ -55,6 +55,9 @@ impl From<DecodeError> for Error {
     }
 }
 
+/// The longest method name a [`DecodeError`] keeps.
+const MAX_ECHOED_LEN: usize = 64;
+
 /// A message that could not be decoded.
 ///
 /// `id` is set only when the message carried a valid ID, so a reply never reflects an invalid
@@ -117,12 +120,18 @@ impl DecodeError {
         DecodeError::about(None, None, kind)
     }
 
+    /// Keeps the method only while it is short, so the error stays small whatever the size of
+    /// the message. A decoded ID is always short.
     pub(crate) fn about(
         id: Option<crate::json_rpc::Id>,
         method: Option<crate::json_rpc::Method>,
         kind: DecodeErrorKind,
     ) -> Self {
-        DecodeError { id, method, kind }
+        DecodeError {
+            id,
+            method: method.filter(|method| method.as_str().len() <= MAX_ECHOED_LEN),
+            kind,
+        }
     }
 }
 

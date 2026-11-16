@@ -22,7 +22,7 @@ pub use suggest_difficulty::SuggestDifficulty;
 
 use crate::{
     error::{DecodeError, DecodeErrorKind, Error},
-    json_rpc::{self, Id, Message, Method, RpcError},
+    json_rpc::{self, decode_value, Id, Message, Method, RpcError},
 };
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -63,7 +63,7 @@ impl<R: DeserializeOwned> Response<R> {
     /// the caller can tell which request failed.
     fn decode(id: Id, method: &Method, result: &Result<Value, RpcError>) -> Result<Self, Error> {
         let result = match result {
-            Ok(value) => match R::deserialize(value) {
+            Ok(value) => match decode_value(value) {
                 Ok(result) => Ok(result),
                 Err(error) => {
                     return Err(Error::InvalidResult {
