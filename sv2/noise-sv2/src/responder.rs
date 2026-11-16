@@ -34,12 +34,10 @@
 // The [`Drop`] trait is implemented to automatically trigger secure erasure when the [`Responder`]
 // instance goes out of scope, preventing potential misuse or leakage of cryptographic material.
 
-use core::time::Duration;
 use zeroize::Zeroize;
 
 use crate::{
     cipher_state::{Cipher, CipherState},
-    error::Error,
     handshake::HandshakeOp,
     signature_message::SignatureNoiseMessage,
     AeadError, NoiseEngine, ELLSWIFT_ENCODING_SIZE, ENCRYPTED_ELLSWIFT_ENCODING_SIZE,
@@ -52,7 +50,7 @@ use alloc::{
     vec::Vec,
 };
 use chacha20poly1305::{ChaCha20Poly1305, Key, KeyInit};
-use secp256k1::{ellswift::ElligatorSwift, Keypair, Secp256k1, SecretKey};
+use secp256k1::{ellswift::ElligatorSwift, Keypair};
 
 /// Represents the state and operations of the responder in the Noise NX protocol handshake.
 /// It handles cryptographic key exchanges, manages handshake state, and securely establishes
@@ -266,54 +264,6 @@ impl Responder {
         Box::new(self_)
     }
 
-    /// Creates a new [`Responder`] instance with the provided 32-byte authority key pair.
-    ///
-    /// Constructs a new [`Responder`] with a given public and private key pair, which represents
-    /// the responder's authority credentials. It verifies that the provided public key matches the
-    /// corresponding private key, ensuring the authenticity of the authority key pair. The
-    /// certificate validity duration is also set here. Fails if the key pair is mismatched.
-    ///
-    /// # Security
-    ///
-    /// Like [`Self::new`], this signs a certificate on every handshake with the authority
-    /// private key on the host, over a static key that lives only as long as the [`Responder`].
-    /// See the security note on [`Self::new`]; outside development and testing use
-    /// [`Self::from_certificate`].
-    #[cfg(feature = "std")]
-    pub fn from_authority_kp(
-        public: &[u8; 32],
-        private: &[u8; 32],
-        cert_validity: Duration,
-    ) -> Result<Box<Self>, Error> {
-        Self::from_authority_kp_with_rng(public, private, cert_validity, &mut rand::thread_rng())
-    }
-
-    /// Creates a new [`Responder`] instance with the provided 32-byte authority key pair and a
-    /// custom random number generator.
-    ///
-    /// See [`Self::from_authority_kp`] for more details.
-    ///
-    /// The custom random number generator should be provided in order to not implicitely rely on
-    /// `std` and allow `no_std` environments to provide a hardware random number generator for
-    /// example.
-    #[inline]
-    pub fn from_authority_kp_with_rng<R: rand::Rng + rand::CryptoRng + ?Sized>(
-        public: &[u8; 32],
-        private: &[u8; 32],
-        cert_validity: Duration,
-        rng: &mut R,
-    ) -> Result<Box<Self>, Error> {
-        let secp = Secp256k1::new();
-        let secret = SecretKey::from_slice(private).map_err(|_| Error::InvalidRawPrivateKey)?;
-        let kp = Keypair::from_secret_key(&secp, &secret);
-        let pub_ = kp.x_only_public_key().0.serialize();
-        if public == &pub_[..] {
-            Ok(Self::new_with_rng(kp, cert_validity.as_secs() as u32, rng))
-        } else {
-            Err(Error::InvalidRawPublicKey)
-        }
-    }
-
     /// Processes the first step of the Noise NX protocol handshake for the responder.
     ///
     /// This function manages the responder's side of the handshake after receiving the initiator's
@@ -513,6 +463,7 @@ mod test {
 
     fn make_responder() -> Responder {
         use rand::{rngs::StdRng, SeedableRng};
+        use secp256k1::Secp256k1;
 
         let secp = Secp256k1::new();
         let mut rng = StdRng::seed_from_u64(42);

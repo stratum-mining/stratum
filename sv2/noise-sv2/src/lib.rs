@@ -42,9 +42,9 @@
 //! Clients pin the authority public key, and neither the spec nor this crate defines revocation,
 //! so a leaked authority private key impersonates the operator for as long as any client trusts it.
 //! [`Responder::from_certificate`] lets an internet-facing server hold only its static key and a
-//! certificate over it, signed where the authority private key is kept. [`Responder::new`] and
-//! [`Responder::from_authority_kp`] instead sign a certificate on every handshake and need the
-//! authority private key on the server; they are meant for development and testing.
+//! certificate over it, signed where the authority private key is kept. [`Responder::new`]
+//! instead signs a certificate on every handshake and needs the authority private key on the
+//! server; it is meant for development and testing.
 //!
 //! [`SignatureNoiseMessage`] is the certificate itself: the issuer signs a validity window over the
 //! server's static key with [`SignatureNoiseMessage::sign_with_rng`] and hands the result to the
