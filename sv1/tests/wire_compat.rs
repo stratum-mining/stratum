@@ -890,6 +890,22 @@ fn merkle_branch_is_at_most_32_entries() {
 }
 
 #[test]
+fn set_difficulty_must_be_positive() {
+    for (difficulty, accepted) in [("2", true), ("0.001", true), ("0", false), ("-1", false)] {
+        let line =
+            format!(r#"{{"id":null,"method":"mining.set_difficulty","params":[{difficulty}]}}"#);
+        let Message::Request(request) = decode(&line) else {
+            panic!("not a request");
+        };
+        let decoded = ServerToClient::try_from(request);
+        assert_eq!(decoded.is_ok(), accepted, "{line}");
+        if let Ok(notification) = decoded {
+            to_json(notification);
+        }
+    }
+}
+
+#[test]
 fn responses_are_typed_by_their_request_method() {
     let line = r#"{"id":3,"result":true,"error":null}"#;
     assert_eq!(
