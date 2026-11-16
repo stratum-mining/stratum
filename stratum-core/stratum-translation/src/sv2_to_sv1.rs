@@ -112,8 +112,13 @@ pub fn build_sv1_set_difficulty_from_sv2_set_target(
 ///
 /// # Returns
 /// * `Ok(json_rpc::Message)` - The constructed SV1 mining.set_difficulty message.
+/// * `Err(InvalidSv1Difficulty)` - If the target gives a difficulty that is not finite and
+///   positive, such as an all-zero target.
 pub fn build_sv1_set_difficulty_from_sv2_target(target: Target) -> Result<json_rpc::Message> {
     let difficulty = target.difficulty_float();
+    if !difficulty.is_finite() || difficulty <= 0.0 {
+        return Err(StratumTranslationError::InvalidSv1Difficulty(difficulty));
+    }
     Ok(SetDifficulty { difficulty }.into())
 }
 
@@ -291,6 +296,14 @@ mod tests {
             .expect("Should convert target to difficulty");
 
         assert!(set_difficulty_value(&msg).as_f64().unwrap() > 0.0);
+    }
+
+    #[test]
+    fn test_build_sv1_set_difficulty_rejects_zero_target() {
+        assert!(matches!(
+            build_sv1_set_difficulty_from_sv2_target(Target::from_le_bytes([0; 32])),
+            Err(StratumTranslationError::InvalidSv1Difficulty(_))
+        ));
     }
 
     #[test]
