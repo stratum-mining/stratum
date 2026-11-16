@@ -5,7 +5,7 @@ use crate::{
     json_rpc::{Message, Method},
     utils::{
         extranonce2_size_param, hex_decode, hex_u32, params_array, params_array_mut, Extranonce,
-        HexBytes, HexU32Be, MerkleNode, PrevHash, MAX_EXTRANONCE_LEN,
+        HexBytes, HexU32Be, MerkleNode, PrevHash, MAX_EXTRANONCE_LEN, VERSION_ROLLING_MASK,
     },
 };
 use serde_json::Value;
@@ -41,6 +41,9 @@ pub struct SetExtranonce {
 }
 
 /// `mining.set_version_mask`, applied immediately.
+///
+/// The mask is clamped to [`VERSION_ROLLING_MASK`] when decoding and when encoding, so reserved
+/// bits are never offered or accepted.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SetVersionMask {
     pub mask: HexU32Be,
@@ -95,7 +98,10 @@ impl From<SetExtranonce> for Message {
 
 impl From<SetVersionMask> for Message {
     fn from(set: SetVersionMask) -> Self {
-        Message::notification(Method::SetVersionMask, vec![set.mask.into()])
+        Message::notification(
+            Method::SetVersionMask,
+            vec![(set.mask & VERSION_ROLLING_MASK).into()],
+        )
     }
 }
 
@@ -180,7 +186,7 @@ impl SetVersionMask {
     pub(super) fn from_params(params: &Value) -> Result<Self, ParamError> {
         match params_array(params)? {
             [Value::String(mask)] => Ok(SetVersionMask {
-                mask: hex_u32(mask, "mask")?,
+                mask: hex_u32(mask, "mask")? & VERSION_ROLLING_MASK,
             }),
             _ => Err(ParamError::new(
                 "params",

@@ -57,10 +57,13 @@ impl Configure {
             })
     }
 
-    /// The requested mask, defaulting to [`VERSION_ROLLING_MASK`] when only a count was sent.
+    /// The requested mask without its reserved bits, so it can be granted and checked against
+    /// submits as it is. A request without a mask asks for all of [`VERSION_ROLLING_MASK`]. The
+    /// mask as it was sent is in [`Configure::version_rolling`].
     pub fn version_rolling_mask(&self) -> Option<HexU32Be> {
-        self.version_rolling()
-            .map(|params| params.mask.unwrap_or(HexU32Be(VERSION_ROLLING_MASK)))
+        self.version_rolling().map(|params| {
+            params.mask.unwrap_or(HexU32Be(VERSION_ROLLING_MASK)) & VERSION_ROLLING_MASK
+        })
     }
 
     /// The requested minimum bit count, defaulting to zero when only a mask was sent.
@@ -214,12 +217,16 @@ impl VersionRollingResult {
     }
 }
 
+/// The mask is clamped to [`VERSION_ROLLING_MASK`], so reserved bits are never offered.
 impl From<ConfigureResult> for Value {
     fn from(result: ConfigureResult) -> Self {
         let mut values = Map::new();
         if let Some(version_rolling) = result.version_rolling {
             values.insert("version-rolling".into(), version_rolling.enabled.into());
-            values.insert("version-rolling.mask".into(), version_rolling.mask.into());
+            values.insert(
+                "version-rolling.mask".into(),
+                (version_rolling.mask & VERSION_ROLLING_MASK).into(),
+            );
         }
         if let Some(minimum_difficulty) = result.minimum_difficulty {
             values.insert("minimum-difficulty".into(), minimum_difficulty.into());
@@ -229,8 +236,9 @@ impl From<ConfigureResult> for Value {
 }
 
 impl ConfigureResult {
-    /// Version rolling needs both `version-rolling` and `version-rolling.mask`. BIP 310 gives the
-    /// result no `version-rolling.min-bit-count`, so one is ignored.
+    /// Version rolling needs both `version-rolling` and `version-rolling.mask`. The mask is
+    /// clamped to [`VERSION_ROLLING_MASK`], so a client never rolls reserved bits. BIP 310 gives
+    /// the result no `version-rolling.min-bit-count`, so one is ignored.
     fn from_value(result: &Value) -> Result<Self, ParamError> {
         let values = result
             .as_object()
@@ -245,6 +253,7 @@ impl ConfigureResult {
                 mask: mask
                     .as_str()
                     .and_then(|mask| HexU32Be::try_from(mask).ok())
+                    .map(|mask| mask & VERSION_ROLLING_MASK)
                     .ok_or(ParamError::new(
                         "version-rolling.mask",
                         "not a 32-bit hex value",
