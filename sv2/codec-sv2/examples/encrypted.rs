@@ -103,7 +103,13 @@ fn main() {
     #[cfg(feature = "std")]
     let responder = Responder::new(authority, CERT_VALIDITY);
     #[cfg(not(feature = "std"))]
-    let responder = Responder::new_with_rng(authority, CERT_VALIDITY, &mut rand::thread_rng());
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as u32;
+    #[cfg(not(feature = "std"))]
+    let responder =
+        Responder::new_with_now_rng(authority, CERT_VALIDITY, now, &mut rand::thread_rng());
 
     let sender = Handshake::initiator(initiator);
     let receiver = Handshake::responder(responder);
@@ -116,18 +122,8 @@ fn main() {
         .try_into()
         .expect("Handshake remote invlaid message");
 
-    #[cfg(feature = "std")]
     let (second_message, receiver_transport) = receiver
         .step_1(first_message)
-        .expect("Responder failed second step of handshake");
-    #[cfg(not(feature = "std"))]
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as u32;
-    #[cfg(not(feature = "std"))]
-    let (second_message, receiver_transport) = receiver
-        .step_1_with_now_rng(first_message, now, &mut rand::thread_rng())
         .expect("Responder failed second step of handshake");
     let second_message: [u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE] = second_message
         .payload()

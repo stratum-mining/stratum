@@ -79,25 +79,11 @@ pub struct Responder {
     // shared secret with the initiator.
     e: Keypair,
     // Static key pair of the responder, the one its certificate covers: supplied by the caller
-    // together with that certificate, or generated for this one handshake and signed on the spot.
+    // together with that certificate, or generated for this one handshake and certified at
+    // construction.
     s: Keypair,
-    // Where the `SIGNATURE_NOISE_MESSAGE` sent in the second handshake message comes from.
-    certificate: CertificateSource,
-}
-
-// The `SIGNATURE_NOISE_MESSAGE` (spec 4.5.2) a [`Responder`] sends is either signed on the spot
-// or supplied by the caller, already issued.
-enum CertificateSource {
-    // Sign a fresh certificate over the static key at handshake time, valid from the handshake's
-    // `now` for `cert_validity` seconds. Needs the authority private key on the host; see the
-    // security note on [`Responder::new`].
-    SignAtHandshake {
-        authority: Keypair,
-        cert_validity: u32,
-    },
-    // Send this certificate verbatim; it was issued where the authority private key is kept. See
-    // [`Responder::from_certificate`].
-    PreIssued(SignatureNoiseMessage),
+    // The `SIGNATURE_NOISE_MESSAGE` (spec 4.5.2) sent in the second handshake message.
+    certificate: SignatureNoiseMessage,
 }
 
 impl core::fmt::Debug for Responder {
@@ -163,46 +149,56 @@ impl Responder {
     ///
     /// Constructs a new [`Responder`] with the necessary cryptographic state for the Noise NX
     /// protocol handshake. It generates ephemeral and static key pairs for the responder and
-    /// prepares the handshake state. The authority keypair and certificate validity period are
-    /// also configured.
+    /// prepares the handshake state. The certificate over the static key is signed here with the
+    /// authority keypair, valid from now for `cert_validity` seconds, and sent in
+    /// [`Self::step_1`]. The [`Responder`] does not keep the authority keypair; the caller's
+    /// copy is the caller's to erase.
     ///
     /// # Security
     ///
-    /// A responder built here signs a fresh certificate in [`Self::step_1`], so the host running
-    /// it holds the authority private key in memory and, in practice, in its configuration.
-    /// The authority public key is what clients pin (spec 4.5.3, 4.7), and neither the spec nor
-    /// this crate defines revocation, so a compromise of that host leaks a key that impersonates
-    /// the operator to every client for as long as any of them keeps trusting it. The static key
-    /// is generated here and discarded with the [`Responder`], so it cannot be certified in
-    /// advance, and the certificate lifetime is whatever `cert_validity` says on the same host.
-    /// Use it for development and testing. A server outside those should hold only a static key
-    /// and a certificate issued where the authority private key is kept: see
-    /// [`Self::from_certificate`].
+    /// A host that calls this for every connection holds the authority private key in memory
+    /// and, in practice, in its configuration. The authority public key is what clients pin (spec
+    /// 4.5.3, 4.7), and neither the spec nor this crate defines revocation, so a compromise of
+    /// that host leaks a key that impersonates the operator to every client for as long as any of
+    /// them keeps trusting it. The static key is generated here and discarded with the
+    /// [`Responder`], so it cannot be certified in advance, and the certificate lifetime is
+    /// whatever `cert_validity` says on the same host. Use it for development and testing. A
+    /// server outside those should hold only a static key and a certificate issued where the
+    /// authority private key is kept: see [`Self::from_certificate`].
     #[cfg(feature = "std")]
     pub fn new(authority_key: Keypair, cert_validity: u32) -> Box<Self> {
-        Self::new_with_rng(authority_key, cert_validity, &mut rand::thread_rng())
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as u32;
+        Self::new_with_now_rng(authority_key, cert_validity, now, &mut rand::thread_rng())
     }
 
     /// Creates a new [`Responder`] instance with the provided authority keypair, certificate
-    /// validity, and a custom random number generator.
+    /// validity, the current time and a custom random number generator.
     ///
     /// See [`Self::new`] for more details.
     ///
-    /// The custom random number generator should be provided in order to not implicitely rely on
-    /// `std` and allow `no_std` environments to provide a hardware random number generator for
-    /// example.
+    /// The current time and the custom random number generator should be provided in order to not
+    /// implicitely rely on `std` and allow `no_std` environments to provide a hardware random
+    /// number generator for example.
     #[inline]
-    pub fn new_with_rng<R: rand::Rng + rand::CryptoRng + ?Sized>(
-        authority_key: Keypair,
+    pub fn new_with_now_rng<R: rand::Rng + rand::CryptoRng + ?Sized>(
+        mut authority_key: Keypair,
         cert_validity: u32,
+        now: u32,
         rng: &mut R,
     ) -> Box<Self> {
         let s = Self::generate_key_with_rng(rng);
-        let certificate = CertificateSource::SignAtHandshake {
-            authority: authority_key,
-            cert_validity,
-        };
-        Self::build(s, certificate, rng)
+        let certificate = SignatureNoiseMessage::sign_with_rng(
+            now,
+            now.saturating_add(cert_validity),
+            &s.x_only_public_key().0,
+            &authority_key,
+            rng,
+        );
+        authority_key.non_secure_erase();
+        Self::from_certificate_with_rng(s, certificate, rng)
     }
 
     /// Creates a new [`Responder`] from its static keypair `s` and a certificate issued for it in
@@ -240,16 +236,6 @@ impl Responder {
         certificate: SignatureNoiseMessage,
         rng: &mut R,
     ) -> Box<Self> {
-        Self::build(s, CertificateSource::PreIssued(certificate), rng)
-    }
-
-    // Assembles a [`Responder`] around its static key and certificate source, generating the
-    // ephemeral keypair and initializing the handshake state.
-    fn build<R: rand::Rng + rand::CryptoRng + ?Sized>(
-        s: Keypair,
-        certificate: CertificateSource,
-        rng: &mut R,
-    ) -> Box<Self> {
         let mut self_ = Self {
             handshake_cipher: None,
             k: None,
@@ -271,9 +257,8 @@ impl Responder {
     /// the necessary shared secrets, and constructs the response message. The response includes
     /// the responder's ephemeral public key (in its ElligatorSwift-encoded form), the encrypted
     /// static public key, and the encrypted `SIGNATURE_NOISE_MESSAGE`: the certificate given to
-    /// [`Self::from_certificate`] verbatim, or one signed now by the authority keypair given to
-    /// [`Self::new`]. Additionally, it establishes the session ciphers for encrypting and
-    /// decrypting further communication.
+    /// [`Self::from_certificate`], or the one [`Self::new`] signed. Additionally, it establishes
+    /// the session ciphers for encrypting and decrypting further communication.
     ///
     /// On success, it returns a tuple containing the response message to be sent back to the
     /// initiator and a [`NoiseEngine`] instance, which is configured with the session ciphers for
@@ -282,40 +267,11 @@ impl Responder {
     /// On failure, the method returns an error if there is an issue during encryption, decryption,
     /// or any other step of the handshake process.
     ///
-    /// On success the remaining handshake secrets, including the ephemeral and static keypairs
-    /// and the authority keypair if there is one, are erased, so the [`Responder`] cannot be used
-    /// for another handshake.
-    #[cfg(feature = "std")]
+    /// On success the remaining handshake secrets, including the ephemeral and static keypairs,
+    /// are erased, so the [`Responder`] cannot be used for another handshake.
     pub fn step_1(
         &mut self,
         elligatorswift_theirs_ephemeral_serialized: [u8; ELLSWIFT_ENCODING_SIZE],
-    ) -> Result<([u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE], NoiseEngine), AeadError> {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as u32;
-
-        self.step_1_with_now_rng(
-            elligatorswift_theirs_ephemeral_serialized,
-            now,
-            &mut rand::thread_rng(),
-        )
-    }
-
-    /// Executes the first step of the Noise NX protocol handshake for the responder given
-    /// the current time and a custom random number generator.
-    ///
-    /// See [`Self::step_1`] for more details.
-    ///
-    /// The current time and the custom random number generatorshould be provided in order to not
-    /// implicitely rely on `std` and allow `no_std` environments to provide a hardware random
-    /// number generator for example.
-    #[inline]
-    pub fn step_1_with_now_rng<R: rand::Rng + rand::CryptoRng>(
-        &mut self,
-        elligatorswift_theirs_ephemeral_serialized: [u8; ELLSWIFT_ENCODING_SIZE],
-        now: u32,
-        rng: &mut R,
     ) -> Result<([u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE], NoiseEngine), AeadError> {
         // 4.5.1.2 Responder
         Self::mix_hash(self, &elligatorswift_theirs_ephemeral_serialized[..]);
@@ -377,20 +333,7 @@ impl Responder {
         ecdh_static.zeroize();
 
         // 7. appends `EncryptAndHash(SIGNATURE_NOISE_MESSAGE)` to the buffer
-        let signature_noise_message: [u8; SIGNATURE_NOISE_MESSAGE_SIZE] = match &self.certificate {
-            CertificateSource::SignAtHandshake {
-                authority,
-                cert_validity,
-            } => SignatureNoiseMessage::sign_with_rng(
-                now,
-                now.saturating_add(*cert_validity),
-                &self.s.x_only_public_key().0,
-                authority,
-                rng,
-            ),
-            CertificateSource::PreIssued(certificate) => *certificate,
-        }
-        .into();
+        let signature_noise_message: [u8; SIGNATURE_NOISE_MESSAGE_SIZE] = self.certificate.into();
         let mut signature_part = Vec::with_capacity(ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE);
         signature_part.extend_from_slice(&signature_noise_message[..]);
         Self::encrypt_and_hash(self, &mut signature_part)?;
@@ -427,10 +370,9 @@ impl Responder {
     // Securely erases sensitive data in the responder's memory.
     //
     // Zeroizes the handshake key (`k`), the chaining key (`ck`) and the handshake
-    // hash (`h`), and non-securely erases the ephemeral and static keypairs, plus the authority
-    // keypair when the responder signs at handshake time. A pre-issued certificate is not secret
-    // and is left in place. This function is typically called when the [`Responder`] instance is
-    // no longer needed or before deallocation.
+    // hash (`h`), and non-securely erases the ephemeral and static keypairs. The certificate is
+    // not secret and is left in place. This function is typically called when the [`Responder`]
+    // instance is no longer needed or before deallocation.
     //
     // It does not touch `handshake_cipher`: that key is wiped by [`ChaCha20Poly1305`]'s own
     // zeroize-on-drop. Nor does it reach the transport session ciphers, which by then live in the
@@ -442,9 +384,6 @@ impl Responder {
         self.h.zeroize();
         self.e.non_secure_erase();
         self.s.non_secure_erase();
-        if let CertificateSource::SignAtHandshake { authority, .. } = &mut self.certificate {
-            authority.non_secure_erase();
-        }
     }
 }
 
@@ -469,31 +408,44 @@ mod test {
         let mut rng = StdRng::seed_from_u64(42);
         let authority = Keypair::new(&secp, &mut rng);
 
-        *Responder::new_with_rng(authority, 60, &mut rng)
+        *Responder::new_with_now_rng(authority, 60, 100, &mut rng)
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg_attr(miri, ignore)]
+    fn new_certifies_the_static_key_from_the_given_time() {
+        use rand::{rngs::StdRng, SeedableRng};
+        use secp256k1::Secp256k1;
+
+        let mut rng = StdRng::seed_from_u64(7);
+        let authority = Keypair::new(&Secp256k1::new(), &mut rng);
+        let responder = Responder::new_with_now_rng(authority, 60, 100, &mut rng);
+
+        assert_eq!(responder.certificate.valid_from, 100);
+        assert_eq!(responder.certificate.not_valid_after, 160);
+        assert!(responder.certificate.verify_with_now(
+            &responder.s.x_only_public_key().0,
+            &authority.x_only_public_key().0,
+            100,
+        ));
+    }
+
+    #[test]
     #[cfg_attr(miri, ignore)]
     fn responder_step_1_returns_valid_message_and_engine() {
-        use rand::{rngs::StdRng, SeedableRng};
         use secp256k1::ellswift::ElligatorSwift;
 
-        let mut rng = StdRng::seed_from_u64(1);
         let mut responder = make_responder();
 
         let fake_initiator_ephemeral =
             ElligatorSwift::from_pubkey(responder.e.public_key()).to_array();
 
-        let (msg, _) = responder
-            .step_1_with_now_rng(fake_initiator_ephemeral, 100, &mut rng)
-            .unwrap();
+        let (msg, _) = responder.step_1(fake_initiator_ephemeral).unwrap();
 
         assert_eq!(msg.len(), INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE);
     }
 
     #[test]
-    #[cfg(feature = "std")]
     #[cfg_attr(miri, ignore)]
     fn responder_erase_zeroes_ck_and_h() {
         let mut responder = make_responder();
@@ -507,21 +459,16 @@ mod test {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     #[cfg_attr(miri, ignore)]
     fn responder_cipher_detects_tampering() {
-        use rand::{rngs::StdRng, SeedableRng};
         use secp256k1::ellswift::ElligatorSwift;
 
-        let mut rng = StdRng::seed_from_u64(2);
         let mut responder = make_responder();
 
         let fake_initiator_ephemeral =
             ElligatorSwift::from_pubkey(responder.e.public_key()).to_array();
 
-        let (_msg, mut engine) = responder
-            .step_1_with_now_rng(fake_initiator_ephemeral, 100, &mut rng)
-            .unwrap();
+        let (_msg, mut engine) = responder.step_1(fake_initiator_ephemeral).unwrap();
 
         let mut data = vec![10, 20, 30];
         engine.encrypt(&mut data).unwrap();
@@ -532,30 +479,17 @@ mod test {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     #[cfg_attr(miri, ignore)]
     fn responder_step_1_erases_handshake_secrets() {
-        use rand::{rngs::StdRng, SeedableRng};
         use secp256k1::ellswift::ElligatorSwift;
 
-        let mut rng = StdRng::seed_from_u64(3);
         let mut responder = make_responder();
-        let authority_secret = |responder: &Responder| match &responder.certificate {
-            CertificateSource::SignAtHandshake { authority, .. } => {
-                authority.secret_key().secret_bytes()
-            }
-            CertificateSource::PreIssued(_) => panic!("make_responder signs at handshake time"),
-        };
-        let authority_before = authority_secret(&responder);
         let static_before = responder.s.secret_key().secret_bytes();
         let fake_initiator_ephemeral =
             ElligatorSwift::from_pubkey(responder.e.public_key()).to_array();
 
-        let _ = responder
-            .step_1_with_now_rng(fake_initiator_ephemeral, 100, &mut rng)
-            .unwrap();
+        let _ = responder.step_1(fake_initiator_ephemeral).unwrap();
 
-        assert_ne!(authority_secret(&responder), authority_before);
         assert_ne!(responder.s.secret_key().secret_bytes(), static_before);
         assert_eq!(responder.ck, [0u8; 32]);
         assert_eq!(responder.h, [0u8; 32]);

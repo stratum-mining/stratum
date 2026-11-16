@@ -74,13 +74,10 @@ pub struct InitiatorSent(Initiator);
 /// use noise_sv2::{Responder, ELLSWIFT_ENCODING_SIZE};
 ///
 /// fn responder() -> Handshake<Responder> { unimplemented!() }
-/// fn rng() -> rand::rngs::ThreadRng { unimplemented!() }
 ///
 /// let responder = responder();
-/// let (_first, _transport) = responder
-///     .step_1_with_now_rng([0; ELLSWIFT_ENCODING_SIZE], 0, &mut rng())
-///     .unwrap();
-/// let _second = responder.step_1_with_now_rng([0; ELLSWIFT_ENCODING_SIZE], 0, &mut rng());
+/// let (_first, _transport) = responder.step_1([0; ELLSWIFT_ENCODING_SIZE]).unwrap();
+/// let _second = responder.step_1([0; ELLSWIFT_ENCODING_SIZE]);
 /// ```
 ///
 /// Nor does sending the first message twice, which would mix it into the transcript twice and
@@ -174,28 +171,11 @@ impl Handshake<Responder> {
 
     /// Answers the initiator's public key, completing the handshake on this side and consuming
     /// the state. The returned frame is what the initiator needs for its [`Handshake::step_2`].
-    #[cfg(feature = "std")]
     pub fn step_1(
         mut self,
         re_pub: [u8; ELLSWIFT_ENCODING_SIZE],
     ) -> Result<(HandshakeMessage, Transport)> {
         let (message, engine) = self.role.step_1(re_pub)?;
-        Ok((
-            HandshakeMessage::from_message(message),
-            Transport::new(engine),
-        ))
-    }
-
-    /// [`Self::step_1`] given the current time and a random number generator, for `no_std`
-    /// environments that have their own of each.
-    #[inline]
-    pub fn step_1_with_now_rng<G: rand::Rng + rand::CryptoRng>(
-        mut self,
-        re_pub: [u8; ELLSWIFT_ENCODING_SIZE],
-        now: u32,
-        rng: &mut G,
-    ) -> Result<(HandshakeMessage, Transport)> {
-        let (message, engine) = self.role.step_1_with_now_rng(re_pub, now, rng)?;
         Ok((
             HandshakeMessage::from_message(message),
             Transport::new(engine),

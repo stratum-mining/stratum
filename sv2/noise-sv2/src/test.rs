@@ -26,15 +26,14 @@ fn test_1_with_rng() {
 
     let mut initiator: Box<Initiator> =
         Initiator::new_with_rng(key_pair.public_key().into(), &mut rand::thread_rng());
-    let mut responder = Responder::new_with_rng(key_pair, 31449600, &mut rand::thread_rng());
-    let first_message = initiator.step_0().unwrap();
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs() as u32;
-    let (second_message, mut responder_engine) = responder
-        .step_1_with_now_rng(first_message, now, &mut rand::thread_rng())
-        .unwrap();
+    let mut responder =
+        Responder::new_with_now_rng(key_pair, 31449600, now, &mut rand::thread_rng());
+    let first_message = initiator.step_0().unwrap();
+    let (second_message, mut responder_engine) = responder.step_1(first_message).unwrap();
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
