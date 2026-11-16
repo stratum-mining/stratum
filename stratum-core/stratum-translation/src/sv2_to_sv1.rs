@@ -15,8 +15,9 @@ use mining_sv2::{NewExtendedMiningJobOwned, SetNewPrevHashOwned, SetTargetOwned}
 use serde_json::Value;
 use tracing::debug;
 use v1::{
-    json_rpc, server_to_client,
+    json_rpc,
     utils::{HexU32Be, MerkleNode, PrevHash},
+    Method, Notify, SetDifficulty,
 };
 
 /// Builds an SV1 `mining.notify` message from SV2 messages.
@@ -33,7 +34,7 @@ use v1::{
 ///   block is found).
 ///
 /// # Returns
-/// * `Ok(server_to_client::Notify)` - The constructed SV1 mining.notify message.
+/// * `Ok(Notify)` - The constructed SV1 mining.notify message.
 /// * `Err(StratumTranslationError)` - If BIP141 stripping or serialization fails.
 ///
 /// # Errors
@@ -43,7 +44,7 @@ pub fn build_sv1_notify_from_sv2(
     new_prev_hash: SetNewPrevHashOwned,
     mut new_job: NewExtendedMiningJobOwned,
     clean_jobs: bool,
-) -> Result<server_to_client::Notify> {
+) -> Result<Notify> {
     if let Some((coinbase_tx_prefix_stripped, coinbase_tx_suffix_stripped)) = try_strip_bip141(
         new_job.coinbase_tx_prefix.as_bytes(),
         new_job.coinbase_tx_suffix.as_bytes(),
@@ -60,13 +61,13 @@ pub fn build_sv1_notify_from_sv2(
 
     let job_id = new_job.job_id.to_string();
     let prev_hash = PrevHash(new_prev_hash.prev_hash);
-    let coin_base1 = new_job.coinbase_tx_prefix.to_owned_bytes().into();
-    let coin_base2 = new_job.coinbase_tx_suffix.to_owned_bytes().into();
+    let coinbase1 = new_job.coinbase_tx_prefix.to_owned_bytes().into();
+    let coinbase2 = new_job.coinbase_tx_suffix.to_owned_bytes().into();
     let merkle_path = new_job.merkle_path.clone().into_inner();
     let merkle_branch: Vec<MerkleNode> = merkle_path.into_iter().map(MerkleNode).collect();
     let version = HexU32Be(new_job.version);
-    let bits = HexU32Be(new_prev_hash.nbits);
-    let time = HexU32Be(
+    let nbits = HexU32Be(new_prev_hash.nbits);
+    let ntime = HexU32Be(
         new_job
             .ntime_start
             .clone()
@@ -74,18 +75,18 @@ pub fn build_sv1_notify_from_sv2(
             .unwrap_or(new_prev_hash.ntime_start),
     );
 
-    let notify_response = server_to_client::Notify {
+    let notify_response = Notify {
         job_id,
         prev_hash,
-        coin_base1,
-        coin_base2,
+        coinbase1,
+        coinbase2,
         merkle_branch,
         version,
-        bits,
-        time,
+        nbits,
+        ntime,
         clean_jobs,
     };
-    debug!("\nNextMiningNotify: {}\n", notify_response);
+    debug!("\nNextMiningNotify: {:?}\n", notify_response);
     Ok(notify_response)
 }
 
@@ -112,9 +113,8 @@ pub fn build_sv1_set_difficulty_from_sv2_set_target(
 /// # Returns
 /// * `Ok(json_rpc::Message)` - The constructed SV1 mining.set_difficulty message.
 pub fn build_sv1_set_difficulty_from_sv2_target(target: Target) -> Result<json_rpc::Message> {
-    let value = target.difficulty_float();
-    let set_target = v1::methods::server_to_client::SetDifficulty { value };
-    Ok(set_target.into())
+    let difficulty = target.difficulty_float();
+    Ok(SetDifficulty { difficulty }.into())
 }
 
 /// The SV1 difficulty selected by the integer power-of-two rounding policy.
@@ -249,8 +249,9 @@ fn integer_power_of_two_sv1_difficulty_value_from_difficulty(
 }
 
 fn build_sv1_set_difficulty_notification(value: Value) -> json_rpc::Message {
-    json_rpc::Message::Notification(json_rpc::Notification {
-        method: "mining.set_difficulty".to_string(),
+    json_rpc::Message::Request(json_rpc::Request {
+        id: None,
+        method: Method::SetDifficulty,
         params: Value::Array(vec![value]),
     })
 }
@@ -271,8 +272,8 @@ mod tests {
 
     fn set_difficulty_value(msg: &json_rpc::Message) -> &Value {
         match msg {
-            json_rpc::Message::Notification(notif) => {
-                assert_eq!(notif.method, "mining.set_difficulty");
+            json_rpc::Message::Request(notif) if notif.id.is_none() => {
+                assert_eq!(notif.method, Method::SetDifficulty);
                 notif
                     .params
                     .as_array()
@@ -289,14 +290,7 @@ mod tests {
         let msg = build_sv1_set_difficulty_from_sv2_target(dummy_target())
             .expect("Should convert target to difficulty");
 
-        // Check that we get a JSON-RPC Notification message
-        assert!(matches!(msg, v1::json_rpc::Message::Notification(_)));
-
-        if let v1::json_rpc::Message::Notification(notif) = msg {
-            assert_eq!(notif.method, "mining.set_difficulty");
-            assert!(!notif.params.is_null());
-            // Just verify it has parameters - detailed checking would require serde_json
-        }
+        assert!(set_difficulty_value(&msg).as_f64().unwrap() > 0.0);
     }
 
     #[test]
@@ -308,14 +302,7 @@ mod tests {
         let msg = build_sv1_set_difficulty_from_sv2_set_target(set_target)
             .expect("Should convert SetTarget to difficulty");
 
-        // Verify the result is a proper JSON-RPC Notification message
-        assert!(matches!(msg, v1::json_rpc::Message::Notification(_)));
-
-        if let v1::json_rpc::Message::Notification(notif) = msg {
-            assert_eq!(notif.method, "mining.set_difficulty");
-            assert!(!notif.params.is_null());
-            // Just verify it has parameters - detailed checking would require serde_json
-        }
+        assert!(set_difficulty_value(&msg).as_f64().unwrap() > 0.0);
     }
 
     #[test]
@@ -512,7 +499,7 @@ mod tests {
 
         // Verify it uses prev_hash.ntime_start since job is future
         let notify = res.unwrap();
-        assert_eq!(notify.time.0, 1746839904);
+        assert_eq!(notify.ntime.0, 1746839904);
     }
 
     #[test]
@@ -565,11 +552,11 @@ mod tests {
         assert!(!notify.clean_jobs); // clean_jobs set to false
         assert_eq!(notify.merkle_branch.len(), 1); // One merkle node
         assert_eq!(notify.version.0, 536870912);
-        assert_eq!(notify.bits.0, 503543726);
-        assert_eq!(notify.time.0, 1746839905); // Should use job's ntime_start since not future
+        assert_eq!(notify.nbits.0, 503543726);
+        assert_eq!(notify.ntime.0, 1746839905); // Should use job's ntime_start since not future
 
         // Verify coinbase prefix and suffix are properly set
-        assert!(!notify.coin_base1.is_empty());
-        assert!(!notify.coin_base2.is_empty());
+        assert!(!notify.coinbase1.is_empty());
+        assert!(!notify.coinbase2.is_empty());
     }
 }

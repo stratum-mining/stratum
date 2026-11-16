@@ -1207,12 +1207,11 @@ version = "7.0.0"
 dependencies = [
  "binary_sv2",
  "bitcoin",
- "byteorder",
  "quickcheck",
  "quickcheck_macros",
  "serde",
  "serde_json",
- "tracing",
+ "trait-variant",
 ]
 
 [[package]]
