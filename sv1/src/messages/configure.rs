@@ -216,12 +216,16 @@ impl VersionRollingResult {
     }
 }
 
+/// The mask is clamped to [`VERSION_ROLLING_MASK`], so reserved bits are never offered.
 impl From<ConfigureResult> for Value {
     fn from(result: ConfigureResult) -> Self {
         let mut values = Map::new();
         if let Some(version_rolling) = result.version_rolling {
             values.insert("version-rolling".into(), version_rolling.enabled.into());
-            values.insert("version-rolling.mask".into(), version_rolling.mask.into());
+            values.insert(
+                "version-rolling.mask".into(),
+                (version_rolling.mask & VERSION_ROLLING_MASK).into(),
+            );
             values.insert(
                 "version-rolling.min-bit-count".into(),
                 HexU32Be(version_rolling.min_bit_count).into(),
@@ -236,7 +240,8 @@ impl From<ConfigureResult> for Value {
 
 impl ConfigureResult {
     /// Version rolling needs both `version-rolling` and `version-rolling.mask`; a missing
-    /// `version-rolling.min-bit-count` reads as zero.
+    /// `version-rolling.min-bit-count` reads as zero. The mask is clamped to
+    /// [`VERSION_ROLLING_MASK`], so a client never rolls reserved bits.
     fn from_value(result: &Value) -> Result<Self, ParamError> {
         let values = result
             .as_object()
@@ -252,6 +257,7 @@ impl ConfigureResult {
                 mask: mask
                     .as_str()
                     .and_then(|mask| HexU32Be::try_from(mask).ok())
+                    .map(|mask| mask & VERSION_ROLLING_MASK)
                     .ok_or(ParamError::new(
                         "version-rolling.mask",
                         "not a 32-bit hex value",

@@ -780,6 +780,27 @@ fn submit_errors_round_trip_through_their_code() {
 }
 
 #[test]
+fn offered_mask_is_clamped_whatever_the_result_holds() {
+    let result = ConfigureResult {
+        version_rolling: Some(VersionRollingResult {
+            enabled: true,
+            mask: HexU32Be(0xffffffff),
+            min_bit_count: 0,
+        }),
+        minimum_difficulty: None,
+    };
+    let encoded = to_json(Response::success(Id::from(7u64), result));
+    assert_eq!(encoded["result"]["version-rolling.mask"], "1fffffe0");
+}
+
+#[test]
+fn configure_result_mask_is_clamped() {
+    let line = r#"{"id":7,"result":{"version-rolling":true,"version-rolling.mask":"ffffffff"},"error":null}"#;
+    let result = configure_result(line);
+    assert_eq!(result.version_rolling.unwrap().mask, HexU32Be(0x1fffffe0));
+}
+
+#[test]
 fn raw_configure_hides_the_connection_url() {
     let line = r#"{"id":7,"method":"mining.configure","params":[["info"],{"info.connection-url":"stratum+tcp://user:secret@pool.example","info.hw-version":"S19"}]}"#;
     let message = decode(line);
