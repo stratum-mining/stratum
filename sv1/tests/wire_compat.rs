@@ -1,43 +1,85 @@
-//! Wire forms that `sv1_api` accepts from peers today, and the JSON it emits.
+//! Wire forms that `sv1_api` accepts from peers, and the JSON it emits.
 
 use bitcoin::hashes::hex::DisplayHex;
 use serde_json::{json, Value};
 use std::convert::TryFrom;
 use sv1_api::{
-    client_to_server::{self, ConfigureExtension, SubmitError, SubmitOutcome},
-    json_rpc::Message,
-    methods::{Client2Server, Server2Client, Server2ClientResponse},
-    server_to_client,
+    error::{DecodeError, DecodeErrorKind, Error},
+    json_rpc,
     utils::{Extranonce, HexU32Be},
+    Authorize, ClientToServer, Configure, ConfigureExtension, ConfigureResult, Id, Message, Method,
+    Notify, Request, Response, RpcError, ServerToClient, SetDifficulty, SetExtranonce,
+    SetVersionMask, SubmitError, SubmitOutcome, SubscribeResult, VersionRollingResult,
 };
 
 fn decode(line: &str) -> Message {
-    serde_json::from_str(line).unwrap_or_else(|e| panic!("{line}: {e}"))
+    Message::decode(line).unwrap_or_else(|e| panic!("{line}: {e}"))
 }
 
-fn client_request(line: &str) -> Client2Server {
-    Client2Server::try_from(decode(line)).unwrap_or_else(|e| panic!("{line}: {e:?}"))
+fn try_client_request(line: &str) -> Result<ClientToServer, DecodeError> {
+    match decode(line) {
+        Message::Request(request) => ClientToServer::try_from(request),
+        other => panic!("{line}: not a request: {other:?}"),
+    }
 }
 
-fn server_notification(line: &str) -> Server2Client {
-    Server2Client::try_from(decode(line)).unwrap_or_else(|e| panic!("{line}: {e:?}"))
+fn client_request(line: &str) -> ClientToServer {
+    try_client_request(line).unwrap_or_else(|e| panic!("{line}: {e}"))
 }
 
-fn server_response(line: &str) -> Server2ClientResponse {
-    Server2ClientResponse::try_from(decode(line)).unwrap_or_else(|e| panic!("{line}: {e:?}"))
+fn server_notification(line: &str) -> ServerToClient {
+    match decode(line) {
+        Message::Request(request) => {
+            ServerToClient::try_from(request).unwrap_or_else(|e| panic!("{line}: {e}"))
+        }
+        other => panic!("{line}: not a notification: {other:?}"),
+    }
+}
+
+fn server_response(line: &str) -> json_rpc::RpcResponse {
+    match decode(line) {
+        Message::Response(response) => response,
+        other => panic!("{line}: not a response: {other:?}"),
+    }
+}
+
+fn typed(line: &str, method: Method) -> Result<Option<ServerToClient>, Error> {
+    ServerToClient::from_response(&server_response(line), &method)
+}
+
+fn subscribe_result(line: &str) -> SubscribeResult {
+    match typed(line, Method::Subscribe) {
+        Ok(Some(ServerToClient::Subscribe(Response {
+            result: Ok(result), ..
+        }))) => result,
+        other => panic!("{line}: not a subscribe result: {other:?}"),
+    }
+}
+
+fn configure_result(line: &str) -> ConfigureResult {
+    match typed(line, Method::Configure) {
+        Ok(Some(ServerToClient::Configure(Response {
+            result: Ok(result), ..
+        }))) => result,
+        other => panic!("{line}: not a configure result: {other:?}"),
+    }
 }
 
 fn kind(message: &Message) -> &'static str {
     match message {
-        Message::StandardRequest(_) => "request",
-        Message::Notification(_) => "notification",
-        Message::OkResponse(_) => "ok",
-        Message::ErrorResponse(_) => "error",
+        Message::Request(request) if request.id.is_some() => "request",
+        Message::Request(_) => "notification",
+        Message::Response(response) if response.result.is_ok() => "ok",
+        Message::Response(_) => "error",
     }
 }
 
 fn hex(bytes: impl Into<Vec<u8>>) -> String {
     bytes.into().to_lower_hex_string()
+}
+
+fn to_json(message: impl Into<Message>) -> Value {
+    serde_json::to_value(message.into()).unwrap()
 }
 
 #[test]
@@ -96,6 +138,70 @@ fn envelope_kinds() {
 }
 
 #[test]
+fn request_ids() {
+    for (line, id) in [
+        (
+            r#"{"id":1,"method":"mining.subscribe","params":[]}"#,
+            Id::from(1u64),
+        ),
+        (
+            r#"{"id":"a1","method":"mining.subscribe","params":[]}"#,
+            Id::from("a1"),
+        ),
+    ] {
+        let decoded = client_request(line);
+        assert!(matches!(decoded, ClientToServer::Subscribe(..)), "{line}");
+        assert_eq!(decoded.id(), &id, "{line}");
+    }
+}
+
+#[test]
+fn request_errors() {
+    let kind = |line: &str| try_client_request(line).unwrap_err().kind;
+    assert!(matches!(
+        kind(r#"{"id":null,"method":"mining.submit","params":[]}"#),
+        DecodeErrorKind::MissingId
+    ));
+    assert!(matches!(
+        kind(r#"{"id":1,"method":"client.reconnect","params":[]}"#),
+        DecodeErrorKind::UnknownMethod
+    ));
+    assert!(matches!(
+        kind(r#"{"id":1,"method":"mining.notify","params":[]}"#),
+        DecodeErrorKind::UnknownMethod
+    ));
+    assert!(matches!(
+        kind(r#"{"id":1,"method":"mining.submit","params":["w","bf","00",4294967296,1]}"#),
+        DecodeErrorKind::InvalidParams { field: "ntime", .. }
+    ));
+}
+
+#[test]
+fn server_messages_exclude_client_methods() {
+    for line in [
+        r#"{"id":1,"method":"mining.submit","params":[]}"#,
+        r#"{"id":9,"method":"client.reconnect","params":[]}"#,
+    ] {
+        let Message::Request(request) = decode(line) else {
+            panic!("{line}: not a request");
+        };
+        assert!(matches!(
+            ServerToClient::try_from(request).unwrap_err().kind,
+            DecodeErrorKind::UnknownMethod
+        ));
+    }
+}
+
+#[test]
+fn responses_are_not_requests() {
+    let response = decode(r#"{"id":1,"result":true,"error":null}"#);
+    assert!(matches!(
+        ClientToServer::try_from(response).unwrap_err().kind,
+        DecodeErrorKind::UnexpectedResponse
+    ));
+}
+
+#[test]
 fn subscribe_forms() {
     let cases = [
         (
@@ -114,6 +220,11 @@ fn subscribe_forms() {
             Some("08000002"),
         ),
         (
+            r#"{"id":1,"method":"mining.subscribe","params":["cgminer/4.10.0","session-zz"]}"#,
+            "cgminer/4.10.0",
+            Some("session-zz"),
+        ),
+        (
             r#"{"id":1,"method":"mining.subscribe","params":["bosminer/1.0",null]}"#,
             "bosminer/1.0",
             None,
@@ -125,24 +236,47 @@ fn subscribe_forms() {
         ),
     ];
     for (line, agent, resume) in cases {
-        let Client2Server::Subscribe(subscribe) = client_request(line) else {
+        let ClientToServer::Subscribe(Request {
+            id,
+            params: subscribe,
+        }) = client_request(line)
+        else {
             panic!("{line}: not a subscribe");
         };
-        assert_eq!(subscribe.id, 1, "{line}");
-        assert_eq!(subscribe.agent_signature, agent, "{line}");
-        assert_eq!(subscribe.extranonce1.map(hex).as_deref(), resume, "{line}");
+        assert_eq!(id, Id::from(1u64), "{line}");
+        assert_eq!(subscribe.agent, agent, "{line}");
+        assert_eq!(subscribe.subscription_id.as_deref(), resume, "{line}");
     }
 }
 
 #[test]
-fn authorize_form() {
-    let line = r#"{"id":2,"method":"mining.authorize","params":["worker.1","x"]}"#;
-    let Client2Server::Authorize(authorize) = client_request(line) else {
-        panic!("not an authorize");
+fn authorize_forms() {
+    for (params, password) in [
+        (r#"["worker.1","x"]"#, "x"),
+        (r#"["worker.1"]"#, ""),
+        (r#"["worker.1",null]"#, ""),
+    ] {
+        let line = format!(r#"{{"id":2,"method":"mining.authorize","params":{params}}}"#);
+        let ClientToServer::Authorize(Request {
+            id,
+            params: authorize,
+        }) = client_request(&line)
+        else {
+            panic!("{line}: not an authorize");
+        };
+        assert_eq!(id, Id::from(2u64), "{line}");
+        assert_eq!(authorize.worker_name, "worker.1", "{line}");
+        assert_eq!(authorize.password, password, "{line}");
+    }
+}
+
+#[test]
+fn authorize_password_is_redacted() {
+    let authorize = Authorize {
+        worker_name: "w".to_string(),
+        password: "hunter2".to_string(),
     };
-    assert_eq!(authorize.id, 2);
-    assert_eq!(authorize.name, "worker.1");
-    assert_eq!(authorize.password, "x");
+    assert!(!format!("{authorize:?}").contains("hunter2"));
 }
 
 #[test]
@@ -170,14 +304,14 @@ fn submit_forms() {
         ),
     ];
     for (line, version_bits) in cases {
-        let Client2Server::Submit(submit) = client_request(line) else {
+        let ClientToServer::Submit(Request { id, params: submit }) = client_request(line) else {
             panic!("{line}: not a submit");
         };
-        assert_eq!(submit.id, 4, "{line}");
-        assert_eq!(submit.user_name, "w", "{line}");
+        assert_eq!(id, Id::from(4u64), "{line}");
+        assert_eq!(submit.worker_name, "w", "{line}");
         assert_eq!(submit.job_id, "bf", "{line}");
-        assert_eq!(hex(submit.extra_nonce2), "0000abcd", "{line}");
-        assert_eq!(submit.time, HexU32Be(0x647025b5), "{line}");
+        assert_eq!(hex(submit.extranonce2), "0000abcd", "{line}");
+        assert_eq!(submit.ntime, HexU32Be(0x647025b5), "{line}");
         assert_eq!(submit.nonce, HexU32Be(0x1d2e3f40), "{line}");
         assert_eq!(submit.version_bits, version_bits.map(HexU32Be), "{line}");
     }
@@ -186,10 +320,10 @@ fn submit_forms() {
 #[test]
 fn submit_short_hex_is_left_padded() {
     let line = r#"{"id":4,"method":"mining.submit","params":["w","bf","00","5f5e100","1"]}"#;
-    let Client2Server::Submit(submit) = client_request(line) else {
+    let ClientToServer::Submit(Request { params: submit, .. }) = client_request(line) else {
         panic!("not a submit");
     };
-    assert_eq!(submit.time, HexU32Be(0x05f5e100));
+    assert_eq!(submit.ntime, HexU32Be(0x05f5e100));
     assert_eq!(submit.nonce, HexU32Be(1));
 }
 
@@ -198,44 +332,58 @@ fn extranonce_subscribe_ignores_params() {
     for params in ["[]", "null", "{}", r#"["x"]"#] {
         let line =
             format!(r#"{{"id":5,"method":"mining.extranonce.subscribe","params":{params}}}"#);
-        let Client2Server::ExtranonceSubscribe(subscribe) = client_request(&line) else {
+        let ClientToServer::ExtranonceSubscribe(Request { id, .. }) = client_request(&line) else {
             panic!("{line}: not an extranonce subscribe");
         };
-        assert_eq!(subscribe.id, 5, "{line}");
+        assert_eq!(id, Id::from(5u64), "{line}");
     }
 }
 
 #[test]
 fn suggest_difficulty_accepts_any_params() {
-    for params in ["[512]", "[0.5]", "[]", r#"["1024"]"#, "[-1]", "null", "{}"] {
+    for (params, difficulty) in [
+        ("[512]", Some(512.0)),
+        ("[0.5]", Some(0.5)),
+        ("[]", None),
+        (r#"["1024"]"#, None),
+        ("[-1]", None),
+        ("null", None),
+        ("{}", None),
+    ] {
         let line = format!(r#"{{"id":6,"method":"mining.suggest_difficulty","params":{params}}}"#);
-        assert!(
-            matches!(client_request(&line), Client2Server::SuggestDifficulty()),
-            "{line}"
-        );
+        let ClientToServer::SuggestDifficulty(Request {
+            id,
+            params: suggest,
+        }) = client_request(&line)
+        else {
+            panic!("{line}: not a suggest_difficulty");
+        };
+        assert_eq!(id, Id::from(6u64), "{line}");
+        assert_eq!(suggest.difficulty, difficulty, "{line}");
     }
 }
 
-fn configure_summary(configure: &client_to_server::Configure) -> Vec<String> {
+fn configure_summary(configure: &Configure) -> Vec<String> {
     configure
         .extensions
         .iter()
         .map(|extension| match extension {
             ConfigureExtension::VersionRolling(params) => format!(
                 "version-rolling mask={:?} min={:?}",
-                params.get_mask().as_ref().map(|m| m.0),
-                params.get_min_bit_count().as_ref().map(|m| m.0)
+                params.mask.as_ref().map(|m| m.0),
+                params.min_bit_count
             ),
             ConfigureExtension::MinimumDifficulty(value) => format!("minimum-difficulty {value}"),
-            ConfigureExtension::SubcribeExtraNonce => "subscribe-extranonce".to_string(),
+            ConfigureExtension::SubscribeExtranonce => "subscribe-extranonce".to_string(),
             ConfigureExtension::Info(info) => format!("info {:?}", info.connection_url),
+            other => format!("{other:?}"),
         })
         .collect()
 }
 
 #[test]
 fn configure_forms() {
-    let cases: [(&str, &[&str]); 13] = [
+    let cases: [(&str, &[&str]); 16] = [
         (
             r#"[["version-rolling"],{"version-rolling.mask":"1fffe000","version-rolling.min-bit-count":2}]"#,
             &["version-rolling mask=Some(536862720) min=Some(2)"],
@@ -245,8 +393,20 @@ fn configure_forms() {
             &["version-rolling mask=Some(536862720) min=None"],
         ),
         (
-            r#"[["version-rolling"],{"version-rolling.mask":"1fffe000","version-rolling.min-bit-count":"00000002"}]"#,
-            &["version-rolling mask=Some(536862720) min=Some(2)"],
+            r#"[["version-rolling"],{"version-rolling.mask":"1fffe000","version-rolling.min-bit-count":"00000010"}]"#,
+            &["version-rolling mask=Some(536862720) min=Some(10)"],
+        ),
+        (
+            r#"[["version-rolling"],{"version-rolling.mask":"1fffe000","version-rolling.min-bit-count":"16"}]"#,
+            &["version-rolling mask=Some(536862720) min=Some(16)"],
+        ),
+        (
+            r#"[["version-rolling"],{"version-rolling.mask":"1fffe000","version-rolling.min-bit-count":"sixteen"}]"#,
+            &["version-rolling mask=Some(536862720) min=None"],
+        ),
+        (
+            r#"[["version-rolling"],{"version-rolling.mask":"1fffe000","version-rolling.min-bit-count":33}]"#,
+            &["version-rolling mask=Some(536862720) min=None"],
         ),
         (r#"[["version-rolling"]]"#, &[]),
         (r#"[["version-rolling"],null]"#, &[]),
@@ -283,21 +443,80 @@ fn configure_forms() {
     ];
     for (params, expected) in cases {
         let line = format!(r#"{{"id":7,"method":"mining.configure","params":{params}}}"#);
-        let Client2Server::Configure(configure) = client_request(&line) else {
+        let ClientToServer::Configure(Request {
+            id,
+            params: configure,
+        }) = client_request(&line)
+        else {
             panic!("{line}: not a configure");
         };
-        assert_eq!(configure.id, 7, "{line}");
+        assert_eq!(id, Id::from(7u64), "{line}");
         assert_eq!(configure_summary(&configure), expected, "{line}");
+    }
+}
+
+#[test]
+fn configure_connection_url_is_redacted() {
+    let line = r#"{"id":7,"method":"mining.configure","params":[["info"],{"info.connection-url":"stratum+tcp://user:secret@pool.example"}]}"#;
+    assert!(!format!("{:?}", client_request(line)).contains("secret"));
+}
+
+#[test]
+fn client_requests_encode_canonically() {
+    for (line, canonical) in [
+        (
+            r#"{"id":1,"method":"mining.subscribe","params":[]}"#,
+            json!({"id": 1, "method": "mining.subscribe", "params": []}),
+        ),
+        (
+            r#"{"id":1,"method":"mining.subscribe","params":["bosminer/1.0",null,"pool.example",null]}"#,
+            json!({"id": 1, "method": "mining.subscribe", "params": ["bosminer/1.0"]}),
+        ),
+        (
+            r#"{"id":"a","method":"mining.subscribe","params":["cgminer/4.10.0","08000002"]}"#,
+            json!({"id": "a", "method": "mining.subscribe", "params": ["cgminer/4.10.0", "08000002"]}),
+        ),
+        (
+            r#"{"id":2,"method":"mining.authorize","params":["w"]}"#,
+            json!({"id": 2, "method": "mining.authorize", "params": ["w", ""]}),
+        ),
+        (
+            r#"{"id":4,"method":"mining.submit","params":["w","bf","0000ABCD",1685071285,489570112,"00002000"]}"#,
+            json!({"id": 4, "method": "mining.submit", "params": ["w", "bf", "0000abcd", "647025b5", "1d2e3f40", "00002000"]}),
+        ),
+        (
+            r#"{"id":5,"method":"mining.extranonce.subscribe","params":null}"#,
+            json!({"id": 5, "method": "mining.extranonce.subscribe", "params": []}),
+        ),
+        (
+            r#"{"id":6,"method":"mining.suggest_difficulty","params":[512]}"#,
+            json!({"id": 6, "method": "mining.suggest_difficulty", "params": [512.0]}),
+        ),
+        (
+            r#"{"id":7,"method":"mining.configure","params":[["version-rolling","minimum-difficulty"],{"version-rolling.mask":"1fffe000","version-rolling.min-bit-count":"00000002","minimum-difficulty.value":2048}]}"#,
+            json!({"id": 7, "method": "mining.configure", "params": [["version-rolling", "minimum-difficulty"], {"version-rolling.mask": "1fffe000", "version-rolling.min-bit-count": 2, "minimum-difficulty.value": 2048}]}),
+        ),
+    ] {
+        let request = client_request(line);
+        let method = request.method();
+        let encoded = to_json(request.clone());
+        assert_eq!(encoded["method"], method.as_str(), "{line}");
+        assert_eq!(encoded, canonical, "{line}");
+        assert_eq!(client_request(&encoded.to_string()), request, "{line}");
     }
 }
 
 const NOTIFY_PARAMS: &str = r#"["bf","000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f","01000000010000","ffffffff",["2122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40"],"20000000","1705ae3a","647025b5",true]"#;
 
+fn notify_line() -> String {
+    format!(r#"{{"id":null,"method":"mining.notify","params":{NOTIFY_PARAMS}}}"#)
+}
+
 #[test]
 fn notify_form() {
     for id in [r#""id":null,"#, "", r#""id":"x","#] {
         let line = format!(r#"{{{id}"method":"mining.notify","params":{NOTIFY_PARAMS}}}"#);
-        let Server2Client::Notify(notify) = server_notification(&line) else {
+        let ServerToClient::Notify(notify) = server_notification(&line) else {
             panic!("{line}: not a notify");
         };
         assert_eq!(notify.job_id, "bf", "{line}");
@@ -306,8 +525,8 @@ fn notify_form() {
             "03020100070605040b0a09080f0e0d0c13121110171615141b1a19181f1e1d1c",
             "{line}"
         );
-        assert_eq!(hex(notify.coin_base1.clone()), "01000000010000", "{line}");
-        assert_eq!(hex(notify.coin_base2.clone()), "ffffffff", "{line}");
+        assert_eq!(hex(notify.coinbase1.clone()), "01000000010000", "{line}");
+        assert_eq!(hex(notify.coinbase2.clone()), "ffffffff", "{line}");
         assert_eq!(
             notify
                 .merkle_branch
@@ -319,29 +538,32 @@ fn notify_form() {
             "{line}"
         );
         assert_eq!(notify.version, HexU32Be(0x20000000), "{line}");
-        assert_eq!(notify.bits, HexU32Be(0x1705ae3a), "{line}");
-        assert_eq!(notify.time, HexU32Be(0x647025b5), "{line}");
+        assert_eq!(notify.nbits, HexU32Be(0x1705ae3a), "{line}");
+        assert_eq!(notify.ntime, HexU32Be(0x647025b5), "{line}");
         assert!(notify.clean_jobs, "{line}");
+    }
+}
+
+fn notify() -> Notify {
+    match server_notification(&notify_line()) {
+        ServerToClient::Notify(notify) => notify,
+        _ => panic!("not a notify"),
     }
 }
 
 #[test]
 fn notify_encoding() {
-    let line = format!(r#"{{"id":null,"method":"mining.notify","params":{NOTIFY_PARAMS}}}"#);
-    let Server2Client::Notify(notify) = server_notification(&line) else {
-        panic!("not a notify");
-    };
     let params: Value = serde_json::from_str(NOTIFY_PARAMS).unwrap();
     assert_eq!(
-        serde_json::to_value(Message::from(notify)).unwrap(),
-        json!({"method": "mining.notify", "params": params})
+        to_json(notify()),
+        json!({"id": null, "method": "mining.notify", "params": params})
     );
 }
 
 #[test]
 fn other_notification_forms() {
     let difficulty = |line: &str| match server_notification(line) {
-        Server2Client::SetDifficulty(set) => set.value,
+        ServerToClient::SetDifficulty(set) => set.difficulty,
         _ => panic!("{line}: not a set_difficulty"),
     };
     assert_eq!(
@@ -354,45 +576,68 @@ fn other_notification_forms() {
     );
 
     let line = r#"{"id":null,"method":"mining.set_extranonce","params":["08000002",4]}"#;
-    let Server2Client::SetExtranonce(set) = server_notification(line) else {
+    let ServerToClient::SetExtranonce(set) = server_notification(line) else {
         panic!("not a set_extranonce");
     };
-    assert_eq!(hex(set.extra_nonce1), "08000002");
-    assert_eq!(set.extra_nonce2_size, 4);
+    assert_eq!(hex(set.extranonce1), "08000002");
+    assert_eq!(set.extranonce2_size, 4);
 
     let line = r#"{"id":null,"method":"mining.set_version_mask","params":["1fffe000"]}"#;
-    let Server2Client::SetVersionMask(set) = server_notification(line) else {
+    let ServerToClient::SetVersionMask(set) = server_notification(line) else {
         panic!("not a set_version_mask");
     };
-    assert_eq!(set.version_mask, HexU32Be(0x1fffe000));
+    assert_eq!(set.mask, HexU32Be(0x1fffe000));
 }
 
 #[test]
 fn notification_encoding() {
     assert_eq!(
-        serde_json::to_value(Message::from(server_to_client::SetDifficulty {
-            value: 2.0
-        }))
-        .unwrap(),
-        json!({"method": "mining.set_difficulty", "params": [2.0]})
+        to_json(SetDifficulty { difficulty: 2.0 }),
+        json!({"id": null, "method": "mining.set_difficulty", "params": [2.0]})
     );
     assert_eq!(
-        serde_json::to_value(Message::from(server_to_client::SetExtranonce {
-            extra_nonce1: Extranonce::try_from(vec![8, 0, 0, 2]).unwrap(),
-            extra_nonce2_size: 4,
-        }))
-        .unwrap(),
-        json!({"method": "mining.set_extranonce", "params": ["08000002", 4]})
+        to_json(SetExtranonce {
+            extranonce1: Extranonce::try_from(vec![8, 0, 0, 2]).unwrap(),
+            extranonce2_size: 4,
+        }),
+        json!({"id": null, "method": "mining.set_extranonce", "params": ["08000002", 4]})
     );
+    assert_eq!(
+        to_json(SetVersionMask {
+            mask: HexU32Be(0x1fffe000)
+        }),
+        json!({"id": null, "method": "mining.set_version_mask", "params": ["1fffe000"]})
+    );
+    for notification in [
+        ServerToClient::Notify(notify()),
+        ServerToClient::SetDifficulty(SetDifficulty { difficulty: 0.5 }),
+        ServerToClient::SetVersionMask(SetVersionMask {
+            mask: HexU32Be(0x1fffe000),
+        }),
+    ] {
+        let line = to_json(notification.clone()).to_string();
+        assert_eq!(server_notification(&line), notification, "{line}");
+    }
+}
+
+#[test]
+#[should_panic(expected = "finite and positive")]
+fn set_difficulty_rejects_infinity() {
+    to_json(SetDifficulty {
+        difficulty: f64::INFINITY,
+    });
+}
+
+#[test]
+#[should_panic(expected = "finite and positive")]
+fn set_difficulty_rejects_zero() {
+    to_json(SetDifficulty { difficulty: 0.0 });
 }
 
 #[test]
 fn subscribe_result_form() {
     let line = r#"{"id":1,"result":[[["mining.set_difficulty","1"],["mining.notify","ae68"]],"08000002",4],"error":null}"#;
-    let Server2ClientResponse::Subscribe(result) = server_response(line) else {
-        panic!("not a subscribe result");
-    };
-    assert_eq!(result.id, 1);
+    let result = subscribe_result(line);
     assert_eq!(
         result.subscriptions,
         [
@@ -400,8 +645,24 @@ fn subscribe_result_form() {
             ("mining.notify".to_string(), "ae68".to_string()),
         ]
     );
-    assert_eq!(hex(result.extra_nonce1), "08000002");
-    assert_eq!(result.extra_nonce2_size, 4);
+    assert_eq!(hex(result.extranonce1), "08000002");
+    assert_eq!(result.extranonce2_size, 4);
+}
+
+#[test]
+fn odd_length_extranonce_forms() {
+    let line = r#"{"id":1,"result":[[],"abc",4],"error":null}"#;
+    let result = subscribe_result(line);
+    assert_eq!(hex(result.extranonce1), "0abc");
+
+    let line = r#"{"id":null,"method":"mining.set_extranonce","params":["abc",4]}"#;
+    let Message::Request(request) = decode(line) else {
+        panic!("not a request");
+    };
+    assert!(ServerToClient::try_from(request).is_err());
+    let line =
+        r#"{"id":4,"method":"mining.submit","params":["w","bf","abc","647025b5","1d2e3f40"]}"#;
+    assert!(try_client_request(line).is_err());
 }
 
 #[test]
@@ -409,13 +670,18 @@ fn configure_result_forms() {
     let cases = [
         (
             r#"{"id":7,"result":{"version-rolling":true,"version-rolling.mask":"1fffe000"},"error":null}"#,
-            Some((true, 0x1fffe000, 0)),
+            Some((true, 0x1fffe000)),
             None,
         ),
         (
             r#"{"id":7,"result":{"version-rolling":true,"version-rolling.mask":"1fffe000","version-rolling.min-bit-count":"00000002","minimum-difficulty":false},"error":null}"#,
-            Some((true, 0x1fffe000, 2)),
+            Some((true, 0x1fffe000)),
             Some(false),
+        ),
+        (
+            r#"{"id":7,"result":{"version-rolling":true,"version-rolling.mask":"1fffe000","version-rolling.min-bit-count":2},"error":null}"#,
+            Some((true, 0x1fffe000)),
+            None,
         ),
         (
             r#"{"id":7,"result":{"minimum-difficulty":true},"error":null}"#,
@@ -424,16 +690,9 @@ fn configure_result_forms() {
         ),
     ];
     for (line, version_rolling, minimum_difficulty) in cases {
-        let Server2ClientResponse::Configure(result) = server_response(line) else {
-            panic!("{line}: not a configure result");
-        };
-        assert_eq!(result.id, 7, "{line}");
+        let result = configure_result(line);
         assert_eq!(
-            result.version_rolling.map(|v| (
-                v.version_rolling,
-                v.version_rolling_mask.0,
-                v.version_rolling_min_bit_count.0
-            )),
+            result.version_rolling.map(|v| (v.enabled, v.mask.0)),
             version_rolling,
             "{line}"
         );
@@ -447,92 +706,141 @@ fn boolean_result_form() {
         (r#"{"id":3,"result":true,"error":null}"#, true),
         (r#"{"id":3,"result":false,"error":null}"#, false),
     ] {
-        let Server2ClientResponse::GeneralResponse(result) = server_response(line) else {
-            panic!("{line}: not a boolean result");
-        };
-        assert_eq!(result.id, 3, "{line}");
-        assert_eq!(result.result, expected, "{line}");
+        assert_eq!(
+            typed(line, Method::Authorize).unwrap(),
+            Some(ServerToClient::Authorize(Response::success(
+                Id::from(3u64),
+                expected
+            ))),
+            "{line}"
+        );
     }
 }
 
 #[test]
 fn server_response_encoding() {
-    let Client2Server::Subscribe(subscribe) =
-        client_request(r#"{"id":1,"method":"mining.subscribe","params":["cgminer/4.10.0"]}"#)
-    else {
-        panic!("not a subscribe");
-    };
     assert_eq!(
-        serde_json::to_value(subscribe.respond(
-            vec![("mining.notify".to_string(), "ae68".to_string())],
-            Extranonce::try_from(vec![8, 0, 0, 2]).unwrap(),
-            4,
-        ))
-        .unwrap(),
+        to_json(Response::success(
+            Id::from(1u64),
+            SubscribeResult {
+                subscriptions: vec![("mining.notify".to_string(), "ae68".to_string())],
+                extranonce1: Extranonce::try_from(vec![8, 0, 0, 2]).unwrap(),
+                extranonce2_size: 4,
+            },
+        )),
         json!({"id": 1, "error": null, "result": [[["mining.notify", "ae68"]], "08000002", 4]})
     );
 
-    let Client2Server::Configure(configure) = client_request(
-        r#"{"id":7,"method":"mining.configure","params":[["version-rolling"],{"version-rolling.mask":"ffffffff","version-rolling.min-bit-count":2}]}"#,
-    ) else {
-        panic!("not a configure");
-    };
     assert_eq!(
-        serde_json::to_value(configure.respond(
-            Some(server_to_client::VersionRollingParams::new(
-                HexU32Be(0xffffffff),
-                HexU32Be(2),
-            )),
-            Some(false),
-        ))
-        .unwrap(),
+        to_json(Response::success(
+            Id::from(7u64),
+            ConfigureResult {
+                version_rolling: Some(VersionRollingResult::new(HexU32Be(0xffffffff))),
+                minimum_difficulty: Some(false),
+            },
+        )),
         json!({
             "id": 7,
             "error": null,
             "result": {
                 "version-rolling": true,
                 "version-rolling.mask": "1fffffe0",
-                "version-rolling.min-bit-count": "00000002",
                 "minimum-difficulty": false,
             },
         })
     );
 
-    let Client2Server::Authorize(authorize) =
-        client_request(r#"{"id":2,"method":"mining.authorize","params":["w","x"]}"#)
-    else {
-        panic!("not an authorize");
-    };
     assert_eq!(
-        serde_json::to_value(authorize.respond(true)).unwrap(),
+        to_json(Response::success(Id::from(2u64), true)),
         json!({"id": 2, "error": null, "result": true})
     );
 
-    let Client2Server::ExtranonceSubscribe(subscribe) =
-        client_request(r#"{"id":5,"method":"mining.extranonce.subscribe","params":[]}"#)
-    else {
-        panic!("not an extranonce subscribe");
-    };
     assert_eq!(
-        serde_json::to_value(subscribe.respond()).unwrap(),
-        json!({"id": 5, "error": null, "result": true})
-    );
-
-    let submit_line =
-        r#"{"id":4,"method":"mining.submit","params":["w","bf","0000abcd","647025b5","1d2e3f40"]}"#;
-    let submit = |line: &str| match client_request(line) {
-        Client2Server::Submit(submit) => submit,
-        _ => panic!("not a submit"),
-    };
-    assert_eq!(
-        serde_json::to_value(submit(submit_line).respond(SubmitOutcome::Accepted)).unwrap(),
+        to_json(SubmitOutcome::Accepted.into_response(Id::from(4u64))),
         json!({"id": 4, "error": null, "result": true})
     );
     assert_eq!(
-        serde_json::to_value(
-            submit(submit_line).respond(SubmitOutcome::Rejected(SubmitError::LowDifficultyShare))
-        )
-        .unwrap(),
-        json!({"id": 4, "error": [23, "Low difficulty share", null], "result": null})
+        to_json(
+            SubmitOutcome::Rejected(SubmitError::LowDifficultyShare).into_response(Id::from("s4"))
+        ),
+        json!({"id": "s4", "error": [23, "Low difficulty share", null], "result": null})
     );
+}
+
+#[test]
+fn submit_errors_round_trip_through_their_code() {
+    for error in [
+        SubmitError::Other,
+        SubmitError::JobNotFound,
+        SubmitError::DuplicateShare,
+        SubmitError::LowDifficultyShare,
+        SubmitError::UnauthorizedWorker,
+        SubmitError::NotSubscribed,
+    ] {
+        let rpc_error = RpcError::from(error);
+        assert_eq!(rpc_error.message, error.message());
+        assert_eq!(SubmitError::from_code(rpc_error.code), Some(error));
+    }
+    assert_eq!(SubmitError::from_code(26), None);
+}
+
+#[test]
+fn responses_are_typed_by_their_request_method() {
+    let line = r#"{"id":3,"result":true,"error":null}"#;
+    assert_eq!(
+        typed(line, Method::Authorize).unwrap(),
+        Some(ServerToClient::Authorize(Response::success(
+            Id::from(3u64),
+            true
+        )))
+    );
+    assert_eq!(
+        typed(line, Method::Submit).unwrap(),
+        Some(ServerToClient::Submit(Response::success(
+            Id::from(3u64),
+            true
+        )))
+    );
+    assert!(matches!(
+        typed(line, Method::Subscribe),
+        Err(Error::InvalidResult { id, method: Method::Subscribe, .. }) if id == Id::from(3u64)
+    ));
+    assert_eq!(typed(line, Method::SuggestDifficulty).unwrap(), None);
+    assert_eq!(typed(line, Method::Notify).unwrap(), None);
+
+    let line = r#"{"id":4,"result":null,"error":[22,"Duplicate share",null]}"#;
+    assert_eq!(
+        typed(line, Method::Submit).unwrap(),
+        Some(ServerToClient::Submit(Response::failure(
+            Id::from(4u64),
+            SubmitError::DuplicateShare.into()
+        )))
+    );
+
+    let line = r#"{"id":null,"result":true,"error":null}"#;
+    assert_eq!(typed(line, Method::Submit).unwrap(), None);
+}
+
+#[test]
+fn typed_responses_encode_like_their_wire_form() {
+    for line in [
+        r#"{"id":1,"result":[[["mining.notify","ae68"]],"08000002",4],"error":null}"#,
+        r#"{"id":1,"result":true,"error":null}"#,
+        r#"{"id":"a","result":null,"error":[23,"Low difficulty share",null]}"#,
+    ] {
+        let method = if line.contains("ae68") {
+            Method::Subscribe
+        } else {
+            Method::Submit
+        };
+        let typed = ServerToClient::from_response(&server_response(line), &method)
+            .unwrap()
+            .unwrap();
+        assert_eq!(typed.method(), method, "{line}");
+        assert_eq!(
+            to_json(typed),
+            serde_json::from_str::<Value>(line).unwrap(),
+            "{line}"
+        );
+    }
 }
