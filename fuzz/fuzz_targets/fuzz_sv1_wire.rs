@@ -116,8 +116,16 @@ fuzz_target!(|data: &[u8]| {
         let _ = serde_json::from_value::<Message>(val);
     }
     if let Ok(input) = arbitrary::Unstructured::new(data).arbitrary::<FuzzInput>() {
+        // A string ID over 64 bytes can be built locally, but is rejected when decoding.
+        let oversized_id = !matches!(input.kind, MsgKind::Notification)
+            && input.string_id.as_ref().is_some_and(|id| id.len() > 64);
         let msg: Message = input.into();
         test_msg_conversions(msg.clone());
-        round_trip(msg);
+        if oversized_id {
+            let line = serde_json::to_string(&msg).expect("messages always serialize");
+            assert!(Message::decode(&line).is_err());
+        } else {
+            round_trip(msg);
+        }
     }
 });
