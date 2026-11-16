@@ -254,11 +254,12 @@ impl Initiator {
     ///
     /// # Security
     ///
-    /// On success the remaining handshake secrets, including the ephemeral keypair, are erased,
-    /// so the [`Initiator`] cannot be used for another handshake.
+    /// The [`Initiator`] is consumed: each step mixes into the handshake transcript, so it cannot
+    /// be taken twice. Whether the step succeeds or fails, the remaining handshake secrets,
+    /// including the ephemeral keypair, are erased in place before the allocation is freed.
     #[cfg(feature = "std")]
     pub fn step_2(
-        &mut self,
+        self: Box<Self>,
         message: [u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE],
     ) -> Result<NoiseEngine, Error> {
         let now = std::time::SystemTime::now()
@@ -276,7 +277,7 @@ impl Initiator {
     /// The current system time should be provided to avoid relying on `std` and allow `no_std`
     /// environments to use another source of time.
     pub fn step_2_with_now(
-        &mut self,
+        mut self: Box<Self>,
         message: [u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE],
         now: u32,
     ) -> Result<NoiseEngine, Error> {
@@ -363,7 +364,6 @@ impl Initiator {
                 encryptor,
                 decryptor,
             };
-            self.erase();
             Ok(engine)
         } else {
             Err(Error::InvalidCertificate(plaintext.into()))
@@ -444,21 +444,17 @@ mod test {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     #[cfg_attr(miri, ignore)]
-    fn initiator_step_2_erases_handshake_secrets() {
-        use crate::Responder;
+    fn initiator_drop_erases_handshake_secrets() {
+        // Leaked on purpose: the allocation has to outlive the drop to be inspected.
+        let mut initiator = core::mem::ManuallyDrop::new(Initiator::new(
+            crate::Responder::generate_key().public_key().into(),
+        ));
+        assert!(initiator.ck.iter().any(|b| *b != 0));
 
-        let authority_kp = Responder::generate_key();
-        let responder = Responder::new(authority_kp, 60);
-        let mut initiator = Initiator::new(authority_kp.public_key().into());
-        let ephemeral_before = initiator.e.secret_key().secret_bytes();
+        // SAFETY: dropped once, and the fields read below are plain arrays in live memory.
+        unsafe { core::ptr::drop_in_place(&mut **initiator) };
 
-        let msg0 = initiator.step_0().unwrap();
-        let (msg1, _) = responder.step_1(msg0).unwrap();
-        let _engine = initiator.step_2(msg1).unwrap();
-
-        assert_ne!(initiator.e.secret_key().secret_bytes(), ephemeral_before);
         assert_eq!(initiator.ck, [0u8; 32]);
         assert_eq!(initiator.h, [0u8; 32]);
     }

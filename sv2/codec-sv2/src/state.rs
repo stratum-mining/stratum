@@ -50,7 +50,7 @@ impl ExpectsHandshakeMessage for Responder {
 /// [`Handshake::step_0`] is the only thing that builds one, which is what stops a caller from
 /// sending that first message twice.
 #[derive(Debug)]
-pub struct InitiatorSent(Initiator);
+pub struct InitiatorSent(Box<Initiator>);
 
 /// The codec state while the handshake runs, in the role `R`: [`Initiator`] before it has sent
 /// its first message, [`InitiatorSent`] after, or [`Responder`]. Frames exchanged in this state
@@ -127,7 +127,7 @@ impl Handshake<Initiator> {
         Ok((
             HandshakeMessage::from_message(message),
             Handshake {
-                role: Box::new(InitiatorSent(*self.role)),
+                role: Box::new(InitiatorSent(self.role)),
             },
         ))
     }
@@ -137,7 +137,7 @@ impl Handshake<InitiatorSent> {
     /// Completes the handshake with the responder's reply, consuming the state.
     #[cfg(feature = "std")]
     pub fn step_2(
-        mut self,
+        self,
         message: [u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE],
     ) -> Result<Transport> {
         self.role
@@ -151,7 +151,7 @@ impl Handshake<InitiatorSent> {
     /// another source of time.
     #[inline]
     pub fn step_2_with_now(
-        mut self,
+        self,
         message: [u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE],
         now: u32,
     ) -> Result<Transport> {
