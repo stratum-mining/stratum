@@ -7,7 +7,7 @@ fn test_1() {
     let key_pair = Responder::generate_key();
 
     let mut initiator = Initiator::new(key_pair.public_key().into());
-    let mut responder = Responder::new(key_pair, 31449600);
+    let responder = Responder::new(key_pair, 31449600);
     let first_message = initiator.step_0().unwrap();
     let (second_message, mut responder_engine) = responder.step_1(first_message).unwrap();
     let mut initiator_engine = initiator.step_2(second_message).unwrap();
@@ -30,8 +30,7 @@ fn test_1_with_rng() {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs() as u32;
-    let mut responder =
-        Responder::new_with_now_rng(key_pair, 31449600, now, &mut rand::thread_rng());
+    let responder = Responder::new_with_now_rng(key_pair, 31449600, now, &mut rand::thread_rng());
     let first_message = initiator.step_0().unwrap();
     let (second_message, mut responder_engine) = responder.step_1(first_message).unwrap();
     let now = std::time::SystemTime::now()
@@ -56,7 +55,7 @@ fn initiator_rejects_a_certificate_from_another_authority() {
     let authority = Responder::generate_key();
     let other_authority = Responder::generate_key();
     let mut initiator = Initiator::new(other_authority.public_key().into());
-    let mut responder = Responder::new(authority, 60);
+    let responder = Responder::new(authority, 60);
     let first_message = initiator.step_0().unwrap();
     let (second_message, _) = responder.step_1(first_message).unwrap();
     assert!(matches!(
@@ -84,7 +83,7 @@ fn pre_issued_certificate_is_sent_verbatim() {
     };
     let handshake = |certificate| {
         let mut initiator = Initiator::new(authority.public_key().into());
-        let mut responder = Responder::from_certificate(server_static, certificate);
+        let responder = Responder::from_certificate(server_static, certificate);
         let first_message = initiator.step_0().unwrap();
         let (second_message, responder_engine) = responder.step_1(first_message).unwrap();
         initiator

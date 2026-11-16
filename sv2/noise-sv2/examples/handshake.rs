@@ -49,7 +49,7 @@ fn main() {
         &mut rand::thread_rng(),
     );
     #[cfg(feature = "std")]
-    let mut responder = Responder::new(responder_key_pair, RESPONDER_CERT_VALIDITY);
+    let responder = Responder::new(responder_key_pair, RESPONDER_CERT_VALIDITY);
     #[cfg(not(feature = "std"))]
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

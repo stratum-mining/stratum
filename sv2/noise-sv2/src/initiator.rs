@@ -430,7 +430,7 @@ mod test {
         use crate::Responder;
 
         let authority_kp = Responder::generate_key();
-        let mut responder = Responder::new(authority_kp, 60);
+        let responder = Responder::new(authority_kp, 60);
         let mut initiator = Initiator::new(authority_kp.public_key().into());
 
         let msg0 = initiator.step_0().unwrap();
@@ -450,7 +450,7 @@ mod test {
         use crate::Responder;
 
         let authority_kp = Responder::generate_key();
-        let mut responder = Responder::new(authority_kp, 60);
+        let responder = Responder::new(authority_kp, 60);
         let mut initiator = Initiator::new(authority_kp.public_key().into());
         let ephemeral_before = initiator.e.secret_key().secret_bytes();
 
