@@ -5,7 +5,7 @@ use crate::{
     json_rpc::{Message, Method},
     utils::{
         extranonce2_size_param, hex_decode, hex_u32, params_array, params_array_mut, Extranonce,
-        HexBytes, HexU32Be, MerkleNode, PrevHash,
+        HexBytes, HexU32Be, MerkleNode, PrevHash, MAX_EXTRANONCE_LEN,
     },
 };
 use serde_json::Value;
@@ -99,6 +99,9 @@ impl From<SetVersionMask> for Message {
     }
 }
 
+/// A block's merkle branch has at most one entry per level of a 2^32-transaction tree.
+const MAX_MERKLE_BRANCH_LEN: usize = 32;
+
 impl Notify {
     pub(super) fn from_params(params: &mut Value) -> Result<Self, ParamError> {
         let [Value::String(job_id), Value::String(prev_hash), Value::String(coinbase1), Value::String(coinbase2), Value::Array(merkle_branch), Value::String(version), Value::String(nbits), Value::String(ntime), Value::Bool(clean_jobs)] =
@@ -106,6 +109,9 @@ impl Notify {
         else {
             return Err(ParamError::new("params", "unexpected notify params"));
         };
+        if merkle_branch.len() > MAX_MERKLE_BRANCH_LEN {
+            return Err(ParamError::new("merkle_branch", "longer than 32 entries"));
+        }
         let merkle_branch = merkle_branch
             .iter()
             .map(|node| {
@@ -155,6 +161,12 @@ impl SetExtranonce {
                 "unexpected set_extranonce params",
             ));
         };
+        if extranonce1.len() > 2 * MAX_EXTRANONCE_LEN {
+            return Err(ParamError::new(
+                "extranonce1",
+                "not hex of at most 32 bytes",
+            ));
+        }
         Ok(SetExtranonce {
             extranonce1: hex_decode(extranonce1)
                 .and_then(Extranonce::try_from)

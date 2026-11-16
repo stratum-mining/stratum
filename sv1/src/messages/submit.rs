@@ -4,7 +4,10 @@ use super::Response;
 use crate::{
     error::ParamError,
     json_rpc::{Id, RpcError},
-    utils::{hex_decode, hex_u32, integer_u32, params_array_mut, Extranonce, HexU32Be},
+    utils::{
+        hex_decode, hex_u32, integer_u32, params_array_mut, Extranonce, HexU32Be,
+        MAX_EXTRANONCE_LEN,
+    },
 };
 use serde_json::Value;
 use std::{convert::TryFrom, mem::take};
@@ -47,6 +50,12 @@ impl Submit {
             Some(Value::String(bits)) => Some(hex_u32(bits, "version_bits")?),
             Some(_) => return Err(ParamError::new("version_bits", "not a string")),
         };
+        if extranonce2.len() > 2 * MAX_EXTRANONCE_LEN {
+            return Err(ParamError::new(
+                "extranonce2",
+                "not hex of at most 32 bytes",
+            ));
+        }
         let extranonce2 = hex_decode(extranonce2)
             .and_then(Extranonce::try_from)
             .map_err(|_| ParamError::new("extranonce2", "not hex of at most 32 bytes"))?;
