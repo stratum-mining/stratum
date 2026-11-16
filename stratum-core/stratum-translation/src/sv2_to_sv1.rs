@@ -116,10 +116,9 @@ pub fn build_sv1_set_difficulty_from_sv2_set_target(
 ///   positive, such as an all-zero target.
 pub fn build_sv1_set_difficulty_from_sv2_target(target: Target) -> Result<json_rpc::Message> {
     let difficulty = target.difficulty_float();
-    if !difficulty.is_finite() || difficulty <= 0.0 {
-        return Err(StratumTranslationError::InvalidSv1Difficulty(difficulty));
-    }
-    Ok(SetDifficulty { difficulty }.into())
+    let set_difficulty = SetDifficulty::new(difficulty)
+        .map_err(|_| StratumTranslationError::InvalidSv1Difficulty(difficulty))?;
+    Ok(set_difficulty.into())
 }
 
 /// The SV1 difficulty selected by the integer power-of-two rounding policy.

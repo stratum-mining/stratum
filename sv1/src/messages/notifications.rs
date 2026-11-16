@@ -1,7 +1,7 @@
 //! Notifications a server sends to a client.
 
 use crate::{
-    error::ParamError,
+    error::{Error, ParamError},
     json_rpc::{Message, Method},
     utils::{
         extranonce2_size_param, hex_decode, hex_u32, params_array, params_array_mut, Extranonce,
@@ -29,8 +29,7 @@ pub struct Notify {
 /// `mining.set_difficulty`, applied from the next job.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SetDifficulty {
-    /// Must be finite and positive to be sent.
-    pub difficulty: f64,
+    difficulty: f64,
 }
 
 /// `mining.set_extranonce`, applied from the next job.
@@ -74,15 +73,7 @@ impl From<Notify> for Message {
 }
 
 impl From<SetDifficulty> for Message {
-    /// # Panics
-    ///
-    /// If the difficulty is not finite and positive, which no miner can work with.
     fn from(set: SetDifficulty) -> Self {
-        assert!(
-            set.difficulty.is_finite() && set.difficulty > 0.0,
-            "mining.set_difficulty must be finite and positive, got {}",
-            set.difficulty
-        );
         Message::notification(Method::SetDifficulty, vec![set.difficulty.into()])
     }
 }
@@ -144,12 +135,25 @@ impl Notify {
 }
 
 impl SetDifficulty {
+    /// Fails unless the difficulty is finite and positive, the only kind a miner can work with.
+    pub fn new(difficulty: f64) -> Result<Self, Error> {
+        if difficulty.is_finite() && difficulty > 0.0 {
+            Ok(SetDifficulty { difficulty })
+        } else {
+            Err(Error::InvalidDifficulty(difficulty))
+        }
+    }
+
+    pub fn difficulty(&self) -> f64 {
+        self.difficulty
+    }
+
     pub(super) fn from_params(params: &Value) -> Result<Self, ParamError> {
         match params_array(params)? {
             [difficulty] => difficulty
                 .as_f64()
-                .map(|difficulty| SetDifficulty { difficulty })
-                .ok_or(ParamError::new("difficulty", "not a number")),
+                .and_then(|difficulty| SetDifficulty::new(difficulty).ok())
+                .ok_or(ParamError::new("difficulty", "not a positive number")),
             _ => Err(ParamError::new(
                 "params",
                 "unexpected set_difficulty params",

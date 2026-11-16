@@ -181,7 +181,7 @@ fn serve(stream: TcpStream) {
     let (incoming, outgoing) = connect(stream);
     let jobs = outgoing.clone();
     thread::spawn(move || {
-        let _ = jobs.send(SetDifficulty { difficulty: 1.0 }.into());
+        let _ = jobs.send(SetDifficulty::new(1.0).expect("positive").into());
         for id in 0.. {
             if jobs.send(job(id).into()).is_err() {
                 break;

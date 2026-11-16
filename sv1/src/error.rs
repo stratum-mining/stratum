@@ -8,6 +8,8 @@ pub enum Error {
     HexError(HexToBytesError),
     /// A hex string has an invalid length, in characters.
     InvalidHexLen(usize),
+    /// A `mining.set_difficulty` value that is not finite and positive.
+    InvalidDifficulty(f64),
     Decode(DecodeError),
     /// The result of the outstanding `method` request with this ID does not have that method's
     /// result type.
@@ -27,6 +29,10 @@ impl std::fmt::Display for Error {
             ),
             Error::HexError(ref e) => write!(f, "Bad hex encode/decode: `{e}`"),
             Error::InvalidHexLen(len) => write!(f, "Hex string has an invalid length of {len}"),
+            Error::InvalidDifficulty(difficulty) => write!(
+                f,
+                "mining.set_difficulty must be finite and positive, got {difficulty}"
+            ),
             Error::Decode(e) => e.fmt(f),
             Error::InvalidResult { id, method, error } => {
                 write!(f, "malformed result for {method} request {id}: {error}")

@@ -563,7 +563,7 @@ fn notify_encoding() {
 #[test]
 fn other_notification_forms() {
     let difficulty = |line: &str| match server_notification(line) {
-        ServerToClient::SetDifficulty(set) => set.difficulty,
+        ServerToClient::SetDifficulty(set) => set.difficulty(),
         _ => panic!("{line}: not a set_difficulty"),
     };
     assert_eq!(
@@ -592,7 +592,7 @@ fn other_notification_forms() {
 #[test]
 fn notification_encoding() {
     assert_eq!(
-        to_json(SetDifficulty { difficulty: 2.0 }),
+        to_json(SetDifficulty::new(2.0).unwrap()),
         json!({"id": null, "method": "mining.set_difficulty", "params": [2.0]})
     );
     assert_eq!(
@@ -610,7 +610,7 @@ fn notification_encoding() {
     );
     for notification in [
         ServerToClient::Notify(notify()),
-        ServerToClient::SetDifficulty(SetDifficulty { difficulty: 0.5 }),
+        ServerToClient::SetDifficulty(SetDifficulty::new(0.5).unwrap()),
         ServerToClient::SetVersionMask(SetVersionMask {
             mask: HexU32Be(0x1fffe000),
         }),
@@ -621,17 +621,11 @@ fn notification_encoding() {
 }
 
 #[test]
-#[should_panic(expected = "finite and positive")]
-fn set_difficulty_rejects_infinity() {
-    to_json(SetDifficulty {
-        difficulty: f64::INFINITY,
-    });
-}
-
-#[test]
-#[should_panic(expected = "finite and positive")]
-fn set_difficulty_rejects_zero() {
-    to_json(SetDifficulty { difficulty: 0.0 });
+fn set_difficulty_is_finite_and_positive() {
+    for difficulty in [f64::INFINITY, f64::NAN, 0.0, -1.0] {
+        assert!(SetDifficulty::new(difficulty).is_err(), "{difficulty}");
+    }
+    assert_eq!(SetDifficulty::new(0.5).unwrap().difficulty(), 0.5);
 }
 
 #[test]
@@ -934,6 +928,22 @@ fn merkle_branch_is_at_most_32_entries() {
             accepted,
             "{entries} entries"
         );
+    }
+}
+
+#[test]
+fn set_difficulty_must_be_positive() {
+    for (difficulty, accepted) in [("2", true), ("0.001", true), ("0", false), ("-1", false)] {
+        let line =
+            format!(r#"{{"id":null,"method":"mining.set_difficulty","params":[{difficulty}]}}"#);
+        let Message::Request(request) = decode(&line) else {
+            panic!("not a request");
+        };
+        let decoded = ServerToClient::try_from(request);
+        assert_eq!(decoded.is_ok(), accepted, "{line}");
+        if let Ok(notification) = decoded {
+            to_json(notification);
+        }
     }
 }
 

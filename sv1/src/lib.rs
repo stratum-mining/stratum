@@ -825,7 +825,7 @@ mod tests {
             )),
             ServerToClient::Authorize(Response::failure(Id::from(7u64), SubmitError::Other.into())),
             notify,
-            ServerToClient::SetDifficulty(SetDifficulty { difficulty: 2.0 }),
+            ServerToClient::SetDifficulty(SetDifficulty::new(2.0).unwrap()),
             ServerToClient::SetExtranonce(SetExtranonce {
                 extranonce1: Extranonce::try_from(vec![8, 0, 0, 2]).unwrap(),
                 extranonce2_size: 4,
@@ -875,7 +875,7 @@ mod tests {
             _: Option<usize>,
             set: SetDifficulty,
         ) -> Result<(), Error> {
-            self.record(format!("difficulty {}", set.difficulty))
+            self.record(format!("difficulty {}", set.difficulty()))
         }
 
         fn handle_set_extranonce(
@@ -984,7 +984,7 @@ mod tests {
             _: Option<usize>,
             set: SetDifficulty,
         ) -> Result<(), Error> {
-            self.record(format!("difficulty {}", set.difficulty))
+            self.record(format!("difficulty {}", set.difficulty()))
         }
 
         async fn handle_set_extranonce(
