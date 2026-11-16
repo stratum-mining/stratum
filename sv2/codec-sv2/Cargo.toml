@@ -20,6 +20,7 @@ rand = { workspace = true, default-features = false }
 
 [dev-dependencies]
 key-utils = { workspace = true }
+secp256k1 = { workspace = true }
 criterion = { workspace = true }
 rayon-core = { workspace = true }
 quickcheck = { workspace = true }

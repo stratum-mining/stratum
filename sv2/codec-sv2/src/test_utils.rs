@@ -9,7 +9,6 @@ use crate::{
     Buffer, SerializedFrame, TransportDecryptState, TransportEncryptState,
 };
 use buffer_sv2::Buffer as IsBuffer;
-use core::time::Duration;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use noise_sv2::{
     Initiator, Responder, ELLSWIFT_ENCODING_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
@@ -17,7 +16,7 @@ use noise_sv2::{
 
 pub(crate) const AUTHORITY_PUBLIC_K: &str = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72";
 pub(crate) const AUTHORITY_PRIVATE_K: &str = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n";
-pub(crate) const CERT_VALIDITY: Duration = Duration::from_secs(3600);
+pub(crate) const CERT_VALIDITY: u32 = 3600;
 
 pub(crate) type Slice = <Buffer as IsBuffer>::Slice;
 
@@ -26,13 +25,11 @@ pub(crate) fn make_handshake_pair() -> (Handshake<Initiator>, Handshake<Responde
     let pub_k: Secp256k1PublicKey = AUTHORITY_PUBLIC_K.to_string().try_into().unwrap();
     let pub_k_bytes = pub_k.into_bytes();
     let priv_k: Secp256k1SecretKey = AUTHORITY_PRIVATE_K.to_string().try_into().unwrap();
-    let priv_k_bytes = priv_k.into_bytes();
+    let authority = priv_k.0.keypair(&secp256k1::Secp256k1::signing_only());
 
     (
         Handshake::initiator(Initiator::from_raw_k(pub_k_bytes).unwrap()),
-        Handshake::responder(
-            Responder::from_authority_kp(&pub_k_bytes, &priv_k_bytes, CERT_VALIDITY).unwrap(),
-        ),
+        Handshake::responder(Responder::new(authority, CERT_VALIDITY)),
     )
 }
 

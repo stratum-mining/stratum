@@ -297,6 +297,7 @@ dependencies = [
  "quickcheck_macros",
  "rand",
  "rayon-core",
+ "secp256k1 0.28.2",
 ]
 
 [[package]]
