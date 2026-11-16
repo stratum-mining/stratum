@@ -48,7 +48,7 @@ fn bench_nx_handshake(c: &mut Criterion) {
 
                 (initiator, msg_2)
             },
-            |(mut initiator, msg_2)| {
+            |(initiator, msg_2)| {
                 let _ = initiator.step_2_with_now(msg_2, 10).unwrap();
             },
             BatchSize::SmallInput,
