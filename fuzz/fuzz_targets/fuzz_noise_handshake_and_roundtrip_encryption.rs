@@ -96,7 +96,7 @@ fuzz_target!(|input: FuzzInput| {
     let mut initiator = Initiator::new(known_peer);
 
     // Create responder (server) with the generated keypair and certificate validity
-    let mut responder = Responder::new(responder_kp, input.cert_validity);
+    let responder = Responder::new(responder_kp, input.cert_validity);
 
     // ========== Handshake Phase ==========
 

@@ -172,7 +172,7 @@ impl Handshake<Responder> {
     /// Answers the initiator's public key, completing the handshake on this side and consuming
     /// the state. The returned frame is what the initiator needs for its [`Handshake::step_2`].
     pub fn step_1(
-        mut self,
+        self,
         re_pub: [u8; ELLSWIFT_ENCODING_SIZE],
     ) -> Result<(HandshakeMessage, Transport)> {
         let (message, engine) = self.role.step_1(re_pub)?;

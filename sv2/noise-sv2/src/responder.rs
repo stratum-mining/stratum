@@ -267,20 +267,21 @@ impl Responder {
     /// On failure, the method returns an error if there is an issue during encryption, decryption,
     /// or any other step of the handshake process.
     ///
-    /// On success the remaining handshake secrets, including the ephemeral and static keypairs,
-    /// are erased, so the [`Responder`] cannot be used for another handshake.
+    /// The [`Responder`] is consumed: each step mixes into the handshake transcript, so it cannot
+    /// be taken twice. Whether the step succeeds or fails, the remaining handshake secrets,
+    /// including the ephemeral and static keypairs, are erased in place before the allocation is
+    /// freed.
     pub fn step_1(
-        &mut self,
+        mut self: Box<Self>,
         elligatorswift_theirs_ephemeral_serialized: [u8; ELLSWIFT_ENCODING_SIZE],
     ) -> Result<([u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE], NoiseEngine), AeadError> {
         // 4.5.1.2 Responder
-        Self::mix_hash(self, &elligatorswift_theirs_ephemeral_serialized[..]);
-        Self::decrypt_and_hash(self, &mut vec![])?;
+        self.mix_hash(&elligatorswift_theirs_ephemeral_serialized[..]);
+        self.decrypt_and_hash(&mut vec![])?;
 
         // 4.5.2.1 Responder
         let mut out = [0; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE];
-        let keypair = self.e;
-        let elligatorswitf_ours_ephemeral = ElligatorSwift::from_pubkey(keypair.public_key());
+        let elligatorswitf_ours_ephemeral = ElligatorSwift::from_pubkey(self.e.public_key());
         let elligatorswift_ours_ephemeral_serialized = elligatorswitf_ours_ephemeral.to_array();
         out[..ELLSWIFT_ENCODING_SIZE]
             .copy_from_slice(&elligatorswift_ours_ephemeral_serialized[..ELLSWIFT_ENCODING_SIZE]);
@@ -289,10 +290,10 @@ impl Responder {
         // what is here is not the public key encoded with ElligatorSwift, but the x-coordinate of
         // the public key (which is a point in the EC).
 
-        Self::mix_hash(self, &elligatorswift_ours_ephemeral_serialized);
+        self.mix_hash(&elligatorswift_ours_ephemeral_serialized);
 
         // 4. calls `MixKey(ECDH(e.private_key, re.public_key))`
-        let e_private_key = keypair.secret_key();
+        let e_private_key = self.e.secret_key();
         let elligatorswift_theirs_ephemeral =
             ElligatorSwift::from_array(elligatorswift_theirs_ephemeral_serialized);
         let mut ecdh_ephemeral = ElligatorSwift::shared_secret(
@@ -303,7 +304,7 @@ impl Responder {
             None,
         )
         .to_secret_bytes();
-        Self::mix_key(self, &ecdh_ephemeral);
+        self.mix_key(&ecdh_ephemeral);
         ecdh_ephemeral.zeroize();
 
         // 5. appends `EncryptAndHash(s.public_key)` (64 bytes encrypted elligatorswift  public key,
@@ -329,14 +330,14 @@ impl Responder {
             None,
         )
         .to_secret_bytes();
-        Self::mix_key(self, &ecdh_static[..]);
+        self.mix_key(&ecdh_static[..]);
         ecdh_static.zeroize();
 
         // 7. appends `EncryptAndHash(SIGNATURE_NOISE_MESSAGE)` to the buffer
         let signature_noise_message: [u8; SIGNATURE_NOISE_MESSAGE_SIZE] = self.certificate.into();
         let mut signature_part = Vec::with_capacity(ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE);
         signature_part.extend_from_slice(&signature_noise_message[..]);
-        Self::encrypt_and_hash(self, &mut signature_part)?;
+        self.encrypt_and_hash(&mut signature_part)?;
         let ephemeral_plus_static_encrypted_length =
             ELLSWIFT_ENCODING_SIZE + ENCRYPTED_ELLSWIFT_ENCODING_SIZE;
         out[ephemeral_plus_static_encrypted_length..(INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE)]
@@ -344,7 +345,7 @@ impl Responder {
 
         // 9. return pair of CipherState objects, the first for encrypting transport messages from
         //    initiator to responder, and the second for messages in the other direction:
-        let ck = Self::get_ck(self);
+        let ck = self.get_ck();
         let (mut temp_k1, mut temp_k2) = Self::hkdf_2(ck, &[]);
         let c1 = ChaCha20Poly1305::new(Key::from_slice(&temp_k1[..]));
         let c2 = ChaCha20Poly1305::new(Key::from_slice(&temp_k2[..]));
@@ -363,7 +364,6 @@ impl Responder {
             encryptor,
             decryptor,
         };
-        self.erase();
         Ok((to_send, engine))
     }
 
@@ -400,7 +400,7 @@ mod test {
 
     use super::*;
 
-    fn make_responder() -> Responder {
+    fn make_responder() -> Box<Responder> {
         use rand::{rngs::StdRng, SeedableRng};
         use secp256k1::Secp256k1;
 
@@ -408,7 +408,7 @@ mod test {
         let mut rng = StdRng::seed_from_u64(42);
         let authority = Keypair::new(&secp, &mut rng);
 
-        *Responder::new_with_now_rng(authority, 60, 100, &mut rng)
+        Responder::new_with_now_rng(authority, 60, 100, &mut rng)
     }
 
     #[test]
@@ -435,7 +435,7 @@ mod test {
     fn responder_step_1_returns_valid_message_and_engine() {
         use secp256k1::ellswift::ElligatorSwift;
 
-        let mut responder = make_responder();
+        let responder = make_responder();
 
         let fake_initiator_ephemeral =
             ElligatorSwift::from_pubkey(responder.e.public_key()).to_array();
@@ -463,7 +463,7 @@ mod test {
     fn responder_cipher_detects_tampering() {
         use secp256k1::ellswift::ElligatorSwift;
 
-        let mut responder = make_responder();
+        let responder = make_responder();
 
         let fake_initiator_ephemeral =
             ElligatorSwift::from_pubkey(responder.e.public_key()).to_array();
@@ -480,17 +480,14 @@ mod test {
 
     #[test]
     #[cfg_attr(miri, ignore)]
-    fn responder_step_1_erases_handshake_secrets() {
-        use secp256k1::ellswift::ElligatorSwift;
+    fn responder_drop_erases_handshake_secrets() {
+        // Leaked on purpose: the allocation has to outlive the drop to be inspected.
+        let mut responder = core::mem::ManuallyDrop::new(make_responder());
+        assert!(responder.ck.iter().any(|b| *b != 0));
 
-        let mut responder = make_responder();
-        let static_before = responder.s.secret_key().secret_bytes();
-        let fake_initiator_ephemeral =
-            ElligatorSwift::from_pubkey(responder.e.public_key()).to_array();
+        // SAFETY: dropped once, and the fields read below are plain arrays in live memory.
+        unsafe { core::ptr::drop_in_place(&mut **responder) };
 
-        let _ = responder.step_1(fake_initiator_ephemeral).unwrap();
-
-        assert_ne!(responder.s.secret_key().secret_bytes(), static_before);
         assert_eq!(responder.ck, [0u8; 32]);
         assert_eq!(responder.h, [0u8; 32]);
     }

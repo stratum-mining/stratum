@@ -28,7 +28,7 @@ fn bench_nx_handshake(c: &mut Criterion) {
                 let msg_0 = initiator.step_0().unwrap();
                 (responder, msg_0)
             },
-            |(mut responder, msg_0)| {
+            |(responder, msg_0)| {
                 let _ = responder.step_1(msg_0).unwrap();
             },
             BatchSize::SmallInput,
@@ -41,7 +41,7 @@ fn bench_nx_handshake(c: &mut Criterion) {
                 let mut rng = rng();
                 let responder_key = generate_key_with_rng(&mut rng);
                 let mut initiator = Initiator::new(responder_key.public_key().into());
-                let mut responder = Responder::new_with_now_rng(responder_key, 60, 10, &mut rng);
+                let responder = Responder::new_with_now_rng(responder_key, 60, 10, &mut rng);
 
                 let msg_0 = initiator.step_0().unwrap();
                 let (msg_2, _) = responder.step_1(msg_0).unwrap();
@@ -64,7 +64,7 @@ fn bench_nx_handshake(c: &mut Criterion) {
                 (initiator, responder_key, rng)
             },
             |(mut initiator, responder_key, mut rng)| {
-                let mut responder = Responder::new_with_now_rng(responder_key, 60, 10, &mut rng);
+                let responder = Responder::new_with_now_rng(responder_key, 60, 10, &mut rng);
                 let msg_0 = initiator.step_0().unwrap();
                 let (msg_2, _) = responder.step_1(msg_0).unwrap();
                 let _ = initiator.step_2_with_now(msg_2, 10).unwrap();
