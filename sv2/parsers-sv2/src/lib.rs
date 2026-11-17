@@ -2286,7 +2286,8 @@ impl IsSv2Message for MiningDeviceMessagesOwned {
 /// Decodes a frame's payload according to its `Header`.
 ///
 /// The header's extension_type selects between Extensions messages and the standard protocol
-/// messages (extension_type == 0). The payload must be exactly as long as the header declares.
+/// messages (extension_type == 0). The payload must be exactly as long as the header declares,
+/// and the header's channel_msg bit must match the one the decoded message type defines.
 impl<'a> TryFrom<(Header, &'a mut [u8])> for AnyMessage<'a> {
     type Error = ParserError;
 
@@ -2298,6 +2299,20 @@ impl<'a> TryFrom<(Header, &'a mut [u8])> for AnyMessage<'a> {
                 actual: payload.len(),
             });
         }
+        let message = Self::decode_payload(header, payload)?;
+        if message.channel_bit() != header.channel_msg() {
+            return Err(ParserError::ChannelBitMismatch {
+                extension_type: header.ext_type_without_channel_msg(),
+                message_type: header.msg_type(),
+                channel_msg: header.channel_msg(),
+            });
+        }
+        Ok(message)
+    }
+}
+
+impl<'a> AnyMessage<'a> {
+    fn decode_payload(header: Header, payload: &'a mut [u8]) -> Result<Self, ParserError> {
         let extension_type = header.ext_type_without_channel_msg();
         let message_type = header.msg_type();
 
@@ -2677,14 +2692,16 @@ impl<'a> TryFrom<AnyMessage<'a>> for MiningDeviceMessages<'a> {
 #[cfg(test)]
 mod test {
     use crate::{
-        parse_message_frame_with_tlvs, AnyMessage, Extensions, ExtensionsNegotiation,
-        JobDeclaration, Mining, ParserError, Tlv, TlvError,
+        parse_message_frame_with_tlvs, AnyMessage, CommonMessages, Extensions,
+        ExtensionsNegotiation, JobDeclaration, Mining, ParserError, Tlv, TlvError,
     };
     use alloc::vec;
     use alloc::vec::Vec;
     use binary_sv2::{Seq0255, Seq064K, Str0255, Sv2Option, B0255, B032, B064K, U256};
     use codec_sv2::{EncodableFrame, MessageFrame};
-    use common_messages_sv2::MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS;
+    use common_messages_sv2::{
+        MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+    };
     use core::convert::{TryFrom, TryInto};
     use extensions_sv2::{RequestExtensions, EXTENSION_TYPE_EXTENSIONS_NEGOTIATION};
     use framing_sv2::header::Header;
@@ -2975,6 +2992,34 @@ mod test {
 
     // SetupConnectionSuccess { used_version: 2, flags: 0 }
     const SETUP_CONNECTION_SUCCESS: [u8; 6] = [2, 0, 0, 0, 0, 0];
+    // ChannelEndpointChanged { channel_id: 1 }
+    const CHANNEL_ENDPOINT_CHANGED: [u8; 4] = [1, 0, 0, 0];
+    const CHANNEL_MSG: u16 = 0x8000;
+
+    #[test]
+    fn header_decode_accepts_consistent_frames() {
+        let mut payload = SETUP_CONNECTION_SUCCESS;
+        let h = header(0, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS, payload.len());
+        assert!(matches!(
+            AnyMessage::try_from((h, &mut payload[..])),
+            Ok(AnyMessage::Common(CommonMessages::SetupConnectionSuccess(
+                _
+            )))
+        ));
+
+        let mut payload = CHANNEL_ENDPOINT_CHANGED;
+        let h = header(
+            CHANNEL_MSG,
+            MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
+            payload.len(),
+        );
+        assert!(matches!(
+            AnyMessage::try_from((h, &mut payload[..])),
+            Ok(AnyMessage::Common(CommonMessages::ChannelEndpointChanged(
+                _
+            )))
+        ));
+    }
 
     #[test]
     fn header_decode_rejects_payload_length_mismatch() {
@@ -2986,5 +3031,46 @@ mod test {
                 Err(ParserError::PayloadLengthMismatch { declared: d, actual: 6 }) if d == declared
             ));
         }
+    }
+
+    #[test]
+    fn header_decode_rejects_channel_bit_mismatch() {
+        let mut payload = SETUP_CONNECTION_SUCCESS;
+        let h = header(
+            CHANNEL_MSG,
+            MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+            payload.len(),
+        );
+        assert!(matches!(
+            AnyMessage::try_from((h, &mut payload[..])),
+            Err(ParserError::ChannelBitMismatch {
+                channel_msg: true,
+                ..
+            })
+        ));
+
+        let mut payload = CHANNEL_ENDPOINT_CHANGED;
+        let h = header(0, MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED, payload.len());
+        assert!(matches!(
+            AnyMessage::try_from((h, &mut payload[..])),
+            Err(ParserError::ChannelBitMismatch {
+                channel_msg: false,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn frame_with_tlvs_applies_header_checks() {
+        let mut payload = SETUP_CONNECTION_SUCCESS;
+        let h = header(
+            CHANNEL_MSG,
+            MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+            payload.len(),
+        );
+        assert!(matches!(
+            crate::parse_message_frame_with_tlvs(h, &mut payload[..], &[0x0002]),
+            Err(ParserError::ChannelBitMismatch { .. })
+        ));
     }
 }
