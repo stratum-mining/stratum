@@ -702,6 +702,9 @@ impl AnyMessage<'_> {
 ///
 /// Returns [`ParserError::TlvError`] if a TLV field declares more bytes than the payload has
 /// left, whether or not its extension is negotiated.
+///
+/// Returns [`ParserError::PayloadLengthMismatch`] if the payload is not exactly as long as the
+/// header declares.
 pub fn parse_message_frame_with_tlvs<'a>(
     header: Header,
     payload: &'a mut [u8],
@@ -2283,17 +2286,21 @@ impl IsSv2Message for MiningDeviceMessagesOwned {
     }
 }
 
-/// TryFrom implementation for AnyMessage that includes extension_type from Header.
+/// Decodes a frame's payload according to its `Header`.
 ///
-/// This implementation handles all message types including Extensions messages which require
-/// both extension_type and message_type to be correctly parsed. Standard protocol messages
-/// (Common, Mining, etc.) have extension_type == 0 and only need the message_type.
+/// The header's extension_type selects between Extensions messages and the standard protocol
+/// messages (extension_type == 0). The payload must be exactly as long as the header declares.
 impl<'a> TryFrom<(Header, &'a mut [u8])> for AnyMessage<'a> {
     type Error = ParserError;
 
     fn try_from(v: (Header, &'a mut [u8])) -> Result<Self, Self::Error> {
-        let header = v.0;
-        let payload = v.1;
+        let (header, payload) = v;
+        if payload.len() != header.payload_length() {
+            return Err(ParserError::PayloadLengthMismatch {
+                declared: header.payload_length(),
+                actual: payload.len(),
+            });
+        }
         let extension_type = header.ext_type_without_channel_msg();
         let message_type = header.msg_type();
 
@@ -2680,6 +2687,7 @@ mod test {
     use alloc::vec::Vec;
     use binary_sv2::{Seq0255, Seq064K, Str0255, Sv2Option, B0255, B032, B064K, U256};
     use codec_sv2::{EncodableFrame, MessageFrame};
+    use common_messages_sv2::MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS;
     use core::convert::{TryFrom, TryInto};
     use extensions_sv2::{RequestExtensions, EXTENSION_TYPE_EXTENSIONS_NEGOTIATION};
     use framing_sv2::header::Header;
@@ -2960,5 +2968,26 @@ mod test {
             message_length, payload_length,
             "Header declared length [{message_length} bytes] differs from the actual payload length [{payload_length} bytes]",
         );
+    }
+
+    fn header(extension_type: u16, message_type: u8, payload_length: usize) -> Header {
+        let ext = extension_type.to_le_bytes();
+        let len = (payload_length as u32).to_le_bytes();
+        Header::from_bytes(&[ext[0], ext[1], message_type, len[0], len[1], len[2]]).unwrap()
+    }
+
+    // SetupConnectionSuccess { used_version: 2, flags: 0 }
+    const SETUP_CONNECTION_SUCCESS: [u8; 6] = [2, 0, 0, 0, 0, 0];
+
+    #[test]
+    fn header_decode_rejects_payload_length_mismatch() {
+        for declared in [0, 5, 7] {
+            let mut payload = SETUP_CONNECTION_SUCCESS;
+            let h = header(0, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS, declared);
+            assert!(matches!(
+                AnyMessage::try_from((h, &mut payload[..])),
+                Err(ParserError::PayloadLengthMismatch { declared: d, actual: 6 }) if d == declared
+            ));
+        }
     }
 }
