@@ -696,12 +696,14 @@ impl AnyMessage<'_> {
 /// Single entry point for parsing any SV2 protocol message frame with TLV support.
 ///
 /// The bytes following the message are read as TLV fields. Fields of extensions listed in
-/// `negotiated_extensions` are returned, fields of other extensions are skipped.
+/// `negotiated_extensions` are returned, fields of other extensions are skipped. The TLV suffix
+/// is only read when `negotiated_extensions` is not empty.
 ///
 /// # Errors
 ///
 /// Returns [`ParserError::TlvError`] if a TLV field declares more bytes than the payload has
-/// left, whether or not its extension is negotiated.
+/// left, whether or not its extension is negotiated. With an empty `negotiated_extensions` no
+/// TLV field is checked.
 ///
 /// Returns [`ParserError::PayloadLengthMismatch`] if the payload is not exactly as long as the
 /// header declares, and [`ParserError::ChannelBitMismatch`] if the header's channel_msg bit
@@ -711,6 +713,9 @@ pub fn parse_message_frame_with_tlvs<'a>(
     payload: &'a mut [u8],
     negotiated_extensions: &[u16],
 ) -> Result<(AnyMessage<'a>, Option<Vec<Tlv>>), ParserError> {
+    if negotiated_extensions.is_empty() {
+        return Ok(((header, payload).try_into()?, None));
+    }
     let raw_payload = payload.to_vec();
     let message: AnyMessage<'a> = (header, payload).try_into()?;
     let message_size = message.get_size();
@@ -2891,6 +2896,18 @@ mod test {
             parse_message_frame_with_tlvs(header, &mut payload, &[0x0003]),
             Err(ParserError::TlvError(TlvError::BufferTooShort(6, 15)))
         ));
+    }
+
+    #[test]
+    fn tlv_suffix_is_not_read_without_negotiated_extensions() {
+        let (header, mut payload) = frame_with_tlv_suffix(&TRUNCATED_TLV);
+
+        let (message, tlvs) = parse_message_frame_with_tlvs(header, &mut payload, &[]).unwrap();
+        assert!(matches!(
+            message,
+            AnyMessage::Mining(Mining::SetCustomMiningJobSuccess(_))
+        ));
+        assert_eq!(tlvs, None);
     }
 
     #[test]
