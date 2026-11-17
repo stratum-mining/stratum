@@ -14,10 +14,14 @@ use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, Mining, Tlv};
 /// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
 /// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
 /// implementor.
+///
+/// Messages are dispatched by direction only: a message that only a client sends is rejected with
+/// [`HandlerErrorType::unexpected_message`], and every other message reaches its handler. Whether a
+/// message is acceptable on the connection is left to the implementor. Per the Mining Protocol that
+/// covers a reply only to a request that was sent, and `SetGroupChannel` and extended jobs only on
+/// a connection that did not set `REQUIRES_STANDARD_JOBS`.
 pub trait HandleMiningMessagesFromServerSync {
     type Error: HandlerErrorType;
-
-    fn is_work_selection_enabled_for_server(&self, server_id: Option<usize>) -> bool;
 
     /// Returns the list of negotiated extension_types with a server.
     ///
@@ -69,8 +73,6 @@ pub trait HandleMiningMessagesFromServerSync {
         message: Mining,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
-        let work_selection = self.is_work_selection_enabled_for_server(server_id);
-
         use Mining::*;
         match message {
             OpenStandardMiningChannelSuccess(m) => {
@@ -96,20 +98,12 @@ pub trait HandleMiningMessagesFromServerSync {
 
             SetNewPrevHash(m) => self.handle_set_new_prev_hash(server_id, m, tlv_fields),
 
-            SetCustomMiningJobSuccess(m) if work_selection => {
+            SetCustomMiningJobSuccess(m) => {
                 self.handle_set_custom_mining_job_success(server_id, m, tlv_fields)
             }
-            SetCustomMiningJobSuccess(_) => Err(Self::Error::unexpected_message(
-                0,
-                MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS,
-            )),
-            SetCustomMiningJobError(m) if work_selection => {
+            SetCustomMiningJobError(m) => {
                 self.handle_set_custom_mining_job_error(server_id, m, tlv_fields)
             }
-            SetCustomMiningJobError(_) => Err(Self::Error::unexpected_message(
-                0,
-                MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR,
-            )),
 
             SetTarget(m) => self.handle_set_target(server_id, m, tlv_fields),
 
@@ -258,11 +252,15 @@ pub trait HandleMiningMessagesFromServerSync {
 /// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
 /// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
 /// implementor.
+///
+/// Messages are dispatched by direction only: a message that only a client sends is rejected with
+/// [`HandlerErrorType::unexpected_message`], and every other message reaches its handler. Whether a
+/// message is acceptable on the connection is left to the implementor. Per the Mining Protocol that
+/// covers a reply only to a request that was sent, and `SetGroupChannel` and extended jobs only on
+/// a connection that did not set `REQUIRES_STANDARD_JOBS`.
 #[trait_variant::make(Send)]
 pub trait HandleMiningMessagesFromServerAsync {
     type Error: HandlerErrorType;
-
-    fn is_work_selection_enabled_for_server(&self, server_id: Option<usize>) -> bool;
 
     /// Returns the list of negotiated extension_types with a server.
     ///
@@ -319,8 +317,6 @@ pub trait HandleMiningMessagesFromServerAsync {
         message: Mining,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
-        let work_selection = self.is_work_selection_enabled_for_server(server_id);
-
         async move {
             use Mining::*;
             match message {
@@ -365,22 +361,14 @@ pub trait HandleMiningMessagesFromServerAsync {
                         .await
                 }
 
-                SetCustomMiningJobSuccess(m) if work_selection => {
+                SetCustomMiningJobSuccess(m) => {
                     self.handle_set_custom_mining_job_success(server_id, m, tlv_fields)
                         .await
                 }
-                SetCustomMiningJobSuccess(_) => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS,
-                )),
-                SetCustomMiningJobError(m) if work_selection => {
+                SetCustomMiningJobError(m) => {
                     self.handle_set_custom_mining_job_error(server_id, m, tlv_fields)
                         .await
                 }
-                SetCustomMiningJobError(_) => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR,
-                )),
 
                 SetTarget(m) => self.handle_set_target(server_id, m, tlv_fields).await,
 
@@ -533,10 +521,15 @@ pub trait HandleMiningMessagesFromServerAsync {
 /// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
 /// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
 /// implementor.
+///
+/// Messages are dispatched by direction only: a message that only a server sends is rejected with
+/// [`HandlerErrorType::unexpected_message`], and every other message reaches its handler. Whether a
+/// message is acceptable on the connection is left to the implementor. Per the Mining Protocol that
+/// covers `SetCustomMiningJob` only on a connection that set `REQUIRES_WORK_SELECTION`, extended
+/// channels only on a connection that did not set `REQUIRES_STANDARD_JOBS`, and the authorization
+/// of the user opening a channel.
 pub trait HandleMiningMessagesFromClientSync {
     type Error: HandlerErrorType;
-
-    fn is_work_selection_enabled_for_client(&self, client_id: Option<usize>) -> bool;
 
     /// Returns the list of negotiated extension_types with a client.
     ///
@@ -588,8 +581,6 @@ pub trait HandleMiningMessagesFromClientSync {
         message: Mining,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
-        let work_selection = self.is_work_selection_enabled_for_client(client_id);
-
         use Mining::*;
         match message {
             OpenStandardMiningChannel(m) => {
@@ -602,13 +593,7 @@ pub trait HandleMiningMessagesFromClientSync {
 
             SubmitSharesStandard(m) => self.handle_submit_shares_standard(client_id, m, tlv_fields),
             SubmitSharesExtended(m) => self.handle_submit_shares_extended(client_id, m, tlv_fields),
-            SetCustomMiningJob(m) if work_selection => {
-                self.handle_set_custom_mining_job(client_id, m, tlv_fields)
-            }
-            SetCustomMiningJob(_) => Err(Self::Error::unexpected_message(
-                0,
-                MESSAGE_TYPE_SET_CUSTOM_MINING_JOB,
-            )),
+            SetCustomMiningJob(m) => self.handle_set_custom_mining_job(client_id, m, tlv_fields),
             CloseChannel(m) => self.handle_close_channel(client_id, m, tlv_fields),
             NewExtendedMiningJob(_) => Err(Self::Error::unexpected_message(
                 0,
@@ -729,11 +714,16 @@ pub trait HandleMiningMessagesFromClientSync {
 /// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
 /// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
 /// implementor.
+///
+/// Messages are dispatched by direction only: a message that only a server sends is rejected with
+/// [`HandlerErrorType::unexpected_message`], and every other message reaches its handler. Whether a
+/// message is acceptable on the connection is left to the implementor. Per the Mining Protocol that
+/// covers `SetCustomMiningJob` only on a connection that set `REQUIRES_WORK_SELECTION`, extended
+/// channels only on a connection that did not set `REQUIRES_STANDARD_JOBS`, and the authorization
+/// of the user opening a channel.
 #[trait_variant::make(Send)]
 pub trait HandleMiningMessagesFromClientAsync {
     type Error: HandlerErrorType;
-
-    fn is_work_selection_enabled_for_client(&self, client_id: Option<usize>) -> bool;
 
     /// Returns the list of negotiated extension types for a client.
     ///
@@ -790,8 +780,6 @@ pub trait HandleMiningMessagesFromClientAsync {
         message: Mining,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
-        let work_selection = self.is_work_selection_enabled_for_client(client_id);
-
         async move {
             use Mining::*;
             match message {
@@ -813,14 +801,10 @@ pub trait HandleMiningMessagesFromClientAsync {
                     self.handle_submit_shares_extended(client_id, m, tlv_fields)
                         .await
                 }
-                SetCustomMiningJob(m) if work_selection => {
+                SetCustomMiningJob(m) => {
                     self.handle_set_custom_mining_job(client_id, m, tlv_fields)
                         .await
                 }
-                SetCustomMiningJob(_) => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB,
-                )),
                 CloseChannel(m) => self.handle_close_channel(client_id, m, tlv_fields).await,
                 NewExtendedMiningJob(_) => Err(Self::Error::unexpected_message(
                     0,
