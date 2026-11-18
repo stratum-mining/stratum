@@ -716,7 +716,13 @@ fn extract_tlv_fields(
         return Ok(None);
     };
 
-    let tlvs = TlvList::from_bytes(remainder).try_for_extensions(negotiated_extensions)?;
+    let mut tlvs = Vec::new();
+    for tlv in TlvList::from_bytes(remainder).iter() {
+        let tlv = tlv?;
+        if negotiated_extensions.contains(&tlv.r#type.extension_type) {
+            tlvs.push(tlv);
+        }
+    }
     Ok((!tlvs.is_empty()).then_some(tlvs))
 }
 
