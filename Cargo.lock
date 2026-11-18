@@ -1184,7 +1184,7 @@ dependencies = [
 
 [[package]]
 name = "stratum_translation"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "binary_sv2",
  "bitcoin",
@@ -1203,16 +1203,15 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "sv1_api"
-version = "7.0.0"
+version = "8.0.0"
 dependencies = [
  "binary_sv2",
  "bitcoin",
- "byteorder",
  "quickcheck",
  "quickcheck_macros",
  "serde",
  "serde_json",
- "tracing",
+ "trait-variant",
 ]
 
 [[package]]

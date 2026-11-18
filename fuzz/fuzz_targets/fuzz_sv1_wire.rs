@@ -8,8 +8,8 @@ use arbitrary::Arbitrary;
 use libfuzzer_sys::fuzz_target;
 use serde_json::Value;
 use sv1_api::{
-    json_rpc::{JsonRpcError, Message, Notification, Response, StandardRequest},
-    methods::{Client2Server, Method, Server2Client, Server2ClientResponse},
+    json_rpc::{Request, Response},
+    ClientToServer, Id, Message, Method, RpcError, ServerToClient,
 };
 
 #[derive(Debug)]
@@ -23,7 +23,7 @@ impl<'a> Arbitrary<'a> for ArbJson {
 
 #[derive(Arbitrary, Debug)]
 enum MsgKind {
-    StandardRequest,
+    Request,
     Notification,
     OkResponse,
     ErrorResponse,
@@ -32,6 +32,7 @@ enum MsgKind {
 #[derive(Arbitrary, Debug)]
 struct FuzzInput {
     id: u64,
+    string_id: Option<String>,
     method: String,
     params: ArbJson,
     result: ArbJson,
@@ -42,83 +43,89 @@ struct FuzzInput {
 
 impl From<FuzzInput> for Message {
     fn from(fi: FuzzInput) -> Self {
+        let id = fi.string_id.map_or(Id::from(fi.id), Id::from);
         match fi.kind {
-            MsgKind::StandardRequest => Message::StandardRequest(StandardRequest {
-                id: fi.id,
-                method: fi.method,
+            MsgKind::Request => Message::Request(Request {
+                id: Some(id),
+                method: Method::from(fi.method),
                 params: fi.params.0,
             }),
-            MsgKind::Notification => Message::Notification(Notification {
-                method: fi.method,
+            MsgKind::Notification => Message::Request(Request {
+                id: None,
+                method: Method::from(fi.method),
                 params: fi.params.0,
             }),
-            MsgKind::OkResponse => Message::OkResponse(Response {
-                id: fi.id,
-                error: None,
-                result: fi.result.0,
-            }),
-            MsgKind::ErrorResponse => Message::ErrorResponse(Response {
-                id: fi.id,
-                error: Some(JsonRpcError {
+            MsgKind::OkResponse => Message::Response(Response::success(id, fi.result.0)),
+            MsgKind::ErrorResponse => Message::Response(Response::failure(
+                Some(id),
+                RpcError {
                     code: fi.error_code,
                     message: fi.error_message,
                     data: None,
-                }),
-                result: fi.result.0,
-            }),
+                },
+            )),
         }
     }
+}
+
+fn round_trip(message: Message) {
+    let line = serde_json::to_string(&message).expect("messages always serialize");
+    let decoded = Message::decode(&line).expect("serialized messages always decode");
+    assert_eq!(decoded, message);
 }
 
 fn test_msg_conversions(msg: Message) {
     let _ = format!("{}", msg);
     let _ = format!("{:?}", msg);
 
-    if let Ok(m) = Client2Server::try_from(msg.clone()) {
-        let _ = format!("{:?}", m);
-        if let Ok(m) = Method::try_from(msg.clone()) {
-            let _ = format!("{:?}", m);
+    match msg {
+        Message::Request(request) => {
+            if let Ok(m) = ClientToServer::try_from(request.clone()) {
+                let _ = format!("{:?}", m);
+                let line = serde_json::to_string(&Message::from(m)).unwrap();
+                if let Ok(Message::Request(again)) = Message::decode(&line) {
+                    ClientToServer::try_from(again).expect("encoded requests always decode");
+                }
+            }
+            if let Ok(m) = ServerToClient::try_from(request) {
+                let _ = format!("{:?}", m);
+                let line = serde_json::to_string(&Message::from(m.clone())).unwrap();
+                if let Ok(Message::Request(again)) = Message::decode(&line) {
+                    let again = ServerToClient::try_from(again)
+                        .expect("encoded notifications always decode");
+                    assert_eq!(again, m);
+                }
+            }
         }
-    }
-
-    if let Ok(m) = Server2ClientResponse::try_from(msg.clone()) {
-        let _ = format!("{:?}", m);
-        if let Ok(m) = Method::try_from(msg.clone()) {
-            let _ = format!("{:?}", m);
-        }
-    }
-
-    if let Ok(m) = Server2Client::try_from(msg.clone()) {
-        let _ = format!("{:?}", m);
-        if let Ok(m) = Method::try_from(msg.clone()) {
-            let _ = format!("{:?}", m);
-        }
-    }
-
-    if matches!(&msg, Message::ErrorResponse(_)) {
-        if let Ok(Method::ErrorMessage(m)) = Method::try_from(msg) {
-            let _ = format!("{:?}", m);
+        Message::Response(response) => {
+            let _ = ServerToClient::from_response(&response, &Method::Subscribe);
+            let _ = ServerToClient::from_response(&response, &Method::Configure);
+            let _ = ServerToClient::from_response(&response, &Method::Submit);
         }
     }
 }
 
 fuzz_target!(|data: &[u8]| {
     if let Ok(s) = std::str::from_utf8(data) {
-        if let Ok(msg) = serde_json::from_str::<Message>(s) {
-            test_msg_conversions(msg);
+        if let Ok(msg) = Message::decode(s) {
+            test_msg_conversions(msg.clone());
+            round_trip(msg);
         }
     }
     if let Ok(val) = serde_json::from_slice::<Value>(data) {
         let _ = serde_json::from_value::<Message>(val);
     }
     if let Ok(input) = arbitrary::Unstructured::new(data).arbitrary::<FuzzInput>() {
+        // A string ID over 64 bytes can be built locally, but is rejected when decoding.
+        let oversized_id = !matches!(input.kind, MsgKind::Notification)
+            && input.string_id.as_ref().is_some_and(|id| id.len() > 64);
         let msg: Message = input.into();
-        let msg_for_serde = msg.clone();
-
-        test_msg_conversions(msg);
-
-        if let Ok(json) = serde_json::to_string(&msg_for_serde) {
-            let _ = serde_json::from_str::<Message>(&json);
+        test_msg_conversions(msg.clone());
+        if oversized_id {
+            let line = serde_json::to_string(&msg).expect("messages always serialize");
+            assert!(Message::decode(&line).is_err());
+        } else {
+            round_trip(msg);
         }
     }
 });
