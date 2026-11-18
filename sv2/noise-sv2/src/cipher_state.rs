@@ -28,7 +28,7 @@
 // nonce tracking throughout the communication session.
 
 use crate::aed_cipher::AeadCipher;
-use chacha20poly1305::aead::{Buffer, Error};
+use aead::{Buffer, Error};
 use zeroize::Zeroize;
 
 // The `CipherState` trait manages AEAD ciphers for secure communication, handling the encryption
@@ -219,12 +219,12 @@ impl<C: AeadCipher> CipherState<C> for Cipher<C> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use chacha20poly1305::{ChaCha20Poly1305, KeyInit};
+    use crate::aed_cipher::ChaCha20Poly1305;
 
     #[test]
     fn exhausted_nonce_fails_instead_of_wrapping() {
         let key = [7u8; 32];
-        let cipher = ChaCha20Poly1305::new(&key.into());
+        let cipher = ChaCha20Poly1305::from_key(key);
         let mut cipher = Cipher::from_key_and_cipher(key, cipher);
         cipher.set_n(u64::MAX);
 
