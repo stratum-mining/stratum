@@ -117,19 +117,21 @@ Whenever submitting a PR that modifies some crate, it's up to the contributor to
 
 1. According to SemVer 2.0.0 and the modifications on this PR, what kind of version bump does this crate deserve?
 2. Avoiding redundant version bumps:
-   - Has the version of crate already been bumped on this repo since it was last published to crates.io?
+   - Has the version of crate already been bumped on this repo since the newest release tag?
    - If yes, do the changes introduced by this PR require a larger bump than the one already made?
 3. Keeping sanity across dependency chains:
    - Which other crates on this repo depend on this crate?
    - Amongst them, are there types from this crate exposed on their public APIs?
 
 Factors 1 and 2 are partially enforced via CI (but enforcement via PR review is still encouraged):
-- `cargo semver-checks` fails when the public API of a crate changed more than its version bump allows, using the latest version published on crates.io as the baseline.
-- `scripts/check-version-bumps.sh` fails when a crate has changes on the PR while its version is not above the highest version ever published on crates.io. Run `./scripts/check-version-bumps.sh origin/main` locally to check your branch before opening a PR.
+- `cargo semver-checks` fails when the public API of a crate changed more than its version bump allows. On `main` the baseline is the newest release tag; on a release branch it is the latest version published on crates.io.
+- `scripts/check-version-bumps.sh` fails when a crate has changes on the PR while its version is not above the highest version ever published on crates.io. On `main`, a version carried by a release tag counts as published too. Run `./scripts/check-version-bumps.sh origin/main` locally to check your branch before opening a PR, after fetching the release tags.
 
 Factor 3 must be fully enforced via PR reviews.
 
 Factor 2 is about avoiding redundant version bumps. Since crates are only published to crates.io periodically (during global release), maybe other PRs already bumped this crate version.
+
+A release candidate is a release tag like any other (see [RELEASE.md](RELEASE.md)). It carries the versions its release is going to publish, so once a candidate is cut, a PR to `main` that modifies a crate bumps it above the candidate's version, even though that version is not on crates.io yet: the change ships in the release after that one.
 
 Factor 3 is about keeping sanity across dependency chains. If a crate only uses a dependency internally, updating that dependency does not automatically require an incompatible version bump for the dependent crate. However, if a dependency appears in the dependent crate's public API, then changing that dependency to an incompatible version also changes the dependent crate's public API.
 Either way the dependent crate needs some bump: an incompatible bump of a dependency invalidates the `version` requirement declared on the dependent crate's manifest, and once that manifest is updated CI requires the dependent crate to be bumped as well.
