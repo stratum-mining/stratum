@@ -91,6 +91,13 @@ impl<'a> TlvList<'a> {
     ///
     /// The result can be converted to a `SerializedFrame` using
     /// `SerializedFrame::from_bytes()`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TlvError::EncodingError`] if the message fails to serialize, and
+    /// [`TlvError::FramePayloadTooLong`] if the message and the TLV fields together are
+    /// longer than [`SV2_FRAME_MAX_PAYLOAD_SIZE`].
+    ///
     /// # Example
     /// ```ignore
     /// use parsers_sv2::{TlvList, Tlv, Mining};
@@ -119,19 +126,19 @@ impl<'a> TlvList<'a> {
             TlvList::Bytes(data) => data,
             TlvList::Owned(bytes) => bytes.as_slice(),
         };
-        payload.extend_from_slice(tlv_bytes);
 
         // Reject frames whose payload does not fit the 24-bit length field.
-        let payload_len = payload.len();
+        let payload_len = payload.len() + tlv_bytes.len();
         if payload_len > SV2_FRAME_MAX_PAYLOAD_SIZE {
             return Err(TlvError::FramePayloadTooLong(payload_len));
         }
+        payload.extend_from_slice(tlv_bytes);
 
         // Calculate payload length
         let msg_length = payload_len as u32;
 
         // Construct complete frame bytes (header + payload)
-        let mut frame_bytes = Vec::with_capacity(SV2_FRAME_HEADER_SIZE + payload.len());
+        let mut frame_bytes = Vec::with_capacity(SV2_FRAME_HEADER_SIZE + payload_len);
         frame_bytes.extend_from_slice(&extension_type.to_le_bytes());
         frame_bytes.push(message_type);
         frame_bytes.extend_from_slice(&msg_length.to_le_bytes()[..3]);
@@ -144,7 +151,10 @@ impl<'a> TlvList<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Extensions, ExtensionsNegotiation, IsSv2Message, Mining, SubmitSharesStandard};
+    use crate::{
+        ChannelEndpointChanged, CommonMessagesOwned, Extensions, ExtensionsNegotiation,
+        IsSv2Message, Mining, SubmitSharesStandard,
+    };
     use alloc::vec;
     use binary_sv2::Seq064K;
     use extensions_sv2::{
@@ -315,35 +325,28 @@ mod tests {
     }
 
     #[test]
-    fn test_build_frame_bytes_with_tlvs_enforces_max_frame_payload_size() {
-        use crate::{ChannelEndpointChanged, CommonMessagesOwned};
-
-        // size is 4 byte (u32)
+    fn test_build_frame_bytes_with_tlvs_accepts_the_longest_payload_the_length_field_holds() {
         let message =
             CommonMessagesOwned::ChannelEndpointChanged(ChannelEndpointChanged { channel_id: 0 });
-
-        // Exactly the maximum payload size should succeed.
         let tlv_bytes = vec![0u8; SV2_FRAME_MAX_PAYLOAD_SIZE - message.get_size()];
-        let tlv_list = TlvList::from_bytes(&tlv_bytes);
+        let list = TlvList::from_bytes(&tlv_bytes);
 
-        let frame = tlv_list
-            .build_frame_bytes_with_tlvs(message.clone())
-            .expect("maximum frame payload should be accepted");
+        let frame = list.build_frame_bytes_with_tlvs(message).unwrap();
+        let header = Header::from_bytes(&frame).unwrap();
 
-        let declared_length = u32::from_le_bytes([frame[3], frame[4], frame[5], 0]) as usize;
+        assert_eq!(header.payload_length(), SV2_FRAME_MAX_PAYLOAD_SIZE);
+        assert_eq!(frame.len(), Header::SIZE + SV2_FRAME_MAX_PAYLOAD_SIZE);
+    }
 
-        assert_eq!(declared_length, SV2_FRAME_MAX_PAYLOAD_SIZE);
-        assert_eq!(
-            frame.len(),
-            SV2_FRAME_HEADER_SIZE + SV2_FRAME_MAX_PAYLOAD_SIZE
-        );
-
-        // Exceeding the maximum by one byte should return an error.
+    #[test]
+    fn test_build_frame_bytes_with_tlvs_rejects_a_payload_the_length_field_cannot_hold() {
+        let message =
+            CommonMessagesOwned::ChannelEndpointChanged(ChannelEndpointChanged { channel_id: 0 });
         let tlv_bytes = vec![0u8; SV2_FRAME_MAX_PAYLOAD_SIZE - message.get_size() + 1];
-        let tlv_list = TlvList::from_bytes(&tlv_bytes);
+        let list = TlvList::from_bytes(&tlv_bytes);
 
         assert!(matches!(
-            tlv_list.build_frame_bytes_with_tlvs(message),
+            list.build_frame_bytes_with_tlvs(message),
             Err(TlvError::FramePayloadTooLong(len))
                 if len == SV2_FRAME_MAX_PAYLOAD_SIZE + 1
         ));
