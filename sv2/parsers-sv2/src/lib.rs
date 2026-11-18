@@ -694,6 +694,14 @@ impl AnyMessage<'_> {
 }
 
 /// Single entry point for parsing any SV2 protocol message frame with TLV support.
+///
+/// The bytes following the message are read as TLV fields. Fields of extensions listed in
+/// `negotiated_extensions` are returned, fields of other extensions are skipped.
+///
+/// # Errors
+///
+/// Returns [`ParserError::TlvError`] if a TLV field declares more bytes than the payload has
+/// left, whether or not its extension is negotiated.
 pub fn parse_message_frame_with_tlvs<'a>(
     header: Header,
     payload: &'a mut [u8],
