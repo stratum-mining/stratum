@@ -162,3 +162,27 @@ jobs:
 
       - name: Check that modified crates carry a version bump
         run: ./scripts/check-version-bumps.sh origin/${{ github.base_ref }}
+
+  published-crates-check:
+    # Only runs on release branches. It tells us on the day a release candidate
+    # is created whether a crate still needs a version bump, so that we do not
+    # find out on release day.
+    if: startsWith(github.base_ref || github.ref_name, 'release/')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust (1.85)
+        uses: dtolnay/rust-toolchain@1.85
+        id: toolchain
+
+      # NOTE: A repo-local `rust-toolchain.toml` is still respected by rustup.
+      # `dtolnay/rust-toolchain` installs the requested toolchain but does not
+      # automatically override it.
+      - name: Override toolchain
+        run: rustup override set ${{ steps.toolchain.outputs.name }}
+
+      - name: Check that no published version changed contents
+        run: ./scripts/check-published-crates.sh
