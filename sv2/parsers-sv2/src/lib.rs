@@ -2664,14 +2664,17 @@ impl<'a> TryFrom<AnyMessage<'a>> for MiningDeviceMessages<'a> {
 
 #[cfg(test)]
 mod test {
-    use super::{extract_tlv_fields, ParserError};
-    use crate::{AnyMessage, Extensions, ExtensionsNegotiation, JobDeclaration, Mining, TlvError};
+    use crate::{
+        parse_message_frame_with_tlvs, AnyMessage, Extensions, ExtensionsNegotiation,
+        JobDeclaration, Mining, ParserError, Tlv, TlvError,
+    };
     use alloc::vec;
     use alloc::vec::Vec;
     use binary_sv2::{Seq0255, Seq064K, Str0255, Sv2Option, B0255, B032, B064K, U256};
     use codec_sv2::{EncodableFrame, MessageFrame};
     use core::convert::{TryFrom, TryInto};
     use extensions_sv2::{RequestExtensions, EXTENSION_TYPE_EXTENSIONS_NEGOTIATION};
+    use framing_sv2::header::Header;
     use job_declaration_sv2::PushSolution;
     use mining_sv2::{
         NewMiningJob, SetCustomMiningJob, SetCustomMiningJobError, SetCustomMiningJobSuccess,
@@ -2801,14 +2804,80 @@ mod test {
         message_serialization_check(job_declaration_message, &correctly_serialized_msg);
     }
 
+    // A TLV of extension 0x0002 declaring a 10-byte value and carrying 1 byte.
+    const TRUNCATED_TLV: [u8; 6] = [0x02, 0x00, 0x01, 0x0a, 0x00, 0x00];
+
+    fn frame_with_tlv_suffix(tlv_bytes: &[u8]) -> (Header, Vec<u8>) {
+        let message = AnyMessage::Mining(Mining::SetCustomMiningJobSuccess(
+            SetCustomMiningJobSuccess {
+                channel_id: 1,
+                request_id: 2,
+                job_id: 3,
+            },
+        ));
+        let frame = StdFrame::try_from(message).unwrap();
+        let mut bytes = vec![0; frame.encoded_length()];
+        frame.encode_into(&mut bytes).unwrap();
+        let mut payload = bytes.split_off(Header::SIZE);
+        payload.extend_from_slice(tlv_bytes);
+        bytes[3..].copy_from_slice(&(payload.len() as u32).to_le_bytes()[..3]);
+        (Header::from_bytes(&bytes).unwrap(), payload)
+    }
+
     #[test]
-    fn malformed_tlv_suffix_is_rejected() {
-        let malformed = [0x02, 0x00, 0x01, 0x0a, 0x00, 0x00];
+    fn truncated_tlv_rejects_the_frame() {
+        let (header, mut payload) = frame_with_tlv_suffix(&TRUNCATED_TLV);
 
         assert!(matches!(
-            extract_tlv_fields(&malformed, 0, &[0x0002]),
+            parse_message_frame_with_tlvs(header, &mut payload, &[0x0002]),
             Err(ParserError::TlvError(TlvError::BufferTooShort(6, 15)))
         ));
+    }
+
+    #[test]
+    fn truncated_tlv_after_a_valid_one_rejects_the_frame() {
+        let mut tlv_bytes = Tlv::new(0x0002, 0x01, b"rig-7".to_vec())
+            .unwrap()
+            .encode()
+            .unwrap();
+        tlv_bytes.extend_from_slice(&TRUNCATED_TLV);
+        let (header, mut payload) = frame_with_tlv_suffix(&tlv_bytes);
+
+        assert!(matches!(
+            parse_message_frame_with_tlvs(header, &mut payload, &[0x0002]),
+            Err(ParserError::TlvError(TlvError::BufferTooShort(6, 15)))
+        ));
+    }
+
+    #[test]
+    fn truncated_tlv_of_unnegotiated_extension_rejects_the_frame() {
+        let (header, mut payload) = frame_with_tlv_suffix(&TRUNCATED_TLV);
+
+        assert!(matches!(
+            parse_message_frame_with_tlvs(header, &mut payload, &[0x0003]),
+            Err(ParserError::TlvError(TlvError::BufferTooShort(6, 15)))
+        ));
+    }
+
+    #[test]
+    fn valid_tlvs_are_filtered_by_negotiated_extension() {
+        let negotiated = Tlv::new(0x0002, 0x01, b"rig-7".to_vec()).unwrap();
+        let unnegotiated = Tlv::new(0x0003, 0x01, b"ignored".to_vec()).unwrap();
+        let mut tlv_bytes = unnegotiated.encode().unwrap();
+        tlv_bytes.extend_from_slice(&negotiated.encode().unwrap());
+        let (header, mut payload) = frame_with_tlv_suffix(&tlv_bytes);
+
+        let (message, tlvs) =
+            parse_message_frame_with_tlvs(header, &mut payload, &[0x0002]).unwrap();
+        assert!(matches!(
+            message,
+            AnyMessage::Mining(Mining::SetCustomMiningJobSuccess(_))
+        ));
+        assert_eq!(tlvs, Some(vec![negotiated]));
+
+        let (header, mut payload) = frame_with_tlv_suffix(&unnegotiated.encode().unwrap());
+        let (_, tlvs) = parse_message_frame_with_tlvs(header, &mut payload, &[0x0002]).unwrap();
+        assert_eq!(tlvs, None);
     }
 
     fn message_serialization_check(message: AnyMessage<'_>, expected_result: &[u8]) {
