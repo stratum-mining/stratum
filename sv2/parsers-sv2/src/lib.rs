@@ -694,6 +694,14 @@ impl AnyMessage<'_> {
 }
 
 /// Single entry point for parsing any SV2 protocol message frame with TLV support.
+///
+/// The bytes following the message are read as TLV fields. Fields of extensions listed in
+/// `negotiated_extensions` are returned, fields of other extensions are skipped.
+///
+/// # Errors
+///
+/// Returns [`ParserError::TlvError`] if a TLV field declares more bytes than the payload has
+/// left, whether or not its extension is negotiated.
 pub fn parse_message_frame_with_tlvs<'a>(
     header: Header,
     payload: &'a mut [u8],
@@ -702,7 +710,7 @@ pub fn parse_message_frame_with_tlvs<'a>(
     let raw_payload = payload.to_vec();
     let message: AnyMessage<'a> = (header, payload).try_into()?;
     let message_size = message.get_size();
-    let tlvs = extract_tlv_fields(&raw_payload, message_size, negotiated_extensions);
+    let tlvs = extract_tlv_fields(&raw_payload, message_size, negotiated_extensions)?;
     Ok((message, tlvs))
 }
 
@@ -711,10 +719,19 @@ fn extract_tlv_fields(
     raw_payload: &[u8],
     message_size: usize,
     negotiated_extensions: &[u16],
-) -> Option<Vec<Tlv>> {
-    let remainder = raw_payload.get(message_size..)?;
-    let tlvs = TlvList::from_bytes(remainder).for_extensions(negotiated_extensions);
-    (!tlvs.is_empty()).then_some(tlvs)
+) -> Result<Option<Vec<Tlv>>, ParserError> {
+    let Some(remainder) = raw_payload.get(message_size..) else {
+        return Ok(None);
+    };
+
+    let mut tlvs = Vec::new();
+    for tlv in TlvList::from_bytes(remainder).iter() {
+        let tlv = tlv?;
+        if negotiated_extensions.contains(&tlv.r#type.extension_type) {
+            tlvs.push(tlv);
+        }
+    }
+    Ok((!tlvs.is_empty()).then_some(tlvs))
 }
 
 /// A trait that every Sv2 message parser must implement.
@@ -2655,13 +2672,17 @@ impl<'a> TryFrom<AnyMessage<'a>> for MiningDeviceMessages<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::{AnyMessage, Extensions, ExtensionsNegotiation, JobDeclaration, Mining};
+    use crate::{
+        parse_message_frame_with_tlvs, AnyMessage, Extensions, ExtensionsNegotiation,
+        JobDeclaration, Mining, ParserError, Tlv, TlvError,
+    };
     use alloc::vec;
     use alloc::vec::Vec;
     use binary_sv2::{Seq0255, Seq064K, Str0255, Sv2Option, B0255, B032, B064K, U256};
     use codec_sv2::{EncodableFrame, MessageFrame};
     use core::convert::{TryFrom, TryInto};
     use extensions_sv2::{RequestExtensions, EXTENSION_TYPE_EXTENSIONS_NEGOTIATION};
+    use framing_sv2::header::Header;
     use job_declaration_sv2::PushSolution;
     use mining_sv2::{
         NewMiningJob, SetCustomMiningJob, SetCustomMiningJobError, SetCustomMiningJobSuccess,
@@ -2789,6 +2810,82 @@ mod test {
             }));
 
         message_serialization_check(job_declaration_message, &correctly_serialized_msg);
+    }
+
+    // A TLV of extension 0x0002 declaring a 10-byte value and carrying 1 byte.
+    const TRUNCATED_TLV: [u8; 6] = [0x02, 0x00, 0x01, 0x0a, 0x00, 0x00];
+
+    fn frame_with_tlv_suffix(tlv_bytes: &[u8]) -> (Header, Vec<u8>) {
+        let message = AnyMessage::Mining(Mining::SetCustomMiningJobSuccess(
+            SetCustomMiningJobSuccess {
+                channel_id: 1,
+                request_id: 2,
+                job_id: 3,
+            },
+        ));
+        let frame = StdFrame::try_from(message).unwrap();
+        let mut bytes = vec![0; frame.encoded_length()];
+        frame.encode_into(&mut bytes).unwrap();
+        let mut payload = bytes.split_off(Header::SIZE);
+        payload.extend_from_slice(tlv_bytes);
+        bytes[3..].copy_from_slice(&(payload.len() as u32).to_le_bytes()[..3]);
+        (Header::from_bytes(&bytes).unwrap(), payload)
+    }
+
+    #[test]
+    fn truncated_tlv_rejects_the_frame() {
+        let (header, mut payload) = frame_with_tlv_suffix(&TRUNCATED_TLV);
+
+        assert!(matches!(
+            parse_message_frame_with_tlvs(header, &mut payload, &[0x0002]),
+            Err(ParserError::TlvError(TlvError::BufferTooShort(6, 15)))
+        ));
+    }
+
+    #[test]
+    fn truncated_tlv_after_a_valid_one_rejects_the_frame() {
+        let mut tlv_bytes = Tlv::new(0x0002, 0x01, b"rig-7".to_vec())
+            .unwrap()
+            .encode()
+            .unwrap();
+        tlv_bytes.extend_from_slice(&TRUNCATED_TLV);
+        let (header, mut payload) = frame_with_tlv_suffix(&tlv_bytes);
+
+        assert!(matches!(
+            parse_message_frame_with_tlvs(header, &mut payload, &[0x0002]),
+            Err(ParserError::TlvError(TlvError::BufferTooShort(6, 15)))
+        ));
+    }
+
+    #[test]
+    fn truncated_tlv_of_unnegotiated_extension_rejects_the_frame() {
+        let (header, mut payload) = frame_with_tlv_suffix(&TRUNCATED_TLV);
+
+        assert!(matches!(
+            parse_message_frame_with_tlvs(header, &mut payload, &[0x0003]),
+            Err(ParserError::TlvError(TlvError::BufferTooShort(6, 15)))
+        ));
+    }
+
+    #[test]
+    fn valid_tlvs_are_filtered_by_negotiated_extension() {
+        let negotiated = Tlv::new(0x0002, 0x01, b"rig-7".to_vec()).unwrap();
+        let unnegotiated = Tlv::new(0x0003, 0x01, b"ignored".to_vec()).unwrap();
+        let mut tlv_bytes = unnegotiated.encode().unwrap();
+        tlv_bytes.extend_from_slice(&negotiated.encode().unwrap());
+        let (header, mut payload) = frame_with_tlv_suffix(&tlv_bytes);
+
+        let (message, tlvs) =
+            parse_message_frame_with_tlvs(header, &mut payload, &[0x0002]).unwrap();
+        assert!(matches!(
+            message,
+            AnyMessage::Mining(Mining::SetCustomMiningJobSuccess(_))
+        ));
+        assert_eq!(tlvs, Some(vec![negotiated]));
+
+        let (header, mut payload) = frame_with_tlv_suffix(&unnegotiated.encode().unwrap());
+        let (_, tlvs) = parse_message_frame_with_tlvs(header, &mut payload, &[0x0002]).unwrap();
+        assert_eq!(tlvs, None);
     }
 
     fn message_serialization_check(message: AnyMessage<'_>, expected_result: &[u8]) {
