@@ -724,7 +724,7 @@ pub trait IsSv2Message {
     fn message_type(&self) -> u8;
     /// get channel bit
     fn channel_bit(&self) -> bool;
-    /// get extension type (0 for non-extension messages)
+    /// get extension type, not including the channel_msg bit (0 for non-extension messages)
     fn extension_type(&self) -> u16;
 }
 
