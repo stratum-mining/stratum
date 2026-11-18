@@ -805,7 +805,7 @@ dependencies = [
 
 [[package]]
 name = "parsers_sv2"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "binary_sv2",
  "codec_sv2",

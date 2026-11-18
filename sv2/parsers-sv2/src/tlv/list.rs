@@ -86,7 +86,7 @@ impl<'a> TlvList<'a> {
     ///
     /// This method serializes an SV2 message and appends the TLV fields from this list,
     /// producing complete frame bytes ready for transmission. It automatically extracts
-    /// the message type and channel bit using the `IsSv2Message` trait.
+    /// the extension type, message type and channel bit using the `IsSv2Message` trait.
     ///
     /// The result can be converted to a `SerializedFrame` using
     /// `SerializedFrame::from_bytes()`.
@@ -103,8 +103,11 @@ impl<'a> TlvList<'a> {
     where
         T: Serialize + GetSize + crate::IsSv2Message,
     {
-        // Extract message metadata using IsSv2Message trait
-        let extension_type: u16 = (message.channel_bit() as u16) << 15;
+        // Extract message metadata using IsSv2Message trait. Bit 15 of the
+        // header's extension_type is the channel_msg flag, so it is taken from
+        // channel_bit() only and cleared from extension_type().
+        let extension_type =
+            (message.extension_type() & 0x7fff) | ((message.channel_bit() as u16) << 15);
         let message_type = message.message_type();
 
         // Serialize the base message
@@ -135,7 +138,81 @@ impl<'a> TlvList<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Extensions, ExtensionsNegotiation, IsSv2Message, Mining, SubmitSharesStandard};
     use alloc::vec;
+    use binary_sv2::Seq064K;
+    use extensions_sv2::{
+        RequestExtensions, EXTENSION_TYPE_EXTENSIONS_NEGOTIATION, MESSAGE_TYPE_REQUEST_EXTENSIONS,
+    };
+    use framing_sv2::header::Header;
+
+    #[derive(Serialize)]
+    struct ChannelBitInExtensionType {
+        request_id: u16,
+    }
+
+    impl IsSv2Message for ChannelBitInExtensionType {
+        fn message_type(&self) -> u8 {
+            0
+        }
+        fn channel_bit(&self) -> bool {
+            false
+        }
+        fn extension_type(&self) -> u16 {
+            0x8001
+        }
+    }
+
+    #[test]
+    fn test_build_frame_bytes_with_tlvs_preserves_extension_type() {
+        let message = Extensions::ExtensionsNegotiation(ExtensionsNegotiation::RequestExtensions(
+            RequestExtensions {
+                request_id: 0,
+                requested_extensions: Seq064K::new(vec![2]).unwrap(),
+            },
+        ));
+        let tlv = Tlv::new(0x0002, 0x01, b"worker1".to_vec()).unwrap();
+        let list = TlvList::from_slice(&[tlv.clone()]).unwrap();
+
+        let frame = list.build_frame_bytes_with_tlvs(message).unwrap();
+        let header = Header::from_bytes(&frame).unwrap();
+
+        assert_eq!(header.ext_type(), EXTENSION_TYPE_EXTENSIONS_NEGOTIATION);
+        assert_eq!(header.msg_type(), MESSAGE_TYPE_REQUEST_EXTENSIONS);
+        assert_eq!(header.payload_length(), frame.len() - Header::SIZE);
+        assert!(frame.ends_with(&tlv.encode().unwrap()));
+    }
+
+    #[test]
+    fn test_build_frame_bytes_with_tlvs_sets_channel_bit() {
+        let message = Mining::SubmitSharesStandard(SubmitSharesStandard {
+            channel_id: 1,
+            sequence_number: 0,
+            job_id: 0,
+            nonce: 0,
+            ntime: 0,
+            version: 0,
+        });
+        let list = TlvList::from_bytes(&[] as &[u8]);
+
+        let frame = list.build_frame_bytes_with_tlvs(message).unwrap();
+        let header = Header::from_bytes(&frame).unwrap();
+
+        assert!(header.channel_msg());
+        assert_eq!(header.ext_type_without_channel_msg(), 0);
+    }
+
+    #[test]
+    fn test_build_frame_bytes_with_tlvs_takes_channel_bit_from_channel_bit_only() {
+        let list = TlvList::from_bytes(&[] as &[u8]);
+
+        let frame = list
+            .build_frame_bytes_with_tlvs(ChannelBitInExtensionType { request_id: 0 })
+            .unwrap();
+        let header = Header::from_bytes(&frame).unwrap();
+
+        assert_eq!(header.ext_type(), 0x0001);
+    }
 
     #[test]
     fn test_tlv_list_from_bytes() {
