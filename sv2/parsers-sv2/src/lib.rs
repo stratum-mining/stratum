@@ -694,27 +694,46 @@ impl AnyMessage<'_> {
 }
 
 /// Single entry point for parsing any SV2 protocol message frame with TLV support.
+///
+/// TLV fields of negotiated extensions are returned in wire order. A frame that repeats a
+/// negotiated `(extension_type, field_type)` pair is rejected with
+/// [`TlvError::DuplicateField`], so the returned list holds at most 256 fields per negotiated
+/// extension whatever the peer sends.
 pub fn parse_message_frame_with_tlvs<'a>(
     header: Header,
     payload: &'a mut [u8],
     negotiated_extensions: &[u16],
 ) -> Result<(AnyMessage<'a>, Option<Vec<Tlv>>), ParserError> {
-    let raw_payload = payload.to_vec();
-    let message: AnyMessage<'a> = (header, payload).try_into()?;
-    let message_size = message.get_size();
-    let tlvs = extract_tlv_fields(&raw_payload, message_size, negotiated_extensions);
+    // The message borrows the payload it is decoded from, so it has to be decoded from its own
+    // part of the payload for the TLV suffix to stay readable in place. Decoding once first only
+    // tells where that part ends.
+    let message_size = AnyMessage::try_from((header, &mut *payload))?.get_size();
+    let (message_bytes, tlv_bytes) = payload.split_at_mut(message_size.min(payload.len()));
+    let message: AnyMessage<'a> = (header, message_bytes).try_into()?;
+    let tlvs = extract_tlv_fields(tlv_bytes, negotiated_extensions)?;
     Ok((message, tlvs))
 }
 
 /// Internal helper to extract TLV fields from the remaining payload bytes.
 fn extract_tlv_fields(
-    raw_payload: &[u8],
-    message_size: usize,
+    tlv_bytes: &[u8],
     negotiated_extensions: &[u16],
-) -> Option<Vec<Tlv>> {
-    let remainder = raw_payload.get(message_size..)?;
-    let tlvs = TlvList::from_bytes(remainder).for_extensions(negotiated_extensions);
-    (!tlvs.is_empty()).then_some(tlvs)
+) -> Result<Option<Vec<Tlv>>, ParserError> {
+    let mut tlvs: Vec<Tlv> = Vec::new();
+    for tlv in TlvList::from_bytes(tlv_bytes).iter().filter_map(Result::ok) {
+        if !negotiated_extensions.contains(&tlv.r#type.extension_type) {
+            continue;
+        }
+        if tlvs.iter().any(|seen| seen.r#type == tlv.r#type) {
+            return Err(TlvError::DuplicateField {
+                extension_type: tlv.r#type.extension_type,
+                field_type: tlv.r#type.field_type,
+            }
+            .into());
+        }
+        tlvs.push(tlv);
+    }
+    Ok((!tlvs.is_empty()).then_some(tlvs))
 }
 
 /// A trait that every Sv2 message parser must implement.
@@ -2655,13 +2674,17 @@ impl<'a> TryFrom<AnyMessage<'a>> for MiningDeviceMessages<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::{AnyMessage, Extensions, ExtensionsNegotiation, JobDeclaration, Mining};
+    use crate::{
+        parse_message_frame_with_tlvs, AnyMessage, Extensions, ExtensionsNegotiation,
+        JobDeclaration, Mining, ParserError, Tlv, TlvError,
+    };
     use alloc::vec;
     use alloc::vec::Vec;
     use binary_sv2::{Seq0255, Seq064K, Str0255, Sv2Option, B0255, B032, B064K, U256};
     use codec_sv2::{EncodableFrame, MessageFrame};
     use core::convert::{TryFrom, TryInto};
     use extensions_sv2::{RequestExtensions, EXTENSION_TYPE_EXTENSIONS_NEGOTIATION};
+    use framing_sv2::header::Header;
     use job_declaration_sv2::PushSolution;
     use mining_sv2::{
         NewMiningJob, SetCustomMiningJob, SetCustomMiningJobError, SetCustomMiningJobSuccess,
@@ -2789,6 +2812,95 @@ mod test {
             }));
 
         message_serialization_check(job_declaration_message, &correctly_serialized_msg);
+    }
+
+    /// Encodes a `SetCustomMiningJobSuccess` frame and appends `tlv_bytes` to its payload.
+    fn frame_with_tlv_suffix(tlv_bytes: &[u8]) -> (Header, Vec<u8>) {
+        let message = AnyMessage::Mining(Mining::SetCustomMiningJobSuccess(
+            SetCustomMiningJobSuccess {
+                channel_id: 1,
+                request_id: 2,
+                job_id: 3,
+            },
+        ));
+        let frame = StdFrame::try_from(message).unwrap();
+        let mut bytes = vec![0; frame.encoded_length()];
+        frame.encode_into(&mut bytes).unwrap();
+        let header = Header::from_bytes(&bytes[..Header::SIZE]).unwrap();
+        let mut payload = bytes[Header::SIZE..].to_vec();
+        payload.extend_from_slice(tlv_bytes);
+        (header, payload)
+    }
+
+    fn encode_tlvs(tlvs: &[Tlv]) -> Vec<u8> {
+        tlvs.iter().flat_map(|tlv| tlv.encode().unwrap()).collect()
+    }
+
+    #[test]
+    fn negotiated_tlv_fields_are_returned_with_the_message() {
+        let user_identity = Tlv::new(0x0002, 0x01, b"rig-7".to_vec()).unwrap();
+        let other_field = Tlv::new(0x0002, 0x02, vec![1, 2, 3]).unwrap();
+        let unnegotiated = Tlv::new(0x0003, 0x01, b"ignored".to_vec()).unwrap();
+        let (header, mut payload) = frame_with_tlv_suffix(&encode_tlvs(&[
+            user_identity.clone(),
+            other_field.clone(),
+            unnegotiated,
+        ]));
+
+        let (message, tlvs) =
+            parse_message_frame_with_tlvs(header, &mut payload, &[0x0002]).unwrap();
+
+        match message {
+            AnyMessage::Mining(Mining::SetCustomMiningJobSuccess(m)) => {
+                assert_eq!((m.channel_id, m.request_id, m.job_id), (1, 2, 3))
+            }
+            other => panic!("unexpected message: {other:?}"),
+        }
+        assert_eq!(tlvs, Some(vec![user_identity, other_field]));
+    }
+
+    #[test]
+    fn repeated_tlv_field_is_rejected() {
+        // A zero-length TLV costs 5 bytes on the wire. Repeating one fills a frame with
+        // entries that would each become a heap-allocated `Tlv` if they were all collected.
+        let repeated = Tlv::new(0x0002, 0x01, Vec::new()).unwrap();
+        let (header, mut payload) = frame_with_tlv_suffix(&encode_tlvs(&vec![repeated; 100_000]));
+
+        let result = parse_message_frame_with_tlvs(header, &mut payload, &[0x0002]);
+
+        assert!(matches!(
+            result,
+            Err(ParserError::TlvError(TlvError::DuplicateField {
+                extension_type: 0x0002,
+                field_type: 0x01,
+            }))
+        ));
+    }
+
+    #[test]
+    fn collected_tlv_fields_are_bounded_by_distinct_field_types() {
+        let distinct: Vec<Tlv> = (0..=u8::MAX)
+            .map(|field_type| Tlv::new(0x0002, field_type, Vec::new()).unwrap())
+            .collect();
+        let (header, mut payload) = frame_with_tlv_suffix(&encode_tlvs(&distinct));
+        let (_, tlvs) = parse_message_frame_with_tlvs(header, &mut payload, &[0x0002]).unwrap();
+        assert_eq!(tlvs.unwrap().len(), 256);
+
+        let mut one_more = distinct;
+        one_more.push(Tlv::new(0x0002, 0x00, Vec::new()).unwrap());
+        let (header, mut payload) = frame_with_tlv_suffix(&encode_tlvs(&one_more));
+        assert!(parse_message_frame_with_tlvs(header, &mut payload, &[0x0002]).is_err());
+    }
+
+    #[test]
+    fn unnegotiated_tlv_fields_are_not_collected() {
+        let unnegotiated = Tlv::new(0x0003, 0x01, Vec::new()).unwrap();
+        let (header, mut payload) =
+            frame_with_tlv_suffix(&encode_tlvs(&vec![unnegotiated; 100_000]));
+
+        let (_, tlvs) = parse_message_frame_with_tlvs(header, &mut payload, &[0x0002]).unwrap();
+
+        assert_eq!(tlvs, None);
     }
 
     fn message_serialization_check(message: AnyMessage<'_>, expected_result: &[u8]) {
