@@ -6,6 +6,17 @@ pub enum ParserError {
     BinaryError(binary_sv2::Error),
     TlvError(crate::tlv::TlvError),
     ExtensionError(crate::tlv_extensions::ExtensionError),
+    /// The payload is not as long as its `Header` declares.
+    PayloadLengthMismatch {
+        declared: usize,
+        actual: usize,
+    },
+    /// The `Header`'s channel_msg bit differs from the one the decoded message type defines.
+    ChannelBitMismatch {
+        extension_type: u16,
+        message_type: u8,
+        channel_msg: bool,
+    },
 }
 
 impl From<binary_sv2::Error> for ParserError {
@@ -37,6 +48,18 @@ impl core::fmt::Display for ParserError {
             ParserError::BinaryError(e) => write!(f, "Binary error: {e}"),
             ParserError::TlvError(e) => write!(f, "TLV error: {e}"),
             ParserError::ExtensionError(e) => write!(f, "Extension error: {e}"),
+            ParserError::PayloadLengthMismatch { declared, actual } => write!(
+                f,
+                "Payload is {actual} bytes, its header declares {declared}"
+            ),
+            ParserError::ChannelBitMismatch {
+                extension_type,
+                message_type,
+                channel_msg,
+            } => write!(
+                f,
+                "Header channel_msg bit is {channel_msg} for extension type {extension_type:#06x}, message type {message_type:#04x}"
+            ),
         }
     }
 }

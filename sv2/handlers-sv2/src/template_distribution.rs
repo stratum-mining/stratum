@@ -17,7 +17,7 @@ use crate::error::HandlerErrorType;
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_server()`.
 pub trait HandleTemplateDistributionMessagesFromServerSync {
@@ -42,12 +42,6 @@ pub trait HandleTemplateDistributionMessagesFromServerSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-        if negotiated_extensions.is_empty() {
-            let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
-                .try_into()
-                .map_err(Self::Error::parse_error)?;
-            return self.handle_template_distribution_message_from_server(server_id, parsed, None);
-        }
         let (parsed, tlv_fields) =
             parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
                 .map_err(Self::Error::parse_error)?;
@@ -141,7 +135,7 @@ pub trait HandleTemplateDistributionMessagesFromServerSync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_server()`.
 #[trait_variant::make(Send)]
@@ -168,14 +162,6 @@ pub trait HandleTemplateDistributionMessagesFromServerAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-            if negotiated_extensions.is_empty() {
-                let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
-                    .try_into()
-                    .map_err(Self::Error::parse_error)?;
-                return self
-                    .handle_template_distribution_message_from_server(server_id, parsed, None)
-                    .await;
-            }
             let (parsed, tlv_fields) =
                 parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
                     .map_err(Self::Error::parse_error)?;
@@ -277,7 +263,7 @@ pub trait HandleTemplateDistributionMessagesFromServerAsync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_client()`.
 pub trait HandleTemplateDistributionMessagesFromClientSync {
@@ -302,12 +288,6 @@ pub trait HandleTemplateDistributionMessagesFromClientSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-        if negotiated_extensions.is_empty() {
-            let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
-                .try_into()
-                .map_err(Self::Error::parse_error)?;
-            return self.handle_template_distribution_message_from_client(client_id, parsed, None);
-        }
         let (parsed, tlv_fields) =
             parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
                 .map_err(Self::Error::parse_error)?;
@@ -395,7 +375,7 @@ pub trait HandleTemplateDistributionMessagesFromClientSync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_client()`.
 #[trait_variant::make(Send)]
@@ -422,14 +402,6 @@ pub trait HandleTemplateDistributionMessagesFromClientAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-            if negotiated_extensions.is_empty() {
-                let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
-                    .try_into()
-                    .map_err(Self::Error::parse_error)?;
-                return self
-                    .handle_template_distribution_message_from_client(client_id, parsed, None)
-                    .await;
-            }
             let (parsed, tlv_fields) =
                 parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
                     .map_err(Self::Error::parse_error)?;

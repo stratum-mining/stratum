@@ -1,13 +1,6 @@
 use framing_sv2::header::Header;
-use job_declaration_sv2::{
-    MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
-    MESSAGE_TYPE_DECLARE_MINING_JOB, MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
-    MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
-    MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PUSH_SOLUTION, *,
-};
-use parsers_sv2::{
-    parse_message_frame_with_tlvs, AnyMessage, JobDeclaration, JobDeclarationOwned, Tlv,
-};
+use job_declaration_sv2::*;
+use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, JobDeclarationOwned, Tlv};
 
 use crate::error::HandlerErrorType;
 
@@ -20,7 +13,7 @@ use crate::error::HandlerErrorType;
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_server()`.
 pub trait HandleJobDeclarationMessagesFromServerOwnedSync {
@@ -45,16 +38,6 @@ pub trait HandleJobDeclarationMessagesFromServerOwnedSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-        if negotiated_extensions.is_empty() {
-            let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
-                .try_into()
-                .map_err(Self::Error::parse_error)?;
-            return self.handle_job_declaration_message_from_server(
-                server_id,
-                parsed.into_owned(),
-                None,
-            );
-        }
         let (parsed, tlv_fields) =
             parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
                 .map_err(Self::Error::parse_error)?;
@@ -155,7 +138,7 @@ pub trait HandleJobDeclarationMessagesFromServerOwnedSync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_server()`.
 #[trait_variant::make(Send)]
@@ -182,18 +165,6 @@ pub trait HandleJobDeclarationMessagesFromServerOwnedAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-            if negotiated_extensions.is_empty() {
-                let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
-                    .try_into()
-                    .map_err(Self::Error::parse_error)?;
-                return self
-                    .handle_job_declaration_message_from_server(
-                        server_id,
-                        parsed.into_owned(),
-                        None,
-                    )
-                    .await;
-            }
             let (parsed, tlv_fields) =
                 parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
                     .map_err(Self::Error::parse_error)?;
@@ -303,7 +274,7 @@ pub trait HandleJobDeclarationMessagesFromServerOwnedAsync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_client()`.
 pub trait HandleJobDeclarationMessagesFromClientOwnedSync {
@@ -328,16 +299,6 @@ pub trait HandleJobDeclarationMessagesFromClientOwnedSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-        if negotiated_extensions.is_empty() {
-            let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
-                .try_into()
-                .map_err(Self::Error::parse_error)?;
-            return self.handle_job_declaration_message_from_client(
-                client_id,
-                parsed.into_owned(),
-                None,
-            );
-        }
         let (parsed, tlv_fields) =
             parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
                 .map_err(Self::Error::parse_error)?;
@@ -434,7 +395,7 @@ pub trait HandleJobDeclarationMessagesFromClientOwnedSync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_client()`.
 #[trait_variant::make(Send)]
@@ -461,18 +422,6 @@ pub trait HandleJobDeclarationMessagesFromClientOwnedAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-            if negotiated_extensions.is_empty() {
-                let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
-                    .try_into()
-                    .map_err(Self::Error::parse_error)?;
-                return self
-                    .handle_job_declaration_message_from_client(
-                        client_id,
-                        parsed.into_owned(),
-                        None,
-                    )
-                    .await;
-            }
             let (parsed, tlv_fields) =
                 parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
                     .map_err(Self::Error::parse_error)?;

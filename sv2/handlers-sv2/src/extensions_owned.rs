@@ -3,8 +3,7 @@ use extensions_sv2::{
 };
 use framing_sv2::header::Header;
 use parsers_sv2::{
-    parse_message_frame_with_tlvs, AnyMessage, Extensions, ExtensionsNegotiationOwned,
-    ExtensionsOwned, Tlv,
+    parse_message_frame_with_tlvs, AnyMessage, ExtensionsNegotiationOwned, ExtensionsOwned, Tlv,
 };
 
 use crate::error::HandlerErrorType;
@@ -18,7 +17,7 @@ use crate::error::HandlerErrorType;
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_server()`.
 pub trait HandleExtensionsFromServerOwnedSync {
@@ -43,16 +42,6 @@ pub trait HandleExtensionsFromServerOwnedSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-        if negotiated_extensions.is_empty() {
-            let parsed: Extensions<'_> = (header.ext_type(), header.msg_type(), payload)
-                .try_into()
-                .map_err(Self::Error::parse_error)?;
-            return self.handle_extensions_message_from_server(
-                server_id,
-                parsed.into_owned(),
-                None,
-            );
-        }
         let (parsed, tlv_fields) =
             parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
                 .map_err(Self::Error::parse_error)?;
@@ -124,7 +113,7 @@ pub trait HandleExtensionsFromServerOwnedSync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_server()`.
 #[trait_variant::make(Send)]
@@ -151,14 +140,6 @@ pub trait HandleExtensionsFromServerOwnedAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-            if negotiated_extensions.is_empty() {
-                let parsed: Extensions<'_> = (header.ext_type(), header.msg_type(), payload)
-                    .try_into()
-                    .map_err(Self::Error::parse_error)?;
-                return self
-                    .handle_extensions_message_from_server(server_id, parsed.into_owned(), None)
-                    .await;
-            }
             let (parsed, tlv_fields) =
                 parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
                     .map_err(Self::Error::parse_error)?;
@@ -238,7 +219,7 @@ pub trait HandleExtensionsFromServerOwnedAsync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_client()`.
 pub trait HandleExtensionsFromClientOwnedSync {
@@ -263,16 +244,6 @@ pub trait HandleExtensionsFromClientOwnedSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-        if negotiated_extensions.is_empty() {
-            let parsed: Extensions<'_> = (header.ext_type(), header.msg_type(), payload)
-                .try_into()
-                .map_err(Self::Error::parse_error)?;
-            return self.handle_extensions_message_from_client(
-                client_id,
-                parsed.into_owned(),
-                None,
-            );
-        }
         let (parsed, tlv_fields) =
             parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
                 .map_err(Self::Error::parse_error)?;
@@ -340,7 +311,7 @@ pub trait HandleExtensionsFromClientOwnedSync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// The `tlv_fields` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_client()`.
 #[trait_variant::make(Send)]
@@ -367,14 +338,6 @@ pub trait HandleExtensionsFromClientOwnedAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-            if negotiated_extensions.is_empty() {
-                let parsed: Extensions<'_> = (header.ext_type(), header.msg_type(), payload)
-                    .try_into()
-                    .map_err(Self::Error::parse_error)?;
-                return self
-                    .handle_extensions_message_from_client(client_id, parsed.into_owned(), None)
-                    .await;
-            }
             let (parsed, tlv_fields) =
                 parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
                     .map_err(Self::Error::parse_error)?;

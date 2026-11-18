@@ -6,8 +6,6 @@ use core::convert::TryInto;
 ///
 /// If a downstream performs device/connection aggregation (i.e. it is a proxy), it must send this
 /// message when downstream channels change.
-///
-/// Only relevant for Extended Channels.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UpdateChannel<'decoder> {
     /// Channel identification.
