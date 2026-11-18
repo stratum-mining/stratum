@@ -103,7 +103,7 @@ The SRI project follows an open contributor model, where anyone is welcome to co
 
 5. **Submit a Pull Request**
 
-    Once you're satisfied with your changes, submit a pull request to the original SRI repository. Provide a clear and concise description of the changes you've made. If your pull request addresses an existing issue, reference the issue number in the description. In order to contribute to the protocol implementation, every PR must be opened against `main` branch.
+    Once you're satisfied with your changes, submit a pull request to the original SRI repository. Provide a clear and concise description of the changes you've made. If your pull request addresses an existing issue, reference the issue number in the description. In order to contribute to the protocol implementation, every PR must be opened against `main` branch. The one exception is the backport of a fix to a release branch, which follows the fix once it is merged on `main` (see [RELEASE.md](RELEASE.md)).
 
 6. **Review and Iterate**
 
