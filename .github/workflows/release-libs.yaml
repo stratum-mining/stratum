@@ -13,6 +13,10 @@ on:
   push:
     tags:
       - "v*.*.*"
+      # A release candidate (`vX.Y.Z-rc.N`) is a tag too, but its crates stay
+      # off crates.io, where a version can never be replaced: only the final
+      # release publishes them.
+      - "!v*-rc*"
 
 jobs:
   libs_publish:
@@ -32,6 +36,12 @@ jobs:
       # automatically override it.
       - name: Override toolchain
         run: rustup override set ${{ steps.toolchain.outputs.name }}
+
+      # `release-libs.sh` takes a version that is already on crates.io as
+      # published, so nothing below would notice a crate whose contents
+      # changed without a version bump.
+      - name: Check that no published version changed contents
+        run: ./scripts/check-published-crates.sh
 
       - name: Login
         run: cargo login ${{ secrets.CRATES_IO_DEPLOY_KEY }}

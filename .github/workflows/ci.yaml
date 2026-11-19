@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - 'release/v*'
 
 jobs:
   clippy-check:

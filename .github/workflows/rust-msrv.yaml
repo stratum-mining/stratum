@@ -2,6 +2,7 @@ on:
   pull_request:
     branches:
       - main
+      - 'release/v*'
 
 name: MSRV 1.75 Check
 

@@ -4,14 +4,26 @@ on:
   pull_request:
     branches:
       - "main"
+      - "release/v*"
+  push:
+    branches:
+      - "release/v*"
 
 jobs:
   semver-check:
     runs-on: ubuntu-latest
+    env:
+      # The branch under check: the base of a pull request, or the branch that
+      # was pushed to.
+      TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # Full history, so that the release tags are there to serve as the
+          # baseline.
+          fetch-depth: 0
 
       - name: Install Rust (1.85)
         uses: dtolnay/rust-toolchain@1.85
@@ -56,71 +68,88 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: cargo binstall --no-confirm --disable-telemetry --disable-strategies quick-install --locked cargo-semver-checks@0.37.0
 
+      # On main the baseline is the newest release tag, release candidates
+      # included: a candidate holds the versions its release is going to
+      # publish, and main is already building the release after that one. A
+      # release branch keeps the default baseline, the latest version on
+      # crates.io, which is what it is about to publish over.
+      - name: Pick the semver baseline
+        run: |
+          if [ "$TARGET_BRANCH" = main ]; then
+            # `~` sorts before anything else in version order, which puts a
+            # release after its own candidates.
+            tag=$(git tag --list 'v[0-9]*' | sed 's/-rc/~rc/' | sort -V | tail -n1 | sed 's/~rc/-rc/')
+            echo "SEMVER_BASELINE=--baseline-rev $tag" >> "$GITHUB_ENV"
+          fi
+
       - name: Run semver checks for sv2/buffer-sv2
         working-directory: sv2/buffer-sv2
-        run: cargo semver-checks
+        run: cargo semver-checks $SEMVER_BASELINE
 
       - name: Run semver checks for sv2/binary-sv2
         working-directory: sv2/binary-sv2
-        run: cargo semver-checks
+        run: cargo semver-checks $SEMVER_BASELINE
 
       - name: Run semver checks for sv2/framing-sv2
         working-directory: sv2/framing-sv2
-        run: cargo semver-checks
+        run: cargo semver-checks $SEMVER_BASELINE
 
       - name: Run semver checks for sv2/noise-sv2
         working-directory: sv2/noise-sv2
-        run: cargo semver-checks
+        run: cargo semver-checks $SEMVER_BASELINE
 
       - name: Run semver checks for sv2/codec-sv2
         working-directory: sv2/codec-sv2
-        run: cargo semver-checks
+        run: cargo semver-checks $SEMVER_BASELINE
 
       - name: Run semver checks for sv2/subprotocols/common-messages
         working-directory: sv2/subprotocols/common-messages
-        run: cargo semver-checks
+        run: cargo semver-checks $SEMVER_BASELINE
 
       - name: Run semver checks for sv2/subprotocols/job-declaration
         working-directory: sv2/subprotocols/job-declaration
-        run: cargo semver-checks
+        run: cargo semver-checks $SEMVER_BASELINE
 
       - name: Run semver checks for sv2/subprotocols/mining
         working-directory: sv2/subprotocols/mining
-        run: cargo semver-checks
+        run: cargo semver-checks $SEMVER_BASELINE
 
       - name: Run semver checks for sv2/subprotocols/template-distribution
         working-directory: sv2/subprotocols/template-distribution
-        run: cargo semver-checks
+        run: cargo semver-checks $SEMVER_BASELINE
 
       - name: Run semver checks for sv2/channels-sv2
         working-directory: sv2/channels-sv2
-        run: cargo semver-checks
+        run: cargo semver-checks $SEMVER_BASELINE
 
       - name: Run semver checks for sv2/parsers-sv2
         working-directory: sv2/parsers-sv2
-        run: cargo semver-checks
+        run: cargo semver-checks $SEMVER_BASELINE
 
       - name: Run semver checks for sv2/handlers-sv2
         working-directory: sv2/handlers-sv2
-        run: cargo semver-checks
+        run: cargo semver-checks $SEMVER_BASELINE
 
       - name: Run semver checks for sv2/extensions-sv2
         working-directory: sv2/extensions-sv2
-        run: cargo semver-checks
+        run: cargo semver-checks $SEMVER_BASELINE
 
       - name: Run semver checks for protocols/v1
         working-directory: sv1
-        run: cargo semver-checks
+        run: cargo semver-checks $SEMVER_BASELINE
 
       - name: Run semver checks for stratum-core/stratum-translation
         working-directory: stratum-core/stratum-translation
-        run: cargo semver-checks
+        run: cargo semver-checks $SEMVER_BASELINE
 
       - name: Run semver checks for stratum-core
         working-directory: stratum-core
-        run: cargo semver-checks
+        run: cargo semver-checks $SEMVER_BASELINE
 
   version-bump-check:
+    # Only pull requests have a base branch to diff against; the workflow
+    # also runs on pushes, where this check has nothing to compare.
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
 
     steps:
@@ -133,3 +162,27 @@ jobs:
 
       - name: Check that modified crates carry a version bump
         run: ./scripts/check-version-bumps.sh origin/${{ github.base_ref }}
+
+  published-crates-check:
+    # Only runs on release branches. It tells us on the day a release candidate
+    # is created whether a crate still needs a version bump, so that we do not
+    # find out on release day.
+    if: startsWith(github.base_ref || github.ref_name, 'release/')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust (1.85)
+        uses: dtolnay/rust-toolchain@1.85
+        id: toolchain
+
+      # NOTE: A repo-local `rust-toolchain.toml` is still respected by rustup.
+      # `dtolnay/rust-toolchain` installs the requested toolchain but does not
+      # automatically override it.
+      - name: Override toolchain
+        run: rustup override set ${{ steps.toolchain.outputs.name }}
+
+      - name: Check that no published version changed contents
+        run: ./scripts/check-published-crates.sh
