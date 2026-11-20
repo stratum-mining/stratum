@@ -38,9 +38,6 @@ pub enum Error {
     /// A raw public key is invalid or cannot be parsed.
     InvalidRawPublicKey,
 
-    /// A raw private key is invalid or cannot be parsed.
-    InvalidRawPrivateKey,
-
     /// An incoming handshake message is expected but not received.
     ExpectedIncomingHandshakeMessage,
 

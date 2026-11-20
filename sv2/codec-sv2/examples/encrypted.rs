@@ -49,7 +49,7 @@ const AUTHORITY_PUBLIC_K: &str = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu
 #[cfg(feature = "noise_sv2")]
 const AUTHORITY_PRIVATE_K: &str = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n";
 #[cfg(feature = "noise_sv2")]
-const CERT_VALIDITY: std::time::Duration = std::time::Duration::from_secs(3600);
+const CERT_VALIDITY: u32 = 3600;
 
 // Example message type.
 // In practice, all Sv2 messages are defined in the following crates:
@@ -97,21 +97,19 @@ fn main() {
         Initiator::from_raw_k_with_rng(authority_public_k.into_bytes(), &mut rand::thread_rng())
             .expect("Failed to create initiator role from raw pub key");
 
+    let authority = authority_private_k
+        .0
+        .keypair(&secp256k1::Secp256k1::signing_only());
     #[cfg(feature = "std")]
-    let responder = Responder::from_authority_kp(
-        &authority_public_k.into_bytes(),
-        &authority_private_k.into_bytes(),
-        CERT_VALIDITY,
-    )
-    .expect("Failed to initialize responder from pub/key pair and/or cert");
+    let responder = Responder::new(authority, CERT_VALIDITY);
     #[cfg(not(feature = "std"))]
-    let responder = Responder::from_authority_kp_with_rng(
-        &authority_public_k.into_bytes(),
-        &authority_private_k.into_bytes(),
-        CERT_VALIDITY,
-        &mut rand::thread_rng(),
-    )
-    .expect("Failed to initialize responder from pub/key pair and/or cert");
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as u32;
+    #[cfg(not(feature = "std"))]
+    let responder =
+        Responder::new_with_now_rng(authority, CERT_VALIDITY, now, &mut rand::thread_rng());
 
     let sender = Handshake::initiator(initiator);
     let receiver = Handshake::responder(responder);
@@ -124,18 +122,8 @@ fn main() {
         .try_into()
         .expect("Handshake remote invlaid message");
 
-    #[cfg(feature = "std")]
     let (second_message, receiver_transport) = receiver
         .step_1(first_message)
-        .expect("Responder failed second step of handshake");
-    #[cfg(not(feature = "std"))]
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as u32;
-    #[cfg(not(feature = "std"))]
-    let (second_message, receiver_transport) = receiver
-        .step_1_with_now_rng(first_message, now, &mut rand::thread_rng())
         .expect("Responder failed second step of handshake");
     let second_message: [u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE] = second_message
         .payload()
