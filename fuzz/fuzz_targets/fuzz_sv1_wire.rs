@@ -9,6 +9,7 @@ use libfuzzer_sys::fuzz_target;
 use serde_json::Value;
 use sv1_api::{
     json_rpc::{RpcRequest, RpcResponse},
+    utils::{HexU32Be, VERSION_ROLLING_MASK},
     ClientToServer, Id, Message, Method, RpcError, ServerToClient,
 };
 
@@ -74,42 +75,87 @@ fn round_trip(message: Message) {
     assert_eq!(decoded, message);
 }
 
+/// Formatted output carries no raw control character, whatever the peer sent.
+fn assert_escaped(formatted: String) {
+    assert!(!formatted.chars().any(char::is_control), "{formatted:?}");
+}
+
+fn assert_formats_escaped(value: &(impl std::fmt::Display + std::fmt::Debug)) {
+    assert_escaped(format!("{value}"));
+    assert_escaped(format!("{value:?}"));
+}
+
+/// A decoded mask never covers reserved bits.
+fn assert_no_reserved_bits(mask: HexU32Be) {
+    assert_eq!(mask.0 & !VERSION_ROLLING_MASK, 0, "{mask}");
+}
+
 fn test_msg_conversions(msg: Message) {
-    let _ = format!("{}", msg);
-    let _ = format!("{:?}", msg);
+    assert_formats_escaped(&msg);
 
     match msg {
         Message::Request(request) => {
-            if let Ok(m) = ClientToServer::try_from(request.clone()) {
-                let _ = format!("{:?}", m);
-                let line = serde_json::to_string(&Message::from(m)).unwrap();
-                if let Ok(Message::Request(again)) = Message::decode(&line) {
-                    ClientToServer::try_from(again).expect("encoded requests always decode");
+            match ClientToServer::try_from(request.clone()) {
+                Ok(m) => {
+                    assert_escaped(format!("{m:?}"));
+                    if let ClientToServer::Configure(configure) = &m {
+                        if let Some(mask) = configure.params.version_rolling_mask() {
+                            assert_no_reserved_bits(mask);
+                        }
+                        assert!(configure.params.version_rolling_min_bit_count() <= Some(32));
+                    }
+                    let line = serde_json::to_string(&Message::from(m)).unwrap();
+                    if let Ok(Message::Request(again)) = Message::decode(&line) {
+                        ClientToServer::try_from(again).expect("encoded requests always decode");
+                    }
                 }
+                Err(e) => assert_formats_escaped(&e),
             }
-            if let Ok(m) = ServerToClient::try_from(request) {
-                let _ = format!("{:?}", m);
-                let line = serde_json::to_string(&Message::from(m.clone())).unwrap();
-                if let Ok(Message::Request(again)) = Message::decode(&line) {
-                    let again = ServerToClient::try_from(again)
-                        .expect("encoded notifications always decode");
-                    assert_eq!(again, m);
+            match ServerToClient::try_from(request) {
+                Ok(m) => {
+                    assert_escaped(format!("{m:?}"));
+                    if let ServerToClient::SetVersionMask(set) = &m {
+                        assert_no_reserved_bits(set.mask);
+                    }
+                    let line = serde_json::to_string(&Message::from(m.clone())).unwrap();
+                    if let Ok(Message::Request(again)) = Message::decode(&line) {
+                        let again = ServerToClient::try_from(again)
+                            .expect("encoded notifications always decode");
+                        assert_eq!(again, m);
+                    }
                 }
+                Err(e) => assert_formats_escaped(&e),
             }
         }
         Message::Response(response) => {
-            let _ = ServerToClient::from_response(&response, &Method::Subscribe);
-            let _ = ServerToClient::from_response(&response, &Method::Configure);
-            let _ = ServerToClient::from_response(&response, &Method::Submit);
+            for method in [Method::Subscribe, Method::Configure, Method::Submit] {
+                match ServerToClient::from_response(&response, &method) {
+                    Ok(Some(m)) => {
+                        assert_escaped(format!("{m:?}"));
+                        if let ServerToClient::Configure(reply) = &m {
+                            if let Ok(Some(version_rolling)) =
+                                reply.result.as_ref().map(|result| &result.version_rolling)
+                            {
+                                assert_no_reserved_bits(version_rolling.mask);
+                            }
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(e) => assert_formats_escaped(&e),
+                }
+            }
         }
     }
 }
 
 fuzz_target!(|data: &[u8]| {
     if let Ok(s) = std::str::from_utf8(data) {
-        if let Ok(msg) = Message::decode(s) {
-            test_msg_conversions(msg.clone());
-            round_trip(msg);
+        match Message::decode(s) {
+            Ok(msg) => {
+                test_msg_conversions(msg.clone());
+                round_trip(msg);
+            }
+            Err(e) => assert_formats_escaped(&e),
         }
     }
     if let Ok(val) = serde_json::from_slice::<Value>(data) {

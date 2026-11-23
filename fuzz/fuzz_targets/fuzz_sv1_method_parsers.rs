@@ -10,7 +10,9 @@ use libfuzzer_sys::fuzz_target;
 use serde_json::Value;
 use sv1_api::{
     json_rpc::{RpcRequest, RpcResponse},
-    ClientToServer, Id, Method, ServerToClient,
+    utils::{HexU32Be, VERSION_ROLLING_MASK},
+    ClientToServer, ConfigureResult, Id, Message, Method, ServerToClient, SetVersionMask,
+    VersionRollingResult,
 };
 
 fn gen_edge_number(u: &mut Unstructured<'_>) -> arbitrary::Result<serde_json::Number> {
@@ -85,9 +87,19 @@ fn gen_authorize_params(u: &mut Unstructured<'_>) -> arbitrary::Result<Value> {
     ]))
 }
 
+/// A number, a decimal string, the zero-padded hex older clients sent, or any string.
+fn gen_min_bit_count(u: &mut Unstructured<'_>) -> arbitrary::Result<Value> {
+    Ok(match u.int_in_range(0..=3)? {
+        0 => Value::Number(gen_edge_number(u)?),
+        1 => Value::String(u.arbitrary::<u64>()?.to_string()),
+        2 => Value::String(gen_valid_hex(u, 8..=8)?),
+        _ => Value::String(u.arbitrary()?),
+    })
+}
+
 fn gen_configure_params(u: &mut Unstructured<'_>) -> arbitrary::Result<Value> {
     let mask = gen_valid_hex(u, 1..=8)?;
-    let min_bit = gen_edge_number(u)?;
+    let min_bit = gen_min_bit_count(u)?;
     Ok(serde_json::json!([
         ["version-rolling"],
         {"version-rolling.mask": mask, "version-rolling.min-bit-count": min_bit}
@@ -156,6 +168,70 @@ fn notification(method: Method, params: Value) {
     });
 }
 
+/// A configure with a valid mask decodes whatever its `version-rolling.min-bit-count` holds, and
+/// reads the mask without reserved bits.
+fn configure(id: u64, params: Value) {
+    let request = ClientToServer::try_from(RpcRequest {
+        id: Some(Id::from(id)),
+        method: Method::Configure,
+        params,
+    })
+    .expect("a min-bit-count never fails a configure");
+    let ClientToServer::Configure(request) = request else {
+        unreachable!("mining.configure decodes as a configure");
+    };
+    let mask = request
+        .params
+        .version_rolling_mask()
+        .expect("a mask was sent");
+    assert_eq!(mask.0 & !VERSION_ROLLING_MASK, 0);
+    assert!(request.params.version_rolling_min_bit_count() <= Some(32));
+}
+
+/// Reserved bits are not sent in a `mining.set_version_mask` or a configure result, whatever
+/// mask the sender holds. The result carries no `version-rolling.min-bit-count`.
+fn encoded_masks_are_clamped(id: u64, mask: u32) {
+    let clamped = HexU32Be(mask & VERSION_ROLLING_MASK);
+
+    let Message::Request(set) = Message::from(SetVersionMask {
+        mask: HexU32Be(mask),
+    }) else {
+        unreachable!("a notification is a request");
+    };
+    assert_eq!(set.params, serde_json::json!([clamped.to_string()]));
+    assert_eq!(
+        ServerToClient::try_from(set).expect("encoded notifications always decode"),
+        ServerToClient::SetVersionMask(SetVersionMask { mask: clamped })
+    );
+
+    let result = |mask| ConfigureResult {
+        version_rolling: Some(VersionRollingResult {
+            enabled: true,
+            mask,
+        }),
+        minimum_difficulty: None,
+    };
+    let reply = sv1_api::Response::success(Id::from(id), result(HexU32Be(mask)));
+    let Message::Response(response) = Message::from(reply) else {
+        unreachable!("a reply is a response");
+    };
+    assert_eq!(
+        response.result,
+        Ok(serde_json::json!({
+            "version-rolling": true,
+            "version-rolling.mask": clamped.to_string(),
+        }))
+    );
+    assert_eq!(
+        ServerToClient::from_response(&response, &Method::Configure)
+            .expect("encoded results always decode"),
+        Some(ServerToClient::Configure(sv1_api::Response::success(
+            Id::from(id),
+            result(clamped)
+        )))
+    );
+}
+
 fuzz_target!(|data: &[u8]| {
     let mut u = Unstructured::new(data);
     let Ok(target) = u.arbitrary::<ParserTarget>() else {
@@ -183,7 +259,7 @@ fuzz_target!(|data: &[u8]| {
         }
         ParserTarget::Configure => {
             if let Ok(params) = gen_configure_params(&mut u) {
-                client_request(id, Method::Configure, params);
+                configure(id, params);
             }
         }
         ParserTarget::Notify => {
@@ -204,6 +280,9 @@ fuzz_target!(|data: &[u8]| {
         ParserTarget::SetVersionMask => {
             if let Ok(params) = gen_set_version_mask_params(&mut u) {
                 notification(Method::SetVersionMask, params);
+            }
+            if let Ok(mask) = u.arbitrary() {
+                encoded_masks_are_clamped(id, mask);
             }
         }
         ParserTarget::Generic => {
