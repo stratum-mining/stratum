@@ -7,6 +7,10 @@
 # origin/main) but its version is not above the highest version ever published
 # on crates.io. Crates are only published during global releases, so a crate
 # modified since its last release must already carry its version bump.
+#
+# When <base-ref> is main, the versions carried by the release tags count as
+# published too, so the tags have to be fetched for a local run to agree with
+# CI.
 
 set -eu
 
@@ -23,6 +27,17 @@ CHANGED=$(git diff --no-renames --name-only "$(git merge-base "$BASE" HEAD)" HEA
 MANIFESTS=$(find . -name Cargo.toml -not -path '*/target/*' \
   | xargs grep -l '^\[package\]' | xargs grep -L '^publish = false' \
   | awk '{ print length, $0 }' | sort -rn | cut -d' ' -f2-)
+
+# On main, a version is also taken once a release tag carries it, on crates.io
+# or not: a release candidate holds the versions its release is going to
+# publish, so a crate that changes after the candidate was cut belongs to the
+# following release and needs a version of its own. A release branch is checked
+# against crates.io alone, since what its own candidates carry is what it is
+# about to publish.
+case "$BASE" in
+  main | */main) RELEASE_TAGS=$(git tag --list 'v[0-9]*') ;;
+  *) RELEASE_TAGS="" ;;
+esac
 
 RESPONSE=$(mktemp)
 trap 'rm -f "$RESPONSE"' EXIT
@@ -47,19 +62,29 @@ for manifest in $MANIFESTS; do
     -A 'stratum-ci (https://github.com/stratum-mining/stratum)' \
     "https://crates.io/api/v1/crates/$name" || true)
   case "$status" in
-    200) ;;
-    404) echo "$name: not published on crates.io yet, skipping"; continue ;;
+    # Yanked versions count too: their numbers can never be published again.
+    200) published=$(jq -r '.versions[].num' "$RESPONSE" | sort -V | tail -n1) ;;
+    404) published="" ;;
     *) echo "::error::crates.io returned HTTP $status for $name"; exit 1 ;;
   esac
-  # Yanked versions count too: their numbers can never be published again.
-  published=$(jq -r '.versions[].num' "$RESPONSE" | sort -V | tail -n1)
+  tagged=$(for tag in $RELEASE_TAGS; do
+    git show "$tag:${manifest#./}" 2>/dev/null | grep -m1 '^version = ' | cut -d'"' -f2
+  done | sort -V | tail -n1)
 
-  newest=$(printf '%s\n%s\n' "$published" "$current" | sort -V | tail -n1)
-  if [ "$current" = "$published" ] || [ "$newest" != "$current" ]; then
-    echo "::error::$name has changes but its version ($current) is not above the latest published on crates.io ($published)"
+  taken=$(printf '%s\n%s\n' "$published" "$tagged" | sort -V | tail -n1)
+  if [ -z "$taken" ]; then
+    echo "$name: not released yet, skipping"
+    continue
+  fi
+  where="published on crates.io"
+  [ "$taken" = "$published" ] || where="carried by a release tag"
+
+  newest=$(printf '%s\n%s\n' "$taken" "$current" | sort -V | tail -n1)
+  if [ "$current" = "$taken" ] || [ "$newest" != "$current" ]; then
+    echo "::error::$name has changes but its version ($current) is not above the latest $where ($taken)"
     FAILED=1
   else
-    echo "$name: $published -> $current"
+    echo "$name: $taken -> $current"
   fi
 done
 exit $FAILED
