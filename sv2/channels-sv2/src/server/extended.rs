@@ -2494,7 +2494,8 @@ mod tests {
     #[test]
     fn test_set_upstream_extranonce_prefix_preserves_allocation_transactionally() {
         let mut allocator =
-            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 5, 256).unwrap();
+            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 5, 256, [0; 16])
+                .unwrap();
         let allocated_prefix = allocator.allocate_extended(2).unwrap();
         let old_suffix = allocated_prefix.as_bytes()[1..].to_vec();
         let mut channel = ExtendedChannel::new(
@@ -2690,7 +2691,7 @@ mod tests {
         let min_rollable_size = 8;
 
         let mut allocator =
-            ExtranonceAllocator::new(vec![], total_extranonce_len, max_channels).unwrap();
+            ExtranonceAllocator::new(vec![], total_extranonce_len, max_channels, [0; 16]).unwrap();
 
         let prefix_1 = allocator.allocate_extended(min_rollable_size).unwrap();
         let prefix_2 = allocator.allocate_extended(min_rollable_size).unwrap();
@@ -2781,7 +2782,8 @@ mod tests {
     fn test_mixed_prefix_updates_reserve_slot_until_jobs_go_stale() {
         for future in [false, true] {
             let mut allocator =
-                ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 32, 2).unwrap();
+                ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 32, 2, [0; 16])
+                    .unwrap();
             let prefix = allocator.allocate_extended(8).unwrap();
             let (mut channel, old_bytes, job_id) = extended_channel_with_live_job(prefix, future);
 
@@ -3550,7 +3552,7 @@ mod tests {
         let min_rollable_size = 8;
 
         let mut allocator =
-            ExtranonceAllocator::new(vec![], total_extranonce_len, max_channels).unwrap();
+            ExtranonceAllocator::new(vec![], total_extranonce_len, max_channels, [0; 16]).unwrap();
 
         let prefix_1 = allocator.allocate_extended(min_rollable_size).unwrap();
         let prefix_2 = allocator.allocate_extended(min_rollable_size).unwrap();

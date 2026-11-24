@@ -825,8 +825,10 @@ mod tests {
     #[test]
     fn set_upstream_extranonce_prefix_preserves_allocation_transactionally() {
         // local_prefix(1) + local_index(1) + padding(3) leave 27 bytes for upstream_prefix.
+        // a single slot, so that local_index is always 0
         let mut allocator =
-            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 6, 256).unwrap();
+            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 6, 1, [0; 16])
+                .unwrap();
         let allocated_prefix = allocator.allocate_standard().unwrap();
         let preserved_bytes = allocated_prefix.as_bytes()[1..].to_vec();
         assert_eq!(preserved_bytes, vec![0xbb, 0, 0, 0, 0]);
@@ -2419,7 +2421,7 @@ mod tests {
     // rotated-out prefix.
     fn standard_channel_with_rotated_extranonce_prefix(
     ) -> (ExtranonceAllocator, StandardChannel, Vec<u8>) {
-        let mut allocator = ExtranonceAllocator::new(vec![], 32, 2).unwrap();
+        let mut allocator = ExtranonceAllocator::new(vec![], 32, 2, [0; 16]).unwrap();
         let prefix_1 = allocator.allocate_standard().unwrap();
         let prefix_2 = allocator.allocate_standard().unwrap();
         assert_ne!(prefix_1.as_bytes(), prefix_2.as_bytes());
@@ -2456,7 +2458,8 @@ mod tests {
     fn test_mixed_prefix_updates_reserve_slot_until_job_eviction() {
         for future in [false, true] {
             let mut allocator =
-                ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 32, 2).unwrap();
+                ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 32, 2, [0; 16])
+                    .unwrap();
             let prefix = allocator.allocate_standard().unwrap();
             let old_bytes = prefix.as_bytes().to_vec();
 
@@ -2630,9 +2633,9 @@ mod tests {
         // must be in place when that prune runs: a retired prefix from a recreated allocator can
         // share those bytes, and pruning before the install would release its slot while the
         // new job goes on to accept shares under them.
-        let mut allocator_1 = ExtranonceAllocator::new(vec![], 32, 1).unwrap();
+        let mut allocator_1 = ExtranonceAllocator::new(vec![], 32, 1, [0; 16]).unwrap();
         let prefix_1 = allocator_1.allocate_standard().unwrap();
-        let mut allocator_2 = ExtranonceAllocator::new(vec![], 32, 1).unwrap();
+        let mut allocator_2 = ExtranonceAllocator::new(vec![], 32, 1, [0; 16]).unwrap();
         let prefix_2 = allocator_2.allocate_standard().unwrap();
         assert_eq!(prefix_1.as_bytes(), prefix_2.as_bytes());
         let prefix_len = prefix_1.as_bytes().len();

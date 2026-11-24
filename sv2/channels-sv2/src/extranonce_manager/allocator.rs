@@ -4,6 +4,8 @@ use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 
+use bitcoin::hashes::siphash24;
+
 use super::prefix::AllocatedExtranoncePrefix;
 use super::{bitvector::BitVector, bytes_needed, MAX_EXTRANONCE_LEN};
 
@@ -15,6 +17,29 @@ use super::{bitvector::BitVector, bytes_needed, MAX_EXTRANONCE_LEN};
 /// directly to channel constructors. Because both channel types draw from the
 /// same `local_index` pool (a single shared bitmap), their extranonces are
 /// guaranteed never to overlap.
+///
+/// # Unpredictable prefixes
+///
+/// A client that can tell which `extranonce_prefix` a channel is going to be
+/// assigned can search that space before the server assigns it. The
+/// `local_index` of each allocation is therefore derived from the `seed` given
+/// to the constructor: SipHash-2-4, keyed by the seed, of a counter gives an
+/// index, and the first free index from there on is taken. Without the seed,
+/// the indices a client has seen tell it nothing about where the next search
+/// starts.
+///
+/// A free index that follows a run of indices that are allocated is taken
+/// whenever the search starts within that run or on the index itself, so out
+/// of `max_channels` guesses at it, one more than the run is long are right.
+/// A client can lengthen a run by keeping the channels that extend it, and an
+/// allocator with few channels, or with few free ones, cannot make its
+/// prefixes hard to guess, whatever its seed.
+///
+/// The seed must come from a cryptographically secure random number generator
+/// and must be drawn anew for every allocator, never stored or reused: a fresh
+/// seed is also what keeps an allocator created after a restart from repeating
+/// the values assigned before it in the same order. This crate has no entropy
+/// source of its own, so the application provides one.
 ///
 /// # Layout
 ///
@@ -53,7 +78,10 @@ pub struct ExtranonceAllocator {
     /// `Arc` so each outstanding [`AllocatedExtranoncePrefix`] can hold a
     /// `Weak` reference and clear its own bit from `Drop` without any locking.
     allocation_bitmap: Arc<BitVector>,
-    last_allocated_index: Option<usize>,
+    /// SipHash keys taken from the constructor's `seed`.
+    index_keys: (u64, u64),
+    /// Number of indices derived from `index_keys` so far.
+    derived_indices: u64,
 }
 
 impl core::fmt::Debug for ExtranonceAllocator {
@@ -82,16 +110,21 @@ impl ExtranonceAllocator {
     ///   width of the `local_index` region. See the
     ///   [Memory](#memory) section on [`ExtranonceAllocator`] for a reference
     ///   table.
+    /// - `seed`: 16 bytes from a cryptographically secure random number
+    ///   generator, drawn anew for this allocator. See
+    ///   [Unpredictable prefixes](#unpredictable-prefixes).
     pub fn new(
         local_prefix_bytes: Vec<u8>,
         total_extranonce_len: u8,
         max_channels: u32,
+        seed: [u8; 16],
     ) -> Result<Self, ExtranonceAllocatorError> {
         Self::validate_and_create(
             Vec::new(),
             local_prefix_bytes,
             total_extranonce_len,
             max_channels,
+            seed,
         )
     }
 
@@ -114,17 +147,22 @@ impl ExtranonceAllocator {
     ///   `local_index` and the size of the internal allocation bitmap. See
     ///   the [Memory](#memory) section on [`ExtranonceAllocator`] for a
     ///   reference table.
+    /// - `seed`: 16 bytes from a cryptographically secure random number
+    ///   generator, drawn anew for this allocator. See
+    ///   [Unpredictable prefixes](#unpredictable-prefixes).
     pub fn from_upstream_prefix(
         upstream_prefix_bytes: Vec<u8>,
         local_prefix_bytes: Vec<u8>,
         total_extranonce_len: u8,
         max_channels: u32,
+        seed: [u8; 16],
     ) -> Result<Self, ExtranonceAllocatorError> {
         Self::validate_and_create(
             upstream_prefix_bytes,
             local_prefix_bytes,
             total_extranonce_len,
             max_channels,
+            seed,
         )
     }
 
@@ -327,6 +365,7 @@ impl ExtranonceAllocator {
         local_prefix_bytes: Vec<u8>,
         total_extranonce_len: u8,
         max_channels: u32,
+        seed: [u8; 16],
     ) -> Result<Self, ExtranonceAllocatorError> {
         if total_extranonce_len > MAX_EXTRANONCE_LEN {
             return Err(ExtranonceAllocatorError::ExceedsMaxLength);
@@ -348,33 +387,34 @@ impl ExtranonceAllocator {
             local_prefix_bytes,
             total_extranonce_len,
             allocation_bitmap,
-            last_allocated_index: None,
+            index_keys: (
+                u64::from_le_bytes(seed[..8].try_into().expect("8 bytes")),
+                u64::from_le_bytes(seed[8..].try_into().expect("8 bytes")),
+            ),
+            derived_indices: 0,
         })
     }
 
-    /// Mark a local index as in-use and record it as the latest allocation.
+    /// Mark a local index as in-use.
     #[inline]
     fn mark_allocated(&mut self, index: usize) {
         self.allocation_bitmap.set(index, true);
-        self.last_allocated_index = Some(index);
     }
 
-    /// Find the next available local index.
-    ///
-    /// Scans forward from the last allocation point, wrapping around.
-    fn find_free_index(&self) -> Option<usize> {
+    /// Find an available local index: the first free one from an index derived from the seed,
+    /// wrapping around.
+    fn find_free_index(&mut self) -> Option<usize> {
         let max = self.max_channels() as usize;
-        let start = self.last_allocated_index.map_or(0, |idx| (idx + 1) % max);
+        let start = (siphash24::Hash::hash_to_u64_with_keys(
+            self.index_keys.0,
+            self.index_keys.1,
+            &self.derived_indices.to_le_bytes(),
+        ) % max as u64) as usize;
+        self.derived_indices = self.derived_indices.wrapping_add(1);
 
         self.allocation_bitmap
             .find_first_zero_in_range(start, max)
-            .or_else(|| {
-                if start > 0 {
-                    self.allocation_bitmap.find_first_zero_in_range(0, start)
-                } else {
-                    None
-                }
-            })
+            .or_else(|| self.allocation_bitmap.find_first_zero_in_range(0, start))
     }
 
     /// Build the prefix bytes for an extended channel.
@@ -460,7 +500,7 @@ mod tests {
     #[test]
     fn pool_basic_allocation() {
         // local_prefix(2) + local_index(2) = 4, rollable = 16
-        let mut alloc = ExtranonceAllocator::new(vec![0x00, 0x01], 20, 65_536).unwrap();
+        let mut alloc = ExtranonceAllocator::new(vec![0x00, 0x01], 20, 65_536, [0; 16]).unwrap();
 
         assert_eq!(alloc.total_extranonce_len(), 20);
         assert_eq!(alloc.upstream_prefix_len(), 0);
@@ -492,6 +532,7 @@ mod tests {
             Vec::new(),
             20,
             65_536,
+            [0; 16],
         )
         .unwrap();
 
@@ -524,6 +565,7 @@ mod tests {
             local_prefix_bytes.clone(),
             20,
             256,
+            [0; 16],
         )
         .unwrap();
 
@@ -538,14 +580,12 @@ mod tests {
         assert_eq!(ext.len(), 16);
         assert_eq!(&ext.as_bytes()[0..4], upstream_prefix.as_slice());
         assert_eq!(&ext.as_bytes()[4..15], local_prefix_bytes.as_slice());
-        // local_index is 1 byte; first allocation index is 0.
-        assert_eq!(ext.as_bytes()[15], 0);
     }
 
     #[test]
     fn uniqueness() {
         // local_prefix(0) + local_index(1) = 1, rollable = 19
-        let mut alloc = ExtranonceAllocator::new(Vec::new(), 20, 256).unwrap();
+        let mut alloc = ExtranonceAllocator::new(Vec::new(), 20, 256, [0; 16]).unwrap();
         let mut seen = HashSet::new();
         // Keep prefixes alive so they don't auto-release via Drop mid-test.
         let mut prefixes = Vec::with_capacity(256);
@@ -564,7 +604,7 @@ mod tests {
     #[test]
     fn exhaustion_and_reuse() {
         // local_index(1), rollable = 5
-        let mut alloc = ExtranonceAllocator::new(Vec::new(), 6, 256).unwrap();
+        let mut alloc = ExtranonceAllocator::new(Vec::new(), 6, 256, [0; 16]).unwrap();
 
         let mut prefixes = Vec::new();
         for _ in 0..256 {
@@ -591,7 +631,7 @@ mod tests {
     #[test]
     fn drop_frees_and_allows_reuse() {
         // local_index(1), rollable = 5 (max_channels = 4 -> 1 byte)
-        let mut alloc = ExtranonceAllocator::new(Vec::new(), 6, 4).unwrap();
+        let mut alloc = ExtranonceAllocator::new(Vec::new(), 6, 4, [0; 16]).unwrap();
 
         let p0 = alloc.allocate_extended(5).unwrap();
         let p1 = alloc.allocate_extended(5).unwrap();
@@ -615,34 +655,62 @@ mod tests {
     }
 
     #[test]
-    fn drop_reuses_first_available_index() {
-        let mut alloc = ExtranonceAllocator::new(Vec::new(), 6, 256).unwrap();
+    fn first_free_index_from_the_seeded_start_is_taken() {
+        // local_index(1), rollable = 5
+        let mut alloc = ExtranonceAllocator::new(Vec::new(), 6, 8, [0; 16]).unwrap();
+        let mut held: Vec<_> = (0..8)
+            .map(|_| alloc.allocate_extended(5).unwrap())
+            .collect();
 
-        let mut prefixes = Vec::new();
-        for _ in 0..256 {
-            prefixes.push(alloc.allocate_extended(5).unwrap());
+        for _ in 0..16 {
+            // where the next search starts: an empty allocator takes that index as it is
+            let mut empty = ExtranonceAllocator::new(Vec::new(), 6, 8, [0; 16]).unwrap();
+            empty.derived_indices = alloc.derived_indices;
+            let start = empty.find_free_index().unwrap() as u8;
+
+            // free the indices two and five steps after it
+            let (near, far) = ((start + 2) % 8, (start + 5) % 8);
+            held.retain(|p| p.as_bytes()[0] != near && p.as_bytes()[0] != far);
+
+            held.push(alloc.allocate_extended(5).unwrap());
+            assert_eq!(held.last().unwrap().as_bytes()[0], near);
+            held.push(alloc.allocate_extended(5).unwrap());
+            assert_eq!(held.last().unwrap().as_bytes()[0], far);
         }
+    }
 
-        let freed_bytes = prefixes[10].as_bytes().to_vec();
+    #[test]
+    fn indices_follow_the_seed_and_not_the_allocation_order() {
+        let first_indices = |seed| {
+            let mut alloc = ExtranonceAllocator::new(Vec::new(), 8, 16_777_216, seed).unwrap();
+            let prefixes: Vec<_> = (0..8)
+                .map(|_| alloc.allocate_extended(5).unwrap())
+                .collect();
+            prefixes
+                .iter()
+                .map(|p| p.as_bytes().to_vec())
+                .collect::<Vec<_>>()
+        };
 
-        // `remove` shifts indices, so pull the higher one first.
-        drop(prefixes.remove(20));
-        drop(prefixes.remove(10));
+        let indices = first_indices([0; 16]);
+        let counting_up: Vec<Vec<u8>> = (0..8u8).map(|i| vec![0, 0, i]).collect();
+        assert_ne!(indices, counting_up);
+        assert_ne!(indices, first_indices([1; 16]));
 
-        // First-fit reuse: the lower freed slot is reused first.
-        let reused = alloc.allocate_extended(5).unwrap();
-        assert_eq!(reused.as_bytes(), freed_bytes.as_slice());
-
-        drop(prefixes);
-        drop(reused);
-        assert_eq!(alloc.allocated_count(), 0);
+        // nor do they count up from a starting point the seed picks
+        let index = |bytes: &Vec<u8>| u32::from_be_bytes([0, bytes[0], bytes[1], bytes[2]]);
+        let steps: Vec<u32> = indices
+            .windows(2)
+            .map(|pair| index(&pair[1]).wrapping_sub(index(&pair[0])))
+            .collect();
+        assert!(steps.iter().any(|step| *step != steps[0]), "{steps:?}");
     }
 
     #[test]
     fn prefix_drop_frees_slot_on_scope_exit() {
         // Verify that a prefix dropping at end-of-scope (without an explicit
         // `drop` call) still releases its slot.
-        let mut alloc = ExtranonceAllocator::new(Vec::new(), 6, 4).unwrap();
+        let mut alloc = ExtranonceAllocator::new(Vec::new(), 6, 4, [0; 16]).unwrap();
         {
             let _p = alloc.allocate_extended(5).unwrap();
             assert_eq!(alloc.allocated_count(), 1);
@@ -655,7 +723,7 @@ mod tests {
         // If the allocator is dropped first, the prefix's Drop upgrades a
         // dead `Weak` and is a silent no-op. This test exists primarily to
         // demonstrate that the pattern does not panic or UB.
-        let alloc = ExtranonceAllocator::new(Vec::new(), 6, 4)
+        let alloc = ExtranonceAllocator::new(Vec::new(), 6, 4, [0; 16])
             .unwrap()
             .allocate_extended(5)
             .unwrap();
@@ -668,7 +736,7 @@ mod tests {
     #[test]
     fn standard_prefix_includes_rollable_zeros() {
         // local_prefix(1) + local_index(1) = 2, rollable = 18 (zero-padded)
-        let mut alloc = ExtranonceAllocator::new(vec![0x01], 20, 256).unwrap();
+        let mut alloc = ExtranonceAllocator::new(vec![0x01], 20, 256, [0; 16]).unwrap();
 
         let std = alloc.allocate_standard().unwrap();
         assert_eq!(std.len(), 20);
@@ -678,7 +746,7 @@ mod tests {
     #[test]
     fn invalid_rollable_size() {
         // local_index(1), rollable = 19
-        let mut alloc = ExtranonceAllocator::new(Vec::new(), 20, 256).unwrap();
+        let mut alloc = ExtranonceAllocator::new(Vec::new(), 20, 256, [0; 16]).unwrap();
         let err = alloc.allocate_extended(20).unwrap_err();
         assert_eq!(err, ExtranonceAllocatorError::InvalidRollableSize);
     }
@@ -686,31 +754,31 @@ mod tests {
     #[test]
     fn validation_errors() {
         assert_eq!(
-            ExtranonceAllocator::new(Vec::new(), 33, 256).unwrap_err(),
+            ExtranonceAllocator::new(Vec::new(), 33, 256, [0; 16]).unwrap_err(),
             ExtranonceAllocatorError::ExceedsMaxLength
         );
 
         assert_eq!(
-            ExtranonceAllocator::new(Vec::new(), 20, 0).unwrap_err(),
+            ExtranonceAllocator::new(Vec::new(), 20, 0, [0; 16]).unwrap_err(),
             ExtranonceAllocatorError::ZeroMaxChannels
         );
 
         // local_prefix(2) + local_index(1) = 3, but total = 2
         assert_eq!(
-            ExtranonceAllocator::new(vec![0x01, 0x02], 2, 256).unwrap_err(),
+            ExtranonceAllocator::new(vec![0x01, 0x02], 2, 256, [0; 16]).unwrap_err(),
             ExtranonceAllocatorError::PrefixExceedsTotalLength
         );
 
         // upstream(20) + local_index(1) = 21 > total(20)
         assert_eq!(
-            ExtranonceAllocator::from_upstream_prefix(vec![0; 20], Vec::new(), 20, 256)
+            ExtranonceAllocator::from_upstream_prefix(vec![0; 20], Vec::new(), 20, 256, [0; 16])
                 .unwrap_err(),
             ExtranonceAllocatorError::PrefixExceedsTotalLength
         );
 
         // upstream(4) + local_prefix(16) + local_index(1) = 21 > total(20)
         assert_eq!(
-            ExtranonceAllocator::from_upstream_prefix(vec![0; 4], vec![0; 16], 20, 256)
+            ExtranonceAllocator::from_upstream_prefix(vec![0; 4], vec![0; 16], 20, 256, [0; 16])
                 .unwrap_err(),
             ExtranonceAllocatorError::PrefixExceedsTotalLength
         );
@@ -719,7 +787,7 @@ mod tests {
     #[test]
     fn no_overlap_standard_and_extended() {
         // local_index(1), rollable = 7
-        let mut alloc = ExtranonceAllocator::new(Vec::new(), 8, 256).unwrap();
+        let mut alloc = ExtranonceAllocator::new(Vec::new(), 8, 256, [0; 16]).unwrap();
 
         let ext = alloc.allocate_extended(7).unwrap();
         let std = alloc.allocate_standard().unwrap();
@@ -731,9 +799,13 @@ mod tests {
     fn upstream_prefix_update_preserves_layout_and_allocations() {
         // upstream(1) + local_prefix(1) + local_index(1) + rollable(3) = 6
         let mut alloc =
-            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 6, 256).unwrap();
+            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 6, 256, [0; 16])
+                .unwrap();
         let mut first: ExtranoncePrefix = alloc.allocate_extended(3).unwrap().into();
         let mut second: ExtranoncePrefix = alloc.allocate_extended(3).unwrap().into();
+
+        let first_index = first.as_bytes()[2];
+        let second_index = second.as_bytes()[2];
 
         alloc.set_upstream_prefix(vec![0xcc, 0xdd]).unwrap();
         first.set_upstream_prefix(alloc.upstream_prefix()).unwrap();
@@ -745,12 +817,13 @@ mod tests {
         assert_eq!(alloc.rollable_extranonce_size(), 3);
         assert_eq!(alloc.total_extranonce_len(), 7);
         assert_eq!(alloc.allocated_count(), 2);
-        assert_eq!(first.as_bytes(), &[0xcc, 0xdd, 0xbb, 0x00]);
-        assert_eq!(second.as_bytes(), &[0xcc, 0xdd, 0xbb, 0x01]);
+        assert_eq!(first.as_bytes(), &[0xcc, 0xdd, 0xbb, first_index]);
+        assert_eq!(second.as_bytes(), &[0xcc, 0xdd, 0xbb, second_index]);
         assert_eq!(first.upstream_prefix_len(), 2);
 
         let third = alloc.allocate_extended(3).unwrap();
-        assert_eq!(third.as_bytes(), &[0xcc, 0xdd, 0xbb, 0x02]);
+        assert_eq!(&third.as_bytes()[..3], &[0xcc, 0xdd, 0xbb]);
+        assert!(![first_index, second_index].contains(&third.as_bytes()[3]));
         assert_eq!(alloc.allocated_count(), 3);
 
         drop(first);
@@ -763,7 +836,8 @@ mod tests {
     fn invalid_upstream_prefix_update_leaves_allocator_unchanged() {
         // upstream(1) + local_prefix(1) + local_index(1) + rollable(29) = 32
         let mut alloc =
-            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 32, 256).unwrap();
+            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 32, 256, [0; 16])
+                .unwrap();
 
         assert_eq!(
             alloc.set_upstream_prefix(vec![0xcc, 0xdd]),

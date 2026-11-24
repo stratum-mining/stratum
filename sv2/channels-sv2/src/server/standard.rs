@@ -2624,7 +2624,8 @@ mod tests {
     #[test]
     fn test_set_upstream_extranonce_prefix_preserves_allocation_transactionally() {
         let mut allocator =
-            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 5, 256).unwrap();
+            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 5, 256, [0; 16])
+                .unwrap();
         let allocated_prefix = allocator.allocate_standard().unwrap();
         let old_suffix = allocated_prefix.as_bytes()[1..].to_vec();
         let mut channel = StandardChannel::new(
@@ -3010,7 +3011,8 @@ mod tests {
     fn test_mixed_prefix_updates_reserve_slot_until_jobs_go_stale() {
         for future in [false, true] {
             let mut allocator =
-                ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 32, 2).unwrap();
+                ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 32, 2, [0; 16])
+                    .unwrap();
             let prefix = allocator.allocate_standard().unwrap();
             let (mut channel, old_bytes) = standard_channel_with_live_job(prefix, future);
             let job_id = if future {
@@ -3080,7 +3082,7 @@ mod tests {
     #[test]
     fn test_rotated_extranonce_prefix_slot_not_reused_while_job_live() {
         // A whole-prefix rotation keeps the old slot reserved while its job accepts shares.
-        let mut allocator = ExtranonceAllocator::new(vec![], 32, 2).unwrap();
+        let mut allocator = ExtranonceAllocator::new(vec![], 32, 2, [0; 16]).unwrap();
         let prefix_1 = allocator.allocate_standard().unwrap();
         let prefix_2 = allocator.allocate_standard().unwrap();
         assert_ne!(prefix_1.as_bytes(), prefix_2.as_bytes());

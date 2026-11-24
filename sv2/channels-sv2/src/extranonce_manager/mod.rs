@@ -26,6 +26,10 @@
 //! [`ExtranonceAllocator::from_upstream_prefix`], take `local_prefix_bytes`, so the
 //! four-region layout is symmetric across pool and proxy/client cases.
 //!
+//! Both also take a `seed` from which each channel's `local_index` is derived,
+//! so that a client cannot tell which prefix a channel is going to be assigned.
+//! See [`ExtranonceAllocator`] for what the seed must be.
+//!
 //! # Memory
 //!
 //! The allocator uses an internal bitmap of `max_channels` bits. Reference:
@@ -77,10 +81,12 @@
 //! // Pool: 20-byte extranonce, 2-byte server identifier, up to 65 536 channels.
 //! // Layout: upstream(0) + local_prefix(2) + local_index(2) = 4;
 //! // rollable = 20 − 4 = 16.
+//! # let seed = [0; 16];
 //! let mut allocator = ExtranonceAllocator::new(
 //!     vec![0x00, 0x01],           // local_prefix_bytes (server identifier)
 //!     20,                         // total_extranonce_len
 //!     65_536,                     // max_channels
+//!     seed,                       // 16 bytes from a CSPRNG
 //! ).unwrap();
 //!
 //! let prefix = allocator.allocate_standard().unwrap();
@@ -102,12 +108,14 @@
 //! ```
 //! use channels_sv2::extranonce_manager::ExtranonceAllocator;
 //!
+//! # let seed = [0; 16];
 //! let upstream_prefix = vec![0xAA, 0xBB, 0xCC, 0xDD];
 //! let mut allocator = ExtranonceAllocator::from_upstream_prefix(
 //!     upstream_prefix,
 //!     Vec::new(), // local_prefix_bytes: none in this example
 //!     20,         // total_extranonce_len
 //!     65_536,     // max_channels
+//!     seed,       // 16 bytes from a CSPRNG
 //! ).unwrap();
 //!
 //! // Layout: upstream(4) + local_prefix(0) + local_index(2) = 6;
@@ -128,6 +136,7 @@
 //! let downstream_rollable: u8 = 4;
 //! let total: u8 = 20;
 //! let max_channels: u32 = 256;
+//! # let seed = [0; 16];
 //!
 //! // upstream(4) + local_index(1) + rollable(4) = 9; slack = 11.
 //! let local_prefix_bytes = vec![0x42; 11];
@@ -136,6 +145,7 @@
 //!     local_prefix_bytes,
 //!     total,
 //!     max_channels,
+//!     seed,
 //! ).unwrap();
 //!
 //! assert_eq!(allocator.rollable_extranonce_size(), downstream_rollable);

@@ -546,7 +546,7 @@ mod tests {
     fn activation_keeps_retired_prefix_of_activated_job() {
         let mut store = JobStore::new(MAX_PAST_JOBS);
         // the allocator outlives the test, so the retired prefix keeps holding its slot
-        let mut allocator = ExtranonceAllocator::new(vec![], 1, 2).unwrap();
+        let mut allocator = ExtranonceAllocator::new(vec![], 1, 2, [0; 16]).unwrap();
         let old_prefix = allocator.allocate_extended(0).unwrap();
 
         // a future job created under the old prefix, which is then rotated out
@@ -580,7 +580,7 @@ mod tests {
     fn dropped_jobs_release_retired_extranonce_prefixes() {
         let mut store = JobStore::new(MAX_PAST_JOBS);
         // the allocator outlives the test, so the retired prefix keeps holding its slot
-        let mut allocator = ExtranonceAllocator::new(vec![], 1, 2).unwrap();
+        let mut allocator = ExtranonceAllocator::new(vec![], 1, 2, [0; 16]).unwrap();
         let old_prefix = allocator.allocate_extended(0).unwrap();
 
         // a future job created under the old prefix keeps the retired prefix alive
@@ -627,7 +627,7 @@ mod tests {
     fn reused_job_id_releases_retired_extranonce_prefixes() {
         let mut store = JobStore::new(MAX_PAST_JOBS);
         // the allocator outlives the test, so the retired prefix keeps holding its slot
-        let mut allocator = ExtranonceAllocator::new(vec![], 1, 2).unwrap();
+        let mut allocator = ExtranonceAllocator::new(vec![], 1, 2, [0; 16]).unwrap();
         let old_prefix = allocator.allocate_extended(0).unwrap();
 
         store.add_future_job(
@@ -725,7 +725,8 @@ mod tests {
         });
 
         for _ in 0..10_000 {
-            let mut allocator = ExtranonceAllocator::new(vec![], 1, 2).unwrap();
+            // a single slot, so that local_index is always 0
+            let mut allocator = ExtranonceAllocator::new(vec![], 1, 1, [0; 16]).unwrap();
             let allocated = allocator.allocate_extended(0).unwrap();
             assert_eq!(allocated.as_bytes(), prefix.as_slice());
             // the token still holds its slot when retired; its allocator goes away right after
@@ -736,7 +737,7 @@ mod tests {
 
         // a token whose allocator is already gone when it is retired is never kept, and neither
         // is a wire-sourced prefix (which never held a slot)
-        let allocated = ExtranonceAllocator::new(vec![], 1, 2)
+        let allocated = ExtranonceAllocator::new(vec![], 1, 2, [0; 16])
             .unwrap()
             .allocate_extended(0)
             .unwrap();
@@ -797,7 +798,7 @@ mod tests {
         // extranonce space) would be released while the job goes on to accept shares under them
         let mut store = JobStore::new(1);
         // the allocator outlives the test, so the retired prefix keeps holding its slot
-        let mut allocator = ExtranonceAllocator::new(vec![], 1, 2).unwrap();
+        let mut allocator = ExtranonceAllocator::new(vec![], 1, 2, [0; 16]).unwrap();
         let old_prefix = allocator.allocate_extended(0).unwrap();
         let old_prefix_bytes = old_prefix.as_bytes().to_vec();
 
