@@ -383,7 +383,7 @@ fn configure_summary(configure: &Configure) -> Vec<String> {
 
 #[test]
 fn configure_forms() {
-    let cases: [(&str, &[&str]); 16] = [
+    let cases: [(&str, &[&str]); 18] = [
         (
             r#"[["version-rolling"],{"version-rolling.mask":"1fffe000","version-rolling.min-bit-count":2}]"#,
             &["version-rolling mask=Some(536862720) min=Some(2)"],
@@ -410,6 +410,14 @@ fn configure_forms() {
         ),
         (r#"[["version-rolling"]]"#, &[]),
         (r#"[["version-rolling"],null]"#, &[]),
+        (
+            r#"[["version-rolling"],{"version-rolling.min-bit-count":2}]"#,
+            &["version-rolling mask=None min=Some(2)"],
+        ),
+        (
+            r#"[[],{"version-rolling.min-bit-count":2}]"#,
+            &["version-rolling mask=None min=Some(2)"],
+        ),
         (
             r#"[["version-rolling"],{"version-rolling.mask":"1fffe000"},"extra"]"#,
             &["version-rolling mask=Some(536862720) min=None"],

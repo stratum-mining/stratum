@@ -103,17 +103,11 @@ impl Configure {
             Some(Value::String(mask)) => Some(hex_u32(mask, "version-rolling.mask")?),
             Some(_) => return Err(ParamError::new("version-rolling.mask", "not a string")),
         };
-        let min_bit_count = match parameter("version-rolling.min-bit-count") {
-            None => None,
-            Some(_) if mask.is_none() => {
-                return Err(ParamError::new("version-rolling.mask", "missing"))
-            }
-            Some(count) => min_bit_count(count),
-        };
-        if mask.is_some() {
+        let count = parameter("version-rolling.min-bit-count");
+        if mask.is_some() || count.is_some() {
             extensions.push(ConfigureExtension::VersionRolling(VersionRolling {
                 mask,
-                min_bit_count,
+                min_bit_count: count.and_then(min_bit_count),
             }));
         }
 
