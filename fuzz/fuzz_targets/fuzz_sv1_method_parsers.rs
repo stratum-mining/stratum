@@ -98,12 +98,13 @@ fn gen_min_bit_count(u: &mut Unstructured<'_>) -> arbitrary::Result<Value> {
 }
 
 fn gen_configure_params(u: &mut Unstructured<'_>) -> arbitrary::Result<Value> {
-    let mask = gen_valid_hex(u, 1..=8)?;
-    let min_bit = gen_min_bit_count(u)?;
-    Ok(serde_json::json!([
-        ["version-rolling"],
-        {"version-rolling.mask": mask, "version-rolling.min-bit-count": min_bit}
-    ]))
+    let mut parameters = serde_json::json!({
+        "version-rolling.min-bit-count": gen_min_bit_count(u)?
+    });
+    if u.arbitrary()? {
+        parameters["version-rolling.mask"] = gen_valid_hex(u, 1..=8)?.into();
+    }
+    Ok(serde_json::json!([["version-rolling"], parameters]))
 }
 
 fn gen_notify_params(u: &mut Unstructured<'_>) -> arbitrary::Result<Value> {
@@ -168,8 +169,8 @@ fn notification(method: Method, params: Value) {
     });
 }
 
-/// A configure with a valid mask decodes whatever its `version-rolling.min-bit-count` holds, and
-/// reads the mask without reserved bits.
+/// A configure listing `version-rolling` decodes with or without a mask, whatever its
+/// `version-rolling.min-bit-count` holds, and reads the mask without reserved bits.
 fn configure(id: u64, params: Value) {
     let request = ClientToServer::try_from(RpcRequest {
         id: Some(Id::from(id)),
@@ -183,7 +184,7 @@ fn configure(id: u64, params: Value) {
     let mask = request
         .params
         .version_rolling_mask()
-        .expect("a mask was sent");
+        .expect("version rolling was requested");
     assert_eq!(mask.0 & !VERSION_ROLLING_MASK, 0);
     assert!(request.params.version_rolling_min_bit_count() <= Some(32));
 }
