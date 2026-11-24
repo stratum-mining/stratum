@@ -46,8 +46,10 @@ Channels internally retain old prefix bytes with shared allocation ownership.
 Future, active and past jobs keep matching reservations alive; stale or evicted
 jobs do not. A slot is returned only when neither the current channel prefix
 nor any retained snapshot owns it. Dropping the channel releases its ownership
-of all these reservations. Snapshots do not keep a dropped allocator's bitmap
-alive.
+of all these reservations. A returned slot is allocated again only after the
+application calls `ExtranonceAllocator::release_dropped_prefixes`, which it
+does when its `prev_hash` changes, so that a prefix never serves two channels
+on one `prev_hash`. Snapshots do not keep a dropped allocator's bitmap alive.
 
 Repeated snapshots of the same allocation and bytes are deduplicated. Distinct
 allocations with identical bytes remain independently reserved. The existing job

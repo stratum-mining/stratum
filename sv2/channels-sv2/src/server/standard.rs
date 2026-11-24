@@ -3071,6 +3071,7 @@ mod tests {
                 .unwrap();
             assert!(channel.get_active_job().is_none());
             assert_eq!(allocator.allocated_count(), 1);
+            allocator.release_dropped_prefixes();
             let reused = allocator.allocate_standard().unwrap();
             assert_eq!(reused.as_bytes(), old_bytes);
             drop(reused);

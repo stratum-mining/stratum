@@ -24,8 +24,9 @@ use super::{bitvector::BitVector, MAX_EXTRANONCE_LEN};
 ///   [`allocate_standard`](super::allocator::ExtranonceAllocator::allocate_standard)).
 ///   These carry an internal `PrefixAllocation` with a [`Weak`] back-reference to the
 ///   allocator's bitmap. The current prefix and any internally retained snapshots
-///   share this record; dropping its last owner clears the corresponding bit,
-///   returning the slot to the allocator's free pool.
+///   share this record; dropping its last owner marks the slot as dropped, and the
+///   allocator makes it available again at its next
+///   [`release_dropped_prefixes`](super::allocator::ExtranonceAllocator::release_dropped_prefixes).
 ///
 /// Server-side channels do **not** accept this loose type directly. They
 /// require an [`AllocatedExtranoncePrefix`] at the API boundary so that
@@ -40,7 +41,10 @@ use super::{bitvector::BitVector, MAX_EXTRANONCE_LEN};
 /// # Automatic release on drop
 ///
 /// For allocator-produced prefixes, the allocation is returned to the allocator
-/// automatically when the current prefix and its retained snapshots are dropped. Typical usage is
+/// automatically when the current prefix and its retained snapshots are dropped, and the
+/// allocator hands the slot out again after its next
+/// [`release_dropped_prefixes`](super::allocator::ExtranonceAllocator::release_dropped_prefixes).
+/// Typical usage is
 /// therefore to store the prefix on the channel and let it drop with the
 /// channel:
 ///
@@ -50,10 +54,10 @@ use super::{bitvector::BitVector, MAX_EXTRANONCE_LEN};
 /// let channel = ExtendedChannel::new_for_pool(.., prefix, ..)?;
 ///
 /// // On channel close:
-/// drop(channel); // prefix drops with it -> allocation is released
+/// drop(channel); // prefix drops with it -> slot reserved until release_dropped_prefixes
 /// ```
 ///
-/// There is no explicit release API — correct cleanup is enforced by
+/// There is no explicit release API for a single prefix — correct cleanup is enforced by
 /// ownership. Because [`ExtranoncePrefix`] is neither `Copy` nor `Clone`,
 /// callers cannot duplicate allocation ownership. Internally, the allocation record is shared
 /// through [`Arc`], whose last owner releases the slot exactly once.
@@ -113,7 +117,8 @@ pub struct ExtranoncePrefix {
 pub struct AllocatedExtranoncePrefix(ExtranoncePrefix);
 
 /// Tracks an [`ExtranoncePrefix`]'s allocation in an
-/// [`ExtranonceAllocator`](super::allocator::ExtranonceAllocator)'s bitmap.
+/// [`ExtranonceAllocator`](super::allocator::ExtranonceAllocator), through its bitmap of
+/// dropped indices.
 ///
 /// The [`Weak`] reference means an outstanding prefix does not keep the
 /// allocator's bitmap alive past the allocator's own lifetime.
@@ -282,7 +287,7 @@ impl AllocatedExtranoncePrefix {
     /// and
     /// [`allocate_standard`](super::allocator::ExtranonceAllocator::allocate_standard).
     /// The resulting prefix carries a [`PrefixAllocation`] whose [`Drop`]
-    /// impl clears the bit in the allocator's bitmap.
+    /// impl marks the slot as dropped in the allocator.
     #[inline]
     pub(crate) fn from_allocation(
         local_index: u32,
@@ -361,7 +366,7 @@ impl Eq for ExtranoncePrefix {}
 impl Drop for PrefixAllocation {
     fn drop(&mut self) {
         if let Some(bitmap) = self.bitmap.upgrade() {
-            bitmap.set(self.local_index as usize, false);
+            bitmap.set(self.local_index as usize, true);
         }
     }
 }
@@ -475,6 +480,7 @@ mod tests {
         retired.prune(core::iter::empty());
         assert!(retired.is_empty());
         assert_eq!(allocator.allocated_count(), 0);
+        allocator.release_dropped_prefixes();
         assert!(allocator.allocate_extended(3).is_ok());
     }
 

@@ -3543,6 +3543,7 @@ mod tests {
             }
             assert!(channel.get_past_job(1).is_none());
             assert_eq!(allocator.allocated_count(), 1);
+            allocator.release_dropped_prefixes();
             let reused = allocator.allocate_extended(8).unwrap();
             assert_eq!(reused.as_bytes(), old_bytes);
             drop(reused);
@@ -3592,6 +3593,7 @@ mod tests {
 
         // the pre-rotation job can no longer accept shares, so its prefix was released
         assert_eq!(allocator.allocated_count(), 1);
+        allocator.release_dropped_prefixes();
         assert!(allocator.allocate_extended(8).is_ok());
     }
 
@@ -3615,6 +3617,7 @@ mod tests {
         // the evicted job was the last reference to the rotated-out prefix, so its slot is free
         // again
         assert_eq!(allocator.allocated_count(), 1);
+        allocator.release_dropped_prefixes();
         assert!(allocator.allocate_extended(8).is_ok());
     }
 

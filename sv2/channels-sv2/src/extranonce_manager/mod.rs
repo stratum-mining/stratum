@@ -32,13 +32,13 @@
 //!
 //! # Memory
 //!
-//! The allocator uses an internal bitmap of `max_channels` bits. Reference:
+//! The allocator uses two internal bitmaps of `max_channels` bits each. Reference:
 //!
 //! | `max_channels` | `local_index` bytes | Bitmap memory |
 //! |----------------|---------------------|---------------|
-//! | 256            | 1                   | 32 B          |
-//! | 65,536         | 2                   | 8 KB          |
-//! | 16,777,216     | 3                   | 2 MB          |
+//! | 256            | 1                   | 64 B          |
+//! | 65,536         | 2                   | 16 KB         |
+//! | 16,777,216     | 3                   | 4 MB          |
 //!
 //! # Lifecycle
 //!
@@ -47,8 +47,13 @@
 //! [`AllocatedExtranoncePrefix`] — a type-level guarantee that the prefix
 //! holds a reservation in the allocator's bitmap.
 //!
-//! **The allocation is released automatically when the
-//! [`AllocatedExtranoncePrefix`] is dropped.** Server-side channel
+//! **The allocation ends automatically when the
+//! [`AllocatedExtranoncePrefix`] is dropped, and its `local_index` becomes
+//! available again at the next
+//! [`ExtranonceAllocator::release_dropped_prefixes`].** Until then a second
+//! channel cannot be handed the prefix of a dropped one, whose shares its
+//! client could otherwise submit again: the application calls it when its
+//! `prev_hash` changes, see the method for the exact point. Server-side channel
 //! constructors (e.g.
 //! [`server::extended::ExtendedChannel::new_for_pool`](crate::server::extended::ExtendedChannel::new_for_pool))
 //! take [`AllocatedExtranoncePrefix`] directly, so the allocator's
@@ -56,13 +61,13 @@
 //! constructors take the wider [`ExtranoncePrefix`] (which an
 //! [`AllocatedExtranoncePrefix`] converts into via [`Into`]), since
 //! client-held prefixes legitimately come from both wire and allocator
-//! sources. There is no manual release API — ownership enforces the
-//! lifecycle.
+//! sources. There is no manual release API for a single prefix — ownership
+//! enforces the lifecycle.
 //!
-//! Internally this is implemented by having the allocator hold its bitmap
-//! in an `Arc` and giving each outstanding prefix a `Weak` reference to it.
-//! The prefix's `Drop` upgrades the `Weak`, clears its bit via an atomic
-//! operation, and returns. If the allocator has already been dropped, the
+//! Internally this is implemented by having the allocator hold a bitmap of
+//! dropped indices in an `Arc` and giving each outstanding prefix a `Weak`
+//! reference to it. The prefix's `Drop` upgrades the `Weak`, sets its bit via
+//! an atomic operation, and returns. If the allocator has already been dropped, the
 //! upgrade fails and `Drop` becomes a silent no-op (safe: nothing to update).
 //!
 //! # Usage
@@ -91,8 +96,12 @@
 //!
 //! let prefix = allocator.allocate_standard().unwrap();
 //! // Pass `prefix` directly to the channel constructor — the channel
-//! // takes ownership, and the allocation is released automatically when
+//! // takes ownership, and the allocation ends automatically when
 //! // the channel (and thus the prefix) is dropped.
+//!
+//! // Whenever the `prev_hash` that shares are accepted on changes, the
+//! // prefixes dropped under the previous one become available again.
+//! allocator.release_dropped_prefixes();
 //! ```
 //!
 //! ## JDC / Translator / Proxies (receives upstream extranonce prefix)

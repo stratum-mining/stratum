@@ -24,11 +24,11 @@ use super::{bitvector::BitVector, bytes_needed, MAX_EXTRANONCE_LEN};
 /// assigned can search that space before the server assigns it. The
 /// `local_index` of each allocation is therefore derived from the `seed` given
 /// to the constructor: SipHash-2-4, keyed by the seed, of a counter gives an
-/// index, and the first free index from there on is taken. Without the seed,
-/// the indices a client has seen tell it nothing about where the next search
-/// starts.
+/// index, and the first free index from there on is taken (one neither held by
+/// a prefix nor reserved by a dropped one). Without the seed, the indices a
+/// client has seen tell it nothing about where the next search starts.
 ///
-/// A free index that follows a run of indices that are allocated is taken
+/// A free index that follows a run of indices that are not free is taken
 /// whenever the search starts within that run or on the index itself, so out
 /// of `max_channels` guesses at it, one more than the run is long are right.
 /// A client can lengthen a run by keeping the channels that extend it, and an
@@ -61,23 +61,31 @@ use super::{bitvector::BitVector, bytes_needed, MAX_EXTRANONCE_LEN};
 /// # Lifecycle
 ///
 /// Allocation lifetime is managed by ownership: each
-/// [`AllocatedExtranoncePrefix`] releases its allocation automatically when
-/// dropped. There is no explicit release API. Store the prefix alongside
-/// the channel state and the allocation is returned to the allocator when
-/// the channel state is dropped.
+/// [`AllocatedExtranoncePrefix`] ends its allocation automatically when
+/// dropped. Store the prefix alongside the channel state and the allocation
+/// ends when the channel state is dropped.
+///
+/// The index of a dropped prefix is not allocated again before the next
+/// [`release_dropped_prefixes`](Self::release_dropped_prefixes), which the
+/// application has to call.
 ///
 /// # Memory
 ///
-/// The allocator uses an internal bitmap of `max_channels` bits
-/// (`max_channels / 8` bytes). See the module-level documentation for a
+/// The allocator uses two internal bitmaps of `max_channels` bits each
+/// (`max_channels / 4` bytes). See the module-level documentation for a
 /// reference table.
 pub struct ExtranonceAllocator {
     upstream_prefix: Vec<u8>,
     local_prefix_bytes: Vec<u8>,
     total_extranonce_len: u8,
+    /// Indices that cannot be allocated: held by a prefix, or dropped and not released yet.
+    allocation_bitmap: BitVector,
+    /// Indices whose prefix was dropped since the last
+    /// [`release_dropped_prefixes`](Self::release_dropped_prefixes).
+    ///
     /// `Arc` so each outstanding [`AllocatedExtranoncePrefix`] can hold a
-    /// `Weak` reference and clear its own bit from `Drop` without any locking.
-    allocation_bitmap: Arc<BitVector>,
+    /// `Weak` reference and set its own bit from `Drop` without any locking.
+    dropped_bitmap: Arc<BitVector>,
     /// SipHash keys taken from the constructor's `seed`.
     index_keys: (u64, u64),
     /// Number of indices derived from `index_keys` so far.
@@ -93,7 +101,7 @@ impl core::fmt::Debug for ExtranonceAllocator {
             .field("rollable_extranonce_size", &self.rollable_extranonce_size())
             .field("total_extranonce_len", &self.total_extranonce_len)
             .field("max_channels", &self.max_channels())
-            .field("allocated_count", &self.allocation_bitmap.count_ones())
+            .field("allocated_count", &self.allocated_count())
             .finish()
     }
 }
@@ -105,8 +113,10 @@ impl ExtranonceAllocator {
     ///   of the allocator's region. Can be empty. Typically used as a server
     ///   identifier.
     /// - `total_extranonce_len`: Total extranonce length in bytes (≤ 32).
-    /// - `max_channels`: Maximum concurrent channels. Determines the size of
-    ///   the internal allocation bitmap (`max_channels / 8` bytes) and the
+    /// - `max_channels`: Maximum number of channels, counting the ones that are open and
+    ///   the ones closed since the last
+    ///   [`release_dropped_prefixes`](Self::release_dropped_prefixes). Determines the size of
+    ///   the internal bitmaps (`max_channels / 4` bytes) and the
     ///   width of the `local_index` region. See the
     ///   [Memory](#memory) section on [`ExtranonceAllocator`] for a reference
     ///   table.
@@ -143,8 +153,10 @@ impl ExtranonceAllocator {
     ///   after the upstream prefix. Can be empty. Useful for shrinking
     ///   `rollable` to a specific target size, or for embedding a tag/identifier.
     /// - `total_extranonce_len`: Total extranonce length in bytes (≤ 32).
-    /// - `max_channels`: Maximum concurrent channels. Determines the width of
-    ///   `local_index` and the size of the internal allocation bitmap. See
+    /// - `max_channels`: Maximum number of channels, counting the ones that are open and
+    ///   the ones closed since the last
+    ///   [`release_dropped_prefixes`](Self::release_dropped_prefixes). Determines the width of
+    ///   `local_index` and the size of the internal bitmaps. See
     ///   the [Memory](#memory) section on [`ExtranonceAllocator`] for a
     ///   reference table.
     /// - `seed`: 16 bytes from a cryptographically secure random number
@@ -177,10 +189,11 @@ impl ExtranonceAllocator {
     ///
     /// # Lifecycle
     ///
-    /// The allocation is released automatically when the returned
+    /// The allocation ends automatically when the returned
     /// [`AllocatedExtranoncePrefix`] is dropped. Store the prefix on the
-    /// channel state and let ownership handle cleanup — no explicit
-    /// release call is needed.
+    /// channel state and let ownership handle cleanup. Its index becomes
+    /// available again at the next
+    /// [`release_dropped_prefixes`](Self::release_dropped_prefixes).
     pub fn allocate_extended(
         &mut self,
         min_rollable_size: usize,
@@ -196,7 +209,7 @@ impl ExtranonceAllocator {
             idx as u32,
             self.upstream_prefix_len(),
             self.build_extended_prefix(idx),
-            Arc::downgrade(&self.allocation_bitmap),
+            Arc::downgrade(&self.dropped_bitmap),
         ))
     }
 
@@ -208,10 +221,11 @@ impl ExtranonceAllocator {
     ///
     /// # Lifecycle
     ///
-    /// The allocation is released automatically when the returned
+    /// The allocation ends automatically when the returned
     /// [`AllocatedExtranoncePrefix`] is dropped. Store the prefix on the
-    /// channel state and let ownership handle cleanup — no explicit
-    /// release call is needed.
+    /// channel state and let ownership handle cleanup. Its index becomes
+    /// available again at the next
+    /// [`release_dropped_prefixes`](Self::release_dropped_prefixes).
     pub fn allocate_standard(
         &mut self,
     ) -> Result<AllocatedExtranoncePrefix, ExtranonceAllocatorError> {
@@ -223,8 +237,29 @@ impl ExtranonceAllocator {
             idx as u32,
             self.upstream_prefix_len(),
             self.build_standard_prefix(idx),
-            Arc::downgrade(&self.allocation_bitmap),
+            Arc::downgrade(&self.dropped_bitmap),
         ))
+    }
+
+    /// Make the indices of the prefixes dropped so far available for allocation again.
+    ///
+    /// A prefix must not be assigned to a second channel while shares are still accepted on a
+    /// `prev_hash` that the first channel worked on: the second channel could repeat that
+    /// search, and its client could submit the shares that were accepted on the first one all
+    /// over again. The allocator does not know which `prev_hash` its channels work on, so a
+    /// dropped prefix keeps its index reserved until the application calls this.
+    ///
+    /// An application that only accepts shares on its current `prev_hash` calls this whenever
+    /// that `prev_hash` changes, at a point where no channel has accepted a share on the new
+    /// `prev_hash` yet and no new channel can be given the previous one any more: the call
+    /// releases every prefix dropped before it, whichever `prev_hash` its channel last worked
+    /// on.
+    ///
+    /// Until the call, the indices of dropped prefixes count against `max_channels` like the
+    /// ones that are held, and an application that never calls it runs out of indices.
+    pub fn release_dropped_prefixes(&mut self) {
+        self.allocation_bitmap
+            .clear_bits_taken_from(&self.dropped_bitmap);
     }
 
     /// The `upstream_prefix` region bytes.
@@ -343,15 +378,21 @@ impl ExtranonceAllocator {
         self.total_extranonce_len
     }
 
-    /// Number of currently allocated channels.
+    /// Number of prefixes currently held, i.e. allocated and not dropped yet.
+    ///
+    /// The index of a dropped prefix is not counted, although it stays reserved until
+    /// [`release_dropped_prefixes`](Self::release_dropped_prefixes).
     ///
     /// Bounded by `max_channels` (`u32`).
     #[inline]
     pub fn allocated_count(&self) -> u32 {
-        self.allocation_bitmap.count_ones()
+        self.allocation_bitmap
+            .count_ones()
+            .saturating_sub(self.dropped_bitmap.count_ones())
     }
 
-    /// Maximum number of concurrent channels.
+    /// Maximum number of channels, counting the ones that are open and the ones closed since
+    /// the last [`release_dropped_prefixes`](Self::release_dropped_prefixes).
     #[inline]
     pub fn max_channels(&self) -> u32 {
         // The bitmap was constructed from a `u32` passed to `new`/`from_upstream_prefix`,
@@ -380,13 +421,15 @@ impl ExtranonceAllocator {
             return Err(ExtranonceAllocatorError::PrefixExceedsTotalLength);
         }
 
-        let allocation_bitmap = Arc::new(BitVector::new(max_channels as usize));
+        let allocation_bitmap = BitVector::new(max_channels as usize);
+        let dropped_bitmap = Arc::new(BitVector::new(max_channels as usize));
 
         Ok(Self {
             upstream_prefix,
             local_prefix_bytes,
             total_extranonce_len,
             allocation_bitmap,
+            dropped_bitmap,
             index_keys: (
                 u64::from_le_bytes(seed[..8].try_into().expect("8 bytes")),
                 u64::from_le_bytes(seed[8..].try_into().expect("8 bytes")),
@@ -464,7 +507,7 @@ pub enum ExtranonceAllocatorError {
     ZeroMaxChannels,
     /// `upstream_prefix_len + local_prefix_len + local_index_len` exceeds `total_extranonce_len`.
     PrefixExceedsTotalLength,
-    /// All channels are allocated — no more capacity.
+    /// Every index is held by a prefix or reserved by a dropped one — no more capacity.
     CapacityExhausted,
     /// The requested rollable extranonce size exceeds `rollable_extranonce_size`.
     InvalidRollableSize,
@@ -483,7 +526,12 @@ impl core::fmt::Display for ExtranonceAllocatorError {
                     "upstream_prefix + local_prefix + local_index exceeds total_extranonce_len"
                 )
             }
-            Self::CapacityExhausted => write!(f, "all channels are allocated — no more capacity"),
+            Self::CapacityExhausted => {
+                write!(
+                    f,
+                    "all channels are allocated or reserved — no more capacity"
+                )
+            }
             Self::InvalidRollableSize => {
                 write!(f, "requested rollable size exceeds available space")
             }
@@ -615,9 +663,11 @@ mod tests {
         assert_eq!(alloc.allocated_count(), 256);
 
         let freed_bytes = prefixes[42].as_bytes().to_vec();
-        // Remove from the Vec and drop the prefix -> slot freed by Drop.
+        // Remove from the Vec and drop the prefix -> slot freed once dropped prefixes are
+        // released.
         drop(prefixes.remove(42));
         assert_eq!(alloc.allocated_count(), 255);
+        alloc.release_dropped_prefixes();
 
         let reused = alloc.allocate_extended(5).unwrap();
         assert_eq!(reused.as_bytes(), freed_bytes.as_slice());
@@ -629,7 +679,7 @@ mod tests {
     }
 
     #[test]
-    fn drop_frees_and_allows_reuse() {
+    fn dropped_prefix_is_reusable_only_once_released() {
         // local_index(1), rollable = 5 (max_channels = 4 -> 1 byte)
         let mut alloc = ExtranonceAllocator::new(Vec::new(), 6, 4, [0; 16]).unwrap();
 
@@ -643,7 +693,20 @@ mod tests {
         let freed_bytes = p1.as_bytes().to_vec();
         drop(p1);
         assert_eq!(alloc.allocated_count(), 3);
+        assert_eq!(
+            alloc.allocate_extended(5).unwrap_err(),
+            ExtranonceAllocatorError::CapacityExhausted
+        );
 
+        alloc.release_dropped_prefixes();
+        assert_eq!(alloc.allocated_count(), 3);
+        let reused = alloc.allocate_extended(5).unwrap();
+        assert_eq!(reused.as_bytes(), freed_bytes.as_slice());
+
+        // a prefix dropped after a release waits for the next one
+        drop(reused);
+        assert!(alloc.allocate_extended(5).is_err());
+        alloc.release_dropped_prefixes();
         let reused = alloc.allocate_extended(5).unwrap();
         assert_eq!(reused.as_bytes(), freed_bytes.as_slice());
 
@@ -671,6 +734,7 @@ mod tests {
             // free the indices two and five steps after it
             let (near, far) = ((start + 2) % 8, (start + 5) % 8);
             held.retain(|p| p.as_bytes()[0] != near && p.as_bytes()[0] != far);
+            alloc.release_dropped_prefixes();
 
             held.push(alloc.allocate_extended(5).unwrap());
             assert_eq!(held.last().unwrap().as_bytes()[0], near);
@@ -707,9 +771,9 @@ mod tests {
     }
 
     #[test]
-    fn prefix_drop_frees_slot_on_scope_exit() {
+    fn prefix_drop_on_scope_exit_ends_allocation() {
         // Verify that a prefix dropping at end-of-scope (without an explicit
-        // `drop` call) still releases its slot.
+        // `drop` call) still ends its allocation.
         let mut alloc = ExtranonceAllocator::new(Vec::new(), 6, 4, [0; 16]).unwrap();
         {
             let _p = alloc.allocate_extended(5).unwrap();
