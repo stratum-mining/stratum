@@ -9,16 +9,16 @@ use serde_json::{Map, Value};
 use std::{convert::TryFrom, fmt};
 
 /// `mining.configure`, as defined by [BIP 310](https://github.com/bitcoin/bips/blob/master/bip-0310.mediawiki).
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Configure {
     pub extensions: Vec<ConfigureExtension>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub enum ConfigureExtension {
     VersionRolling(VersionRolling),
-    MinimumDifficulty(u64),
+    MinimumDifficulty(f64),
     SubscribeExtranonce,
     Info(InfoParams),
 }
@@ -115,10 +115,13 @@ impl Configure {
 
         match parameter("minimum-difficulty.value") {
             Some(value) => {
-                let value = value.as_u64().ok_or(ParamError::new(
-                    "minimum-difficulty.value",
-                    "not an unsigned integer",
-                ))?;
+                let value = value
+                    .as_f64()
+                    .filter(|value| *value >= 0.0)
+                    .ok_or(ParamError::new(
+                        "minimum-difficulty.value",
+                        "not a non-negative number",
+                    ))?;
                 extensions.push(ConfigureExtension::MinimumDifficulty(value));
             }
             None if requested("minimum-difficulty") => {
@@ -156,7 +159,13 @@ impl Configure {
                 }
                 ConfigureExtension::MinimumDifficulty(value) => {
                     codes.push("minimum-difficulty");
-                    parameters.insert("minimum-difficulty.value".into(), (*value).into());
+                    // A whole value goes out as an integer, the form BIP 310 shows.
+                    let value = if value.fract() == 0.0 && (0.0..u64::MAX as f64).contains(value) {
+                        Value::from(*value as u64)
+                    } else {
+                        Value::from(*value)
+                    };
+                    parameters.insert("minimum-difficulty.value".into(), value);
                 }
                 ConfigureExtension::SubscribeExtranonce => codes.push("subscribe-extranonce"),
                 ConfigureExtension::Info(info) => {

@@ -383,7 +383,7 @@ fn configure_summary(configure: &Configure) -> Vec<String> {
 
 #[test]
 fn configure_forms() {
-    let cases: [(&str, &[&str]); 22] = [
+    let cases: [(&str, &[&str]); 23] = [
         (
             r#"[["version-rolling"],{"version-rolling.mask":"1fffe000","version-rolling.min-bit-count":2}]"#,
             &["version-rolling mask=Some(536862720) min=Some(2)"],
@@ -441,6 +441,10 @@ fn configure_forms() {
         (
             r#"[["minimum-difficulty"],{"minimum-difficulty.value":1024}]"#,
             &["minimum-difficulty 1024"],
+        ),
+        (
+            r#"[["minimum-difficulty"],{"minimum-difficulty.value":0.5}]"#,
+            &["minimum-difficulty 0.5"],
         ),
         (
             r#"[[],{"minimum-difficulty.value":1024}]"#,
@@ -525,6 +529,10 @@ fn client_requests_encode_canonically() {
         (
             r#"{"id":6,"method":"mining.suggest_difficulty","params":[512]}"#,
             json!({"id": 6, "method": "mining.suggest_difficulty", "params": [512.0]}),
+        ),
+        (
+            r#"{"id":7,"method":"mining.configure","params":[["version-rolling","minimum-difficulty"],{"version-rolling.min-bit-count":2,"minimum-difficulty.value":0.5}]}"#,
+            json!({"id": 7, "method": "mining.configure", "params": [["version-rolling", "minimum-difficulty"], {"version-rolling.min-bit-count": 2, "minimum-difficulty.value": 0.5}]}),
         ),
         (
             r#"{"id":7,"method":"mining.configure","params":[["version-rolling","minimum-difficulty"],{"version-rolling.mask":"1fffe000","version-rolling.min-bit-count":"00000002","minimum-difficulty.value":2048}]}"#,
