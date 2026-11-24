@@ -209,7 +209,7 @@ fn encoded_masks_are_clamped(id: u64, mask: u32) {
             enabled: true,
             mask,
         }),
-        minimum_difficulty: None,
+        ..ConfigureResult::default()
     };
     let reply = sv1_api::Response::success(Id::from(id), result(HexU32Be(mask)));
     let Message::Response(response) = Message::from(reply) else {

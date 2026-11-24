@@ -553,7 +553,7 @@ mod tests {
                 version_rolling: request
                     .version_rolling_mask()
                     .map(VersionRollingResult::new),
-                minimum_difficulty: None,
+                ..ConfigureResult::default()
             };
             self.replies.push(Response::success(id, result).into());
             Ok(())

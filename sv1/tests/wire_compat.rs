@@ -734,6 +734,12 @@ fn configure_result_forms() {
         );
         assert_eq!(result.minimum_difficulty, minimum_difficulty, "{line}");
     }
+
+    let result = configure_result(
+        r#"{"id":7,"result":{"subscribe-extranonce":true,"info":false},"error":null}"#,
+    );
+    assert_eq!(result.subscribe_extranonce, Some(true));
+    assert_eq!(result.info, Some(false));
 }
 
 #[test]
@@ -773,6 +779,8 @@ fn server_response_encoding() {
             ConfigureResult {
                 version_rolling: Some(VersionRollingResult::new(HexU32Be(0xffffffff))),
                 minimum_difficulty: Some(false),
+                subscribe_extranonce: Some(true),
+                info: Some(true),
             },
         )),
         json!({
@@ -782,6 +790,8 @@ fn server_response_encoding() {
                 "version-rolling": true,
                 "version-rolling.mask": "1fffffe0",
                 "minimum-difficulty": false,
+                "subscribe-extranonce": true,
+                "info": true,
             },
         })
     );
@@ -827,7 +837,7 @@ fn offered_mask_is_clamped_whatever_the_result_holds() {
             enabled: true,
             mask: HexU32Be(0xffffffff),
         }),
-        minimum_difficulty: None,
+        ..ConfigureResult::default()
     };
     let encoded = to_json(Response::success(Id::from(7u64), result));
     assert_eq!(encoded["result"]["version-rolling.mask"], "1fffffe0");

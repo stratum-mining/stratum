@@ -88,7 +88,9 @@ impl IsServer for Server {
         self.mask = request.version_rolling_mask();
         let result = ConfigureResult {
             version_rolling: self.mask.map(VersionRollingResult::new),
-            minimum_difficulty: None,
+            minimum_difficulty: request.minimum_difficulty().map(|_| false),
+            subscribe_extranonce: request.supports_extranonce().then_some(true),
+            info: request.info().map(|_| true),
         };
         self.reply(Response::success(id, result));
         Ok(())

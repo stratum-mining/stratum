@@ -72,6 +72,24 @@ impl Configure {
             .map(|params| params.min_bit_count.unwrap_or(0))
     }
 
+    pub fn minimum_difficulty(&self) -> Option<f64> {
+        self.extensions
+            .iter()
+            .find_map(|extension| match extension {
+                ConfigureExtension::MinimumDifficulty(value) => Some(*value),
+                _ => None,
+            })
+    }
+
+    pub fn info(&self) -> Option<&InfoParams> {
+        self.extensions
+            .iter()
+            .find_map(|extension| match extension {
+                ConfigureExtension::Info(info) => Some(info),
+                _ => None,
+            })
+    }
+
     pub fn supports_extranonce(&self) -> bool {
         self.extensions
             .iter()
@@ -204,11 +222,13 @@ impl fmt::Debug for InfoParams {
     }
 }
 
-/// Result of `mining.configure`.
+/// Result of `mining.configure`. BIP 310 expects a value for each extension the request listed.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ConfigureResult {
     pub version_rolling: Option<VersionRollingResult>,
     pub minimum_difficulty: Option<bool>,
+    pub subscribe_extranonce: Option<bool>,
+    pub info: Option<bool>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -239,10 +259,27 @@ impl From<ConfigureResult> for Value {
                 (version_rolling.mask & VERSION_ROLLING_MASK).into(),
             );
         }
-        if let Some(minimum_difficulty) = result.minimum_difficulty {
-            values.insert("minimum-difficulty".into(), minimum_difficulty.into());
+        for (code, supported) in [
+            ("minimum-difficulty", result.minimum_difficulty),
+            ("subscribe-extranonce", result.subscribe_extranonce),
+            ("info", result.info),
+        ] {
+            if let Some(supported) = supported {
+                values.insert(code.into(), supported.into());
+            }
         }
         values.into()
+    }
+}
+
+fn extension_result(
+    values: &Map<String, Value>,
+    code: &'static str,
+) -> Result<Option<bool>, ParamError> {
+    match values.get(code) {
+        None => Ok(None),
+        Some(Value::Bool(supported)) => Ok(Some(*supported)),
+        Some(_) => Err(ParamError::new(code, "not a boolean")),
     }
 }
 
@@ -273,17 +310,11 @@ impl ConfigureResult {
             (None, None) => None,
             _ => return Err(ParamError::new("version-rolling", "incomplete")),
         };
-        let minimum_difficulty = values
-            .get("minimum-difficulty")
-            .map(|value| {
-                value
-                    .as_bool()
-                    .ok_or(ParamError::new("minimum-difficulty", "not a boolean"))
-            })
-            .transpose()?;
         Ok(ConfigureResult {
             version_rolling,
-            minimum_difficulty,
+            minimum_difficulty: extension_result(values, "minimum-difficulty")?,
+            subscribe_extranonce: extension_result(values, "subscribe-extranonce")?,
+            info: extension_result(values, "info")?,
         })
     }
 }
