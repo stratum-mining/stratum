@@ -822,6 +822,20 @@ fn server_response_encoding() {
     );
 
     assert_eq!(
+        to_json(Response::success(
+            Id::from(7u64),
+            ConfigureResult {
+                version_rolling: Some(VersionRollingResult {
+                    enabled: false,
+                    mask: HexU32Be(0x1fffe000),
+                }),
+                ..ConfigureResult::default()
+            },
+        )),
+        json!({"id": 7, "error": null, "result": {"version-rolling": false}})
+    );
+
+    assert_eq!(
         to_json(Response::success(Id::from(2u64), true)),
         json!({"id": 2, "error": null, "result": true})
     );

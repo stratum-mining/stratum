@@ -248,16 +248,19 @@ impl VersionRollingResult {
     }
 }
 
-/// The mask is clamped to [`VERSION_ROLLING_MASK`], so reserved bits are never offered.
+/// The mask is clamped to [`VERSION_ROLLING_MASK`], so reserved bits are never offered. A refused
+/// version rolling carries no mask.
 impl From<ConfigureResult> for Value {
     fn from(result: ConfigureResult) -> Self {
         let mut values = Map::new();
         if let Some(version_rolling) = result.version_rolling {
             values.insert("version-rolling".into(), version_rolling.enabled.into());
-            values.insert(
-                "version-rolling.mask".into(),
-                (version_rolling.mask & VERSION_ROLLING_MASK).into(),
-            );
+            if version_rolling.enabled {
+                values.insert(
+                    "version-rolling.mask".into(),
+                    (version_rolling.mask & VERSION_ROLLING_MASK).into(),
+                );
+            }
         }
         for (code, supported) in [
             ("minimum-difficulty", result.minimum_difficulty),
