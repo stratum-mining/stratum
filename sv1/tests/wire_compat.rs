@@ -383,7 +383,7 @@ fn configure_summary(configure: &Configure) -> Vec<String> {
 
 #[test]
 fn configure_forms() {
-    let cases: [(&str, &[&str]); 18] = [
+    let cases: [(&str, &[&str]); 22] = [
         (
             r#"[["version-rolling"],{"version-rolling.mask":"1fffe000","version-rolling.min-bit-count":2}]"#,
             &["version-rolling mask=Some(536862720) min=Some(2)"],
@@ -408,8 +408,14 @@ fn configure_forms() {
             r#"[["version-rolling"],{"version-rolling.mask":"1fffe000","version-rolling.min-bit-count":33}]"#,
             &["version-rolling mask=Some(536862720) min=None"],
         ),
-        (r#"[["version-rolling"]]"#, &[]),
-        (r#"[["version-rolling"],null]"#, &[]),
+        (
+            r#"[["version-rolling"]]"#,
+            &["version-rolling mask=None min=None"],
+        ),
+        (
+            r#"[["version-rolling"],null]"#,
+            &["version-rolling mask=None min=None"],
+        ),
         (
             r#"[["version-rolling"],{"version-rolling.min-bit-count":2}]"#,
             &["version-rolling mask=None min=Some(2)"],
@@ -437,9 +443,16 @@ fn configure_forms() {
             &["minimum-difficulty 1024"],
         ),
         (
+            r#"[[],{"minimum-difficulty.value":1024}]"#,
+            &["minimum-difficulty 1024"],
+        ),
+        (
             r#"[["info"],{"info.connection-url":"stratum+tcp://pool.example:3333","info.hw-version":"S19"}]"#,
             &["info Some(\"stratum+tcp://pool.example:3333\")"],
         ),
+        (r#"[["info"]]"#, &["info None"]),
+        (r#"[["info"],{}]"#, &["info None"]),
+        (r#"[["unknown"],{"unknown.value":1}]"#, &[]),
         (
             r#"[["version-rolling","minimum-difficulty","subscribe-extranonce"],{"version-rolling.mask":"ffffffff","version-rolling.min-bit-count":16,"minimum-difficulty.value":2048}]"#,
             &[
@@ -460,6 +473,19 @@ fn configure_forms() {
         };
         assert_eq!(id, Id::from(7u64), "{line}");
         assert_eq!(configure_summary(&configure), expected, "{line}");
+    }
+}
+
+#[test]
+fn configure_minimum_difficulty_needs_a_value() {
+    for params in [
+        r#"[["minimum-difficulty"]]"#,
+        r#"[["minimum-difficulty"],{}]"#,
+        r#"[["minimum-difficulty"],{"minimum-difficulty.value":-1}]"#,
+        r#"[["minimum-difficulty"],{"minimum-difficulty.value":"1024"}]"#,
+    ] {
+        let line = format!(r#"{{"id":7,"method":"mining.configure","params":{params}}}"#);
+        assert!(try_client_request(&line).is_err(), "{line}");
     }
 }
 

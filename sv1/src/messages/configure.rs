@@ -78,7 +78,8 @@ impl Configure {
             .any(|extension| matches!(extension, ConfigureExtension::SubscribeExtranonce))
     }
 
-    /// Accepts a missing or null parameter object, and ignores elements after it.
+    /// An extension is requested by its code, or by any of its parameters. Accepts a missing or
+    /// null parameter object, and ignores elements after it.
     pub(super) fn from_params(params: &Value) -> Result<Self, ParamError> {
         let params = params_array(params)?;
         let codes = params
@@ -86,6 +87,7 @@ impl Configure {
             .ok_or(ParamError::new("extensions", "missing"))?
             .as_array()
             .ok_or(ParamError::new("extensions", "not an array"))?;
+        let requested = |code: &str| codes.iter().any(|listed| listed == code);
         let parameter = |name: &str| params.get(1).and_then(|parameters| parameters.get(name));
         let string = |name: &'static str| match parameter(name) {
             None => Ok(None),
@@ -94,7 +96,7 @@ impl Configure {
         };
 
         let mut extensions = vec![];
-        if codes.iter().any(|code| code == "subscribe-extranonce") {
+        if requested("subscribe-extranonce") {
             extensions.push(ConfigureExtension::SubscribeExtranonce);
         }
 
@@ -104,19 +106,25 @@ impl Configure {
             Some(_) => return Err(ParamError::new("version-rolling.mask", "not a string")),
         };
         let count = parameter("version-rolling.min-bit-count");
-        if mask.is_some() || count.is_some() {
+        if requested("version-rolling") || mask.is_some() || count.is_some() {
             extensions.push(ConfigureExtension::VersionRolling(VersionRolling {
                 mask,
                 min_bit_count: count.and_then(min_bit_count),
             }));
         }
 
-        if let Some(value) = parameter("minimum-difficulty.value") {
-            let value = value.as_u64().ok_or(ParamError::new(
-                "minimum-difficulty.value",
-                "not an unsigned integer",
-            ))?;
-            extensions.push(ConfigureExtension::MinimumDifficulty(value));
+        match parameter("minimum-difficulty.value") {
+            Some(value) => {
+                let value = value.as_u64().ok_or(ParamError::new(
+                    "minimum-difficulty.value",
+                    "not an unsigned integer",
+                ))?;
+                extensions.push(ConfigureExtension::MinimumDifficulty(value));
+            }
+            None if requested("minimum-difficulty") => {
+                return Err(ParamError::new("minimum-difficulty.value", "missing"))
+            }
+            None => {}
         }
 
         let info = InfoParams {
@@ -125,7 +133,7 @@ impl Configure {
             hw_version: string("info.hw-version")?,
             sw_version: string("info.sw-version")?,
         };
-        if info != InfoParams::default() {
+        if requested("info") || info != InfoParams::default() {
             extensions.push(ConfigureExtension::Info(info));
         }
 
