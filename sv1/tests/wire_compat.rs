@@ -724,6 +724,21 @@ fn configure_result_forms() {
             None,
             Some(true),
         ),
+        (
+            r#"{"id":7,"result":{"version-rolling":false},"error":null}"#,
+            Some((false, 0)),
+            None,
+        ),
+        (
+            r#"{"id":7,"result":{"version-rolling":"not supported","minimum-difficulty":"not supported"},"error":null}"#,
+            Some((false, 0)),
+            Some(false),
+        ),
+        (
+            r#"{"id":7,"result":{"version-rolling":false,"version-rolling.mask":"1fffe000"},"error":null}"#,
+            Some((false, 0x1fffe000)),
+            None,
+        ),
     ];
     for (line, version_rolling, minimum_difficulty) in cases {
         let result = configure_result(line);
@@ -736,10 +751,20 @@ fn configure_result_forms() {
     }
 
     let result = configure_result(
-        r#"{"id":7,"result":{"subscribe-extranonce":true,"info":false},"error":null}"#,
+        r#"{"id":7,"result":{"subscribe-extranonce":true,"info":"not supported"},"error":null}"#,
     );
     assert_eq!(result.subscribe_extranonce, Some(true));
     assert_eq!(result.info, Some(false));
+
+    for result in [
+        r#"{"version-rolling":true}"#,
+        r#"{"version-rolling.mask":"1fffe000"}"#,
+        r#"{"version-rolling":1,"version-rolling.mask":"1fffe000"}"#,
+        r#"{"info":1}"#,
+    ] {
+        let line = format!(r#"{{"id":7,"result":{result},"error":null}}"#);
+        assert!(typed(&line, Method::Configure).is_err(), "{line}");
+    }
 }
 
 #[test]

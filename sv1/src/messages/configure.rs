@@ -272,6 +272,7 @@ impl From<ConfigureResult> for Value {
     }
 }
 
+/// An extension's result is `true`, `false` or an error string, which reads as `false`.
 fn extension_result(
     values: &Map<String, Value>,
     code: &'static str,
@@ -279,25 +280,25 @@ fn extension_result(
     match values.get(code) {
         None => Ok(None),
         Some(Value::Bool(supported)) => Ok(Some(*supported)),
-        Some(_) => Err(ParamError::new(code, "not a boolean")),
+        Some(Value::String(_)) => Ok(Some(false)),
+        Some(_) => Err(ParamError::new(code, "not a boolean or an error string")),
     }
 }
 
 impl ConfigureResult {
-    /// Version rolling needs both `version-rolling` and `version-rolling.mask`. The mask is
-    /// clamped to [`VERSION_ROLLING_MASK`], so a client never rolls reserved bits. BIP 310 gives
-    /// the result no `version-rolling.min-bit-count`, so one is ignored.
+    /// Enabled version rolling needs a `version-rolling.mask`; a refusal reads as a zero mask
+    /// when it has none. The mask is clamped to [`VERSION_ROLLING_MASK`], so a client never rolls
+    /// reserved bits. BIP 310 gives the result no `version-rolling.min-bit-count`, so one is
+    /// ignored.
     fn from_value(result: &Value) -> Result<Self, ParamError> {
         let values = result
             .as_object()
             .ok_or(ParamError::new("result", "not an object"))?;
-        let enabled = values.get("version-rolling");
+        let enabled = extension_result(values, "version-rolling")?;
         let mask = values.get("version-rolling.mask");
         let version_rolling = match (enabled, mask) {
             (Some(enabled), Some(mask)) => Some(VersionRollingResult {
-                enabled: enabled
-                    .as_bool()
-                    .ok_or(ParamError::new("version-rolling", "not a boolean"))?,
+                enabled,
                 mask: mask
                     .as_str()
                     .and_then(|mask| HexU32Be::try_from(mask).ok())
@@ -306,6 +307,10 @@ impl ConfigureResult {
                         "version-rolling.mask",
                         "not a 32-bit hex value",
                     ))?,
+            }),
+            (Some(false), None) => Some(VersionRollingResult {
+                enabled: false,
+                mask: HexU32Be(0),
             }),
             (None, None) => None,
             _ => return Err(ParamError::new("version-rolling", "incomplete")),
