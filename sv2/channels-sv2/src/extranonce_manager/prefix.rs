@@ -24,8 +24,9 @@ use super::{bitvector::BitVector, MAX_EXTRANONCE_LEN};
 ///   [`allocate_standard`](super::allocator::ExtranonceAllocator::allocate_standard)).
 ///   These carry an internal `PrefixAllocation` with a [`Weak`] back-reference to the
 ///   allocator's bitmap. The current prefix and any internally retained snapshots
-///   share this record; dropping its last owner clears the corresponding bit,
-///   returning the slot to the allocator's free pool.
+///   share this record; dropping its last owner marks the slot as dropped, and the
+///   allocator makes it available again at its next
+///   [`release_dropped_prefixes`](super::allocator::ExtranonceAllocator::release_dropped_prefixes).
 ///
 /// Server-side channels do **not** accept this loose type directly. They
 /// require an [`AllocatedExtranoncePrefix`] at the API boundary so that
@@ -40,7 +41,10 @@ use super::{bitvector::BitVector, MAX_EXTRANONCE_LEN};
 /// # Automatic release on drop
 ///
 /// For allocator-produced prefixes, the allocation is returned to the allocator
-/// automatically when the current prefix and its retained snapshots are dropped. Typical usage is
+/// automatically when the current prefix and its retained snapshots are dropped, and the
+/// allocator hands the slot out again after its next
+/// [`release_dropped_prefixes`](super::allocator::ExtranonceAllocator::release_dropped_prefixes).
+/// Typical usage is
 /// therefore to store the prefix on the channel and let it drop with the
 /// channel:
 ///
@@ -50,10 +54,10 @@ use super::{bitvector::BitVector, MAX_EXTRANONCE_LEN};
 /// let channel = ExtendedChannel::new_for_pool(.., prefix, ..)?;
 ///
 /// // On channel close:
-/// drop(channel); // prefix drops with it -> allocation is released
+/// drop(channel); // prefix drops with it -> slot reserved until release_dropped_prefixes
 /// ```
 ///
-/// There is no explicit release API — correct cleanup is enforced by
+/// There is no explicit release API for a single prefix — correct cleanup is enforced by
 /// ownership. Because [`ExtranoncePrefix`] is neither `Copy` nor `Clone`,
 /// callers cannot duplicate allocation ownership. Internally, the allocation record is shared
 /// through [`Arc`], whose last owner releases the slot exactly once.
@@ -113,7 +117,8 @@ pub struct ExtranoncePrefix {
 pub struct AllocatedExtranoncePrefix(ExtranoncePrefix);
 
 /// Tracks an [`ExtranoncePrefix`]'s allocation in an
-/// [`ExtranonceAllocator`](super::allocator::ExtranonceAllocator)'s bitmap.
+/// [`ExtranonceAllocator`](super::allocator::ExtranonceAllocator), through its bitmap of
+/// dropped indices.
 ///
 /// The [`Weak`] reference means an outstanding prefix does not keep the
 /// allocator's bitmap alive past the allocator's own lifetime.
@@ -282,7 +287,7 @@ impl AllocatedExtranoncePrefix {
     /// and
     /// [`allocate_standard`](super::allocator::ExtranonceAllocator::allocate_standard).
     /// The resulting prefix carries a [`PrefixAllocation`] whose [`Drop`]
-    /// impl clears the bit in the allocator's bitmap.
+    /// impl marks the slot as dropped in the allocator.
     #[inline]
     pub(crate) fn from_allocation(
         local_index: u32,
@@ -361,7 +366,7 @@ impl Eq for ExtranoncePrefix {}
 impl Drop for PrefixAllocation {
     fn drop(&mut self) {
         if let Some(bitmap) = self.bitmap.upgrade() {
-            bitmap.set(self.local_index as usize, false);
+            bitmap.set(self.local_index as usize, true);
         }
     }
 }
@@ -454,7 +459,8 @@ mod tests {
     #[test]
     fn upstream_snapshots_release_slot_only_after_last_owner_drops() {
         let mut allocator =
-            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 6, 1).unwrap();
+            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 6, 1, [0; 16])
+                .unwrap();
         let mut current: ExtranoncePrefix = allocator.allocate_extended(3).unwrap().into();
         let first = current.snapshot_for_upstream_update(&[0xcc]).unwrap();
         current.set_upstream_prefix(&[0xcc]).unwrap();
@@ -474,13 +480,15 @@ mod tests {
         retired.prune(core::iter::empty());
         assert!(retired.is_empty());
         assert_eq!(allocator.allocated_count(), 0);
+        allocator.release_dropped_prefixes();
         assert!(allocator.allocate_extended(3).is_ok());
     }
 
     #[test]
     fn repeated_upstream_snapshots_are_deduplicated_by_allocation_and_bytes() {
         let mut allocator =
-            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 6, 1).unwrap();
+            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 6, 1, [0; 16])
+                .unwrap();
         let mut current: ExtranoncePrefix = allocator.allocate_extended(3).unwrap().into();
         let old_bytes = current.as_bytes().to_vec();
         let mut other_bytes = old_bytes.clone();
@@ -510,9 +518,11 @@ mod tests {
     #[test]
     fn byte_identical_snapshots_from_distinct_allocators_keep_both_slots() {
         let mut first_allocator =
-            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 6, 1).unwrap();
+            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 6, 1, [0; 16])
+                .unwrap();
         let mut second_allocator =
-            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 6, 1).unwrap();
+            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 6, 1, [0; 16])
+                .unwrap();
         let first: ExtranoncePrefix = first_allocator.allocate_extended(3).unwrap().into();
         let second: ExtranoncePrefix = second_allocator.allocate_extended(3).unwrap().into();
         assert_eq!(first.as_bytes(), second.as_bytes());
@@ -537,7 +547,8 @@ mod tests {
         let wire = ExtranoncePrefix::from_wire(vec![0xaa]).unwrap();
         assert!(wire.snapshot_for_upstream_update(&[0xcc]).is_none());
         let mut allocator =
-            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 6, 1).unwrap();
+            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 6, 1, [0; 16])
+                .unwrap();
         let current: ExtranoncePrefix = allocator.allocate_extended(3).unwrap().into();
         assert!(current.snapshot_for_upstream_update(&[0xaa]).is_none());
         let snapshot = current.snapshot_for_upstream_update(&[0xcc]).unwrap();
@@ -552,7 +563,8 @@ mod tests {
     #[test]
     fn preserved_len_includes_local_index_and_standard_padding() {
         let mut allocator =
-            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 6, 256).unwrap();
+            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 6, 256, [0; 16])
+                .unwrap();
         let extended: ExtranoncePrefix = allocator.allocate_extended(3).unwrap().into();
         let standard: ExtranoncePrefix = allocator.allocate_standard().unwrap().into();
         let wire = ExtranoncePrefix::from_wire(vec![0xaa, 0xbb]).unwrap();
@@ -564,8 +576,10 @@ mod tests {
 
     #[test]
     fn upstream_prefix_update_preserves_local_regions_and_allocation() {
+        // a single slot, so that local_index is always 0
         let mut allocator =
-            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 6, 256).unwrap();
+            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 6, 1, [0; 16])
+                .unwrap();
         let mut prefix: ExtranoncePrefix = allocator.allocate_extended(3).unwrap().into();
 
         prefix.set_upstream_prefix(&[0xcc, 0xdd]).unwrap();
@@ -591,8 +605,10 @@ mod tests {
 
     #[test]
     fn oversized_upstream_prefix_update_is_transactional() {
+        // a single slot, so that local_index is always 0
         let mut allocator =
-            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 32, 256).unwrap();
+            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 32, 1, [0; 16])
+                .unwrap();
         let mut prefix: ExtranoncePrefix = allocator.allocate_extended(29).unwrap().into();
 
         assert_eq!(

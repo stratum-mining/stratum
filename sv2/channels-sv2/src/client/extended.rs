@@ -1067,8 +1067,10 @@ mod tests {
     #[test]
     fn upstream_prefix_update_only_affects_subsequent_jobs() {
         // upstream(1) + local_prefix(1) + local_index(1) + rollable(2) = 5
+        // a single slot, so that local_index is always 0
         let mut allocator =
-            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 5, 256).unwrap();
+            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 5, 1, [0; 16])
+                .unwrap();
         let allocated_prefix = allocator.allocate_extended(2).unwrap();
         let old_prefix = allocated_prefix.as_bytes().to_vec();
         let mut channel = ExtendedChannel::new(
@@ -1172,7 +1174,8 @@ mod tests {
     fn set_upstream_extranonce_prefix_enforces_full_extranonce_size_transactionally() {
         // local_prefix(1) + local_index(1) and rollable(2) leave 28 bytes for upstream_prefix.
         let mut allocator =
-            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 5, 256).unwrap();
+            ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 5, 256, [0; 16])
+                .unwrap();
         let allocated_prefix = allocator.allocate_extended(2).unwrap();
         let mut channel = ExtendedChannel::new(
             1,
@@ -3413,7 +3416,7 @@ mod tests {
     // rotated-out prefix.
     fn extended_channel_with_rotated_extranonce_prefix(
     ) -> (ExtranonceAllocator, ExtendedChannel, Vec<u8>) {
-        let mut allocator = ExtranonceAllocator::new(vec![], 32, 2).unwrap();
+        let mut allocator = ExtranonceAllocator::new(vec![], 32, 2, [0; 16]).unwrap();
         let prefix_1 = allocator.allocate_extended(8).unwrap();
         let prefix_2 = allocator.allocate_extended(8).unwrap();
         assert_ne!(prefix_1.as_bytes(), prefix_2.as_bytes());
@@ -3453,7 +3456,8 @@ mod tests {
     fn test_mixed_prefix_updates_reserve_slot_until_job_eviction() {
         for future in [false, true] {
             let mut allocator =
-                ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 32, 2).unwrap();
+                ExtranonceAllocator::from_upstream_prefix(vec![0xaa], vec![0xbb], 32, 2, [0; 16])
+                    .unwrap();
             let prefix = allocator.allocate_extended(8).unwrap();
             let old_bytes = prefix.as_bytes().to_vec();
             let rollable_size = (32 - prefix.len()) as u16;
@@ -3539,6 +3543,7 @@ mod tests {
             }
             assert!(channel.get_past_job(1).is_none());
             assert_eq!(allocator.allocated_count(), 1);
+            allocator.release_dropped_prefixes();
             let reused = allocator.allocate_extended(8).unwrap();
             assert_eq!(reused.as_bytes(), old_bytes);
             drop(reused);
@@ -3588,6 +3593,7 @@ mod tests {
 
         // the pre-rotation job can no longer accept shares, so its prefix was released
         assert_eq!(allocator.allocated_count(), 1);
+        allocator.release_dropped_prefixes();
         assert!(allocator.allocate_extended(8).is_ok());
     }
 
@@ -3611,6 +3617,7 @@ mod tests {
         // the evicted job was the last reference to the rotated-out prefix, so its slot is free
         // again
         assert_eq!(allocator.allocated_count(), 1);
+        allocator.release_dropped_prefixes();
         assert!(allocator.allocate_extended(8).is_ok());
     }
 
@@ -3621,9 +3628,9 @@ mod tests {
         // must be in place when that prune runs: a retired prefix from a recreated allocator can
         // share those bytes, and pruning before the install would release its slot while the
         // new job goes on to accept shares under them.
-        let mut allocator_1 = ExtranonceAllocator::new(vec![], 32, 1).unwrap();
+        let mut allocator_1 = ExtranonceAllocator::new(vec![], 32, 1, [0; 16]).unwrap();
         let prefix_1 = allocator_1.allocate_extended(8).unwrap();
-        let mut allocator_2 = ExtranonceAllocator::new(vec![], 32, 1).unwrap();
+        let mut allocator_2 = ExtranonceAllocator::new(vec![], 32, 1, [0; 16]).unwrap();
         let prefix_2 = allocator_2.allocate_extended(8).unwrap();
         assert_eq!(prefix_1.as_bytes(), prefix_2.as_bytes());
         let prefix_len = prefix_1.as_bytes().len();

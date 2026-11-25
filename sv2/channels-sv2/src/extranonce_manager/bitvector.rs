@@ -3,11 +3,12 @@ extern crate alloc;
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU64, Ordering};
 
-/// A compact bit vector that tracks which local indexes are in use.
+/// A compact bit vector with one bit per local index.
 ///
-/// Bits are packed into atomic `u64` words — each word holds the allocation
-/// state for 64 consecutive indexes. A set bit means the index is allocated;
-/// a clear bit means it is free.
+/// Bits are packed into atomic `u64` words — each word holds the bits of 64
+/// consecutive indexes. What a set bit means is up to the owner: the allocator
+/// keeps one bitmap of the indexes that cannot be allocated and one of the
+/// indexes whose prefix was dropped.
 ///
 /// ```text
 ///   words[0]               words[1]               words[2]  ...
@@ -27,7 +28,7 @@ use core::sync::atomic::{AtomicU64, Ordering};
 /// Every word is an [`AtomicU64`], so `set` / `get` / `count_ones` /
 /// `find_first_zero_in_range` take `&self`. This is what allows the
 /// [`super::ExtranoncePrefix`] to be held behind a `Weak<BitVector>` and to
-/// clear its own bit from inside its `Drop` impl without holding any mutex.
+/// set its own bit from inside its `Drop` impl without holding any mutex.
 ///
 /// Concurrent `set` calls on different words are fully parallel. Concurrent
 /// `set` calls targeting the same word are serialized at the CPU cache-line
@@ -75,7 +76,7 @@ impl BitVector {
     /// Set or clear the bit at `index`.
     ///
     /// Takes `&self` because the underlying storage is atomic — this is what
-    /// lets [`super::ExtranoncePrefix::drop`] clear its bit through a
+    /// lets [`super::ExtranoncePrefix::drop`] set its bit through a
     /// `Weak<BitVector>` without `&mut` access.
     pub(crate) fn set(&self, index: usize, value: bool) {
         debug_assert!(index < self.capacity);
@@ -86,6 +87,20 @@ impl BitVector {
             self.words[word].fetch_or(mask, Ordering::AcqRel);
         } else {
             self.words[word].fetch_and(!mask, Ordering::AcqRel);
+        }
+    }
+
+    /// Clear every bit that is set in `other`, and clear `other`.
+    ///
+    /// A bit set in `other` while this runs is either taken along or left set in `other` for
+    /// the next call, never lost.
+    pub(crate) fn clear_bits_taken_from(&self, other: &BitVector) {
+        debug_assert_eq!(self.capacity, other.capacity);
+        for (word, other_word) in self.words.iter().zip(&other.words) {
+            let taken = other_word.swap(0, Ordering::AcqRel);
+            if taken != 0 {
+                word.fetch_and(!taken, Ordering::AcqRel);
+            }
         }
     }
 
