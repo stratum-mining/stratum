@@ -290,9 +290,9 @@ fn extension_result(
 
 impl ConfigureResult {
     /// Enabled version rolling needs a `version-rolling.mask`; a refusal reads as a zero mask
-    /// when it has none. The mask is clamped to [`VERSION_ROLLING_MASK`], so a client never rolls
-    /// reserved bits. BIP 310 gives the result no `version-rolling.min-bit-count`, so one is
-    /// ignored.
+    /// whatever it carries, so it never yields bits to roll. The mask is clamped to
+    /// [`VERSION_ROLLING_MASK`], so a client never rolls reserved bits. BIP 310 gives the result
+    /// no `version-rolling.min-bit-count`, so one is ignored.
     fn from_value(result: &Value) -> Result<Self, ParamError> {
         let values = result
             .as_object()
@@ -300,8 +300,8 @@ impl ConfigureResult {
         let enabled = extension_result(values, "version-rolling")?;
         let mask = values.get("version-rolling.mask");
         let version_rolling = match (enabled, mask) {
-            (Some(enabled), Some(mask)) => Some(VersionRollingResult {
-                enabled,
+            (Some(true), Some(mask)) => Some(VersionRollingResult {
+                enabled: true,
                 mask: mask
                     .as_str()
                     .and_then(|mask| HexU32Be::try_from(mask).ok())
@@ -311,7 +311,7 @@ impl ConfigureResult {
                         "not a 32-bit hex value",
                     ))?,
             }),
-            (Some(false), None) => Some(VersionRollingResult {
+            (Some(false), _) => Some(VersionRollingResult {
                 enabled: false,
                 mask: HexU32Be(0),
             }),

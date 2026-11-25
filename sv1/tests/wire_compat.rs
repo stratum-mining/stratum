@@ -736,7 +736,17 @@ fn configure_result_forms() {
         ),
         (
             r#"{"id":7,"result":{"version-rolling":false,"version-rolling.mask":"1fffe000"},"error":null}"#,
-            Some((false, 0x1fffe000)),
+            Some((false, 0)),
+            None,
+        ),
+        (
+            r#"{"id":7,"result":{"version-rolling":"not supported","version-rolling.mask":"1fffe000"},"error":null}"#,
+            Some((false, 0)),
+            None,
+        ),
+        (
+            r#"{"id":7,"result":{"version-rolling":false,"version-rolling.mask":"not hex"},"error":null}"#,
+            Some((false, 0)),
             None,
         ),
     ];
