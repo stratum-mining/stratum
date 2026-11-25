@@ -82,9 +82,13 @@ macro_rules! impl_try_from_decodable_field {
             impl<'a> TryFrom<DecodableField<'a>> for $ty {
                 type Error = Error;
 
-                fn try_from(value: DecodableField<'a>) -> Result<Self, Self::Error> {
-                    match value {
-                        DecodableField::Primitive(p) => p.try_into(),
+                fn try_from(mut value: DecodableField<'a>) -> Result<Self, Self::Error> {
+                    match &mut value {
+                        // `DecodableField` implements `Drop`, so the primitive is swapped out
+                        // instead of moved.
+                        DecodableField::Primitive(p) => {
+                            core::mem::replace(p, DecodablePrimitive::U8(0)).try_into()
+                        }
                         _ => Err(Error::DecodableConversionError),
                     }
                 }

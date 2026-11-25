@@ -1018,3 +1018,129 @@ mod test_owned_visibility {
         assert_eq!(owned.tail, 13);
     }
 }
+
+mod test_deep_field_marker {
+    use super::*;
+    use binary_sv2::decodable::{DecodableField, FieldMarker};
+
+    const DEPTH: usize = 100_000;
+
+    fn nested_marker(depth: usize) -> FieldMarker {
+        let mut marker = FieldMarker::Raw(1);
+        for _ in 0..depth {
+            marker = FieldMarker::Struct(vec![marker]);
+        }
+        marker
+    }
+
+    // Decodes a single raw byte wrapped in `DEPTH` struct levels.
+    struct Deep(u8);
+
+    impl<'decoder> Decodable<'decoder> for Deep {
+        fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
+            Ok(vec![nested_marker(DEPTH)])
+        }
+
+        fn from_decoded_fields(fields: Vec<DecodableField<'decoder>>) -> Result<Self, Error> {
+            let mut field = &fields[0];
+            let mut depth = 0;
+            while let DecodableField::Struct(children) = field {
+                assert_eq!(children.len(), 1);
+                field = &children[0];
+                depth += 1;
+            }
+            assert_eq!(depth, DEPTH);
+            match field {
+                DecodableField::Raw(bytes) => Ok(Deep(bytes[0])),
+                _ => Err(Error::DecodableConversionError),
+            }
+        }
+    }
+
+    #[test]
+    fn deeply_nested_markers_and_fields_drop_without_recursion() {
+        drop(nested_marker(DEPTH));
+
+        let mut byte = [0x5a_u8];
+        let mut field = DecodableField::Raw(&mut byte[..]);
+        for _ in 0..DEPTH {
+            field = DecodableField::Struct(vec![field]);
+        }
+        drop(field);
+    }
+
+    #[test]
+    fn deeply_nested_marker_sizes_without_recursion() {
+        let marker = nested_marker(DEPTH);
+
+        assert_eq!(marker.size_hint_(&[0x5a], 0), Ok(1));
+        assert_eq!(marker.size_hint_(&[0x5a], 1), Err(Error::ReadError(1, 2)));
+    }
+
+    #[test]
+    fn deeply_nested_marker_decodes_without_recursion() {
+        let mut bytes = [0x5a_u8];
+
+        let decoded = Deep::from_bytes(&mut bytes).unwrap();
+
+        assert_eq!(decoded.0, 0x5a);
+    }
+
+    // [u8, [u8, [], raw(2)], u8]
+    struct Mixed {
+        first: u8,
+        inner: (u8, [u8; 2]),
+        last: u8,
+    }
+
+    impl<'decoder> Decodable<'decoder> for Mixed {
+        fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
+            let inner = FieldMarker::Struct(vec![
+                0_u8.into(),
+                FieldMarker::Struct(vec![]),
+                FieldMarker::Raw(2),
+            ]);
+            Ok(vec![FieldMarker::Struct(vec![
+                0_u8.into(),
+                inner,
+                0_u8.into(),
+            ])])
+        }
+
+        fn from_decoded_fields(mut fields: Vec<DecodableField<'decoder>>) -> Result<Self, Error> {
+            assert_eq!(fields.len(), 1);
+            let mut outer: Vec<_> = fields.pop().unwrap().into();
+            assert_eq!(outer.len(), 3);
+            let last = outer.pop().unwrap().try_into()?;
+            let mut inner: Vec<_> = outer.pop().unwrap().into();
+            let first = outer.pop().unwrap().try_into()?;
+
+            assert_eq!(inner.len(), 3);
+            let raw = match &inner.pop().unwrap() {
+                DecodableField::Raw(bytes) => [bytes[0], bytes[1]],
+                _ => return Err(Error::DecodableConversionError),
+            };
+            assert!(
+                matches!(&inner.pop().unwrap(), DecodableField::Struct(empty) if empty.is_empty())
+            );
+            let inner_u8 = inner.pop().unwrap().try_into()?;
+
+            Ok(Mixed {
+                first,
+                inner: (inner_u8, raw),
+                last,
+            })
+        }
+    }
+
+    #[test]
+    fn nested_markers_decode_in_order() {
+        let mut bytes = [1_u8, 2, 3, 4, 5];
+
+        let decoded = Mixed::from_bytes(&mut bytes).unwrap();
+
+        assert_eq!(decoded.first, 1);
+        assert_eq!(decoded.inner, (2, [3, 4]));
+        assert_eq!(decoded.last, 5);
+    }
+}

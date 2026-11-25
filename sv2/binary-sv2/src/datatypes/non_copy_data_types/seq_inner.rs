@@ -404,7 +404,9 @@ macro_rules! impl_codec_for_sequence {
             fn from_decoded_fields(data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
                 let mut data = data.into_iter();
                 match (data.next(), data.next()) {
-                    (Some(DecodableField::Raw(bytes)), None) => Self::from_bytes(bytes),
+                    (Some(DecodableField::Raw(ref mut bytes)), None) => {
+                        Self::from_bytes(core::mem::take(bytes))
+                    }
                     _ => Err(Error::DecodableConversionError),
                 }
             }
@@ -450,7 +452,9 @@ macro_rules! impl_decodable_for_owned_sequence {
             fn from_decoded_fields(data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
                 let mut data = data.into_iter();
                 match (data.next(), data.next()) {
-                    (Some(DecodableField::Raw(bytes)), None) => Self::from_bytes(bytes),
+                    (Some(DecodableField::Raw(ref mut bytes)), None) => {
+                        Self::from_bytes(core::mem::take(bytes))
+                    }
                     _ => Err(Error::DecodableConversionError),
                 }
             }
