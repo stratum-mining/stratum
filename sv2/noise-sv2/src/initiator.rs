@@ -41,6 +41,7 @@ use alloc::{
 use core::convert::TryInto;
 use zeroize::Zeroize;
 
+use crate::aed_cipher::{AeadCipher, ChaCha20Poly1305};
 use crate::{
     cipher_state::{Cipher, CipherState},
     error::Error,
@@ -50,7 +51,6 @@ use crate::{
     ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
     SIGNATURE_NOISE_MESSAGE_SIZE,
 };
-use chacha20poly1305::{ChaCha20Poly1305, Key, KeyInit};
 use secp256k1::{
     ellswift::{ElligatorSwift, ElligatorSwiftParty},
     Keypair, PublicKey, XOnlyPublicKey,
@@ -399,8 +399,8 @@ impl Initiator {
         let rs_pk_xonly = XOnlyPublicKey::from_slice(&rs_pub_key).unwrap();
         if signature_message.verify_with_now(&rs_pk_xonly, &self.responder_authority_pk, now) {
             let (mut temp_k1, mut temp_k2) = Self::hkdf_2(self.get_ck(), &[]);
-            let c1 = ChaCha20Poly1305::new(Key::from_slice(&temp_k1[..]));
-            let c2 = ChaCha20Poly1305::new(Key::from_slice(&temp_k2[..]));
+            let c1 = ChaCha20Poly1305::from_key(temp_k1);
+            let c2 = ChaCha20Poly1305::from_key(temp_k2);
             let c1: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k1, c1);
             let c2: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k2, c2);
             let mut encryptor = c1;

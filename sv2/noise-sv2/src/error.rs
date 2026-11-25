@@ -4,7 +4,7 @@
 
 use alloc::vec::Vec;
 
-use chacha20poly1305::aead::Error as AeadError;
+use aead::Error as AeadError;
 
 use crate::signature_message::SignatureNoiseMessage;
 
