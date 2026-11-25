@@ -1056,3 +1056,63 @@ fn the_pool_leaves_alloc_mode_after_a_frame_larger_than_it() {
     assert!(pool.is_back_mode());
     assert_eq!(pooled.as_ref(), &[3; 6]);
 }
+
+#[test]
+fn system_memory_truncate_to_zero_frees_growth_and_avoids_tail_copy() {
+    const LARGE_FRAME: usize = 16 * 1024 * 1024;
+
+    let mut memory = crate::BufferFromSystemMemory::new(0);
+    memory.reserve(LARGE_FRAME).fill(0xab);
+    memory.commit(LARGE_FRAME);
+    let (len, cap) = memory.inner_len_and_capacity();
+    assert!(len >= LARGE_FRAME && cap >= LARGE_FRAME);
+
+    Buffer::truncate(&mut memory, 0);
+    assert_eq!(Buffer::len(&memory), 0);
+    assert!(memory.frame().is_empty());
+    assert_eq!(memory.inner_len_and_capacity(), (0, 0));
+
+    memory.reserve(4).copy_from_slice(&[1, 2, 3, 4]);
+    memory.commit(4);
+    let small = memory.get_data_owned();
+    assert_eq!(small, [1, 2, 3, 4]);
+    assert!(
+        small.capacity() < 1024,
+        "unexpected capacity {}",
+        small.capacity()
+    );
+    assert_eq!(memory.inner_len_and_capacity(), (0, 0));
+}
+
+#[test]
+fn system_memory_truncate_to_nonzero_drops_tail_past_cursor() {
+    let mut memory = crate::BufferFromSystemMemory::new(0);
+    memory.reserve(256).fill(0x11);
+    memory.commit(64);
+
+    Buffer::truncate(&mut memory, 16);
+    assert_eq!(Buffer::len(&memory), 16);
+    assert_eq!(memory.inner_len_and_capacity().0, 16);
+
+    let data = memory.get_data_owned();
+    assert_eq!(data.len(), 16);
+    assert_eq!(memory.inner_len_and_capacity(), (0, 0));
+}
+
+#[test]
+fn pool_truncate_to_zero_in_alloc_mode_frees_spill_allocation() {
+    let mut pool = Pool::new(64);
+    pool.reserve(1024).fill(0x5a);
+    pool.commit(1024);
+    assert!(pool.is_alloc_mode());
+
+    Buffer::truncate(&mut pool, 0);
+    assert_eq!(Buffer::len(&pool), 0);
+    assert_eq!(pool.system_memory().inner_len_and_capacity(), (0, 0));
+
+    pool.reserve(8).fill(7);
+    pool.commit(8);
+    let small = pool.get_data_owned();
+    assert!(pool.is_back_mode());
+    assert_eq!(small.as_ref(), &[7; 8]);
+}

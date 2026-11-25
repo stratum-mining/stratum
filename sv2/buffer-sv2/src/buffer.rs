@@ -41,6 +41,11 @@ impl BufferFromSystemMemory {
             reserved: 0,
         }
     }
+
+    #[cfg(test)]
+    pub(crate) fn inner_len_and_capacity(&self) -> (usize, usize) {
+        (self.inner.len(), self.inner.capacity())
+    }
 }
 
 impl Default for BufferFromSystemMemory {
@@ -119,11 +124,16 @@ impl Buffer for BufferFromSystemMemory {
         self.cursor
     }
 
-    // Moves the cursor back to `len`, if it is past it.
+    // Drops committed bytes past `len`, and frees the backing buffer when truncated to empty.
     #[inline]
     fn truncate(&mut self, len: usize) {
         self.cursor = self.cursor.min(len);
         self.reserved = 0;
+        if self.cursor == 0 {
+            self.inner = Vec::new();
+        } else {
+            self.inner.truncate(self.cursor);
+        }
     }
 }
 
