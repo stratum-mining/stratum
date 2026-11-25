@@ -285,7 +285,7 @@ dependencies = [
 
 [[package]]
 name = "codec_sv2"
-version = "8.1.0"
+version = "9.0.0"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
@@ -297,6 +297,7 @@ dependencies = [
  "quickcheck_macros",
  "rand",
  "rayon-core",
+ "secp256k1 0.28.2",
 ]
 
 [[package]]
@@ -736,7 +737,7 @@ dependencies = [
 
 [[package]]
 name = "noise_sv2"
-version = "2.1.0"
+version = "3.0.0"
 dependencies = [
  "chacha20poly1305",
  "criterion",

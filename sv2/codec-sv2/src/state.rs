@@ -50,7 +50,7 @@ impl ExpectsHandshakeMessage for Responder {
 /// [`Handshake::step_0`] is the only thing that builds one, which is what stops a caller from
 /// sending that first message twice.
 #[derive(Debug)]
-pub struct InitiatorSent(Initiator);
+pub struct InitiatorSent(Box<Initiator>);
 
 /// The codec state while the handshake runs, in the role `R`: [`Initiator`] before it has sent
 /// its first message, [`InitiatorSent`] after, or [`Responder`]. Frames exchanged in this state
@@ -74,13 +74,10 @@ pub struct InitiatorSent(Initiator);
 /// use noise_sv2::{Responder, ELLSWIFT_ENCODING_SIZE};
 ///
 /// fn responder() -> Handshake<Responder> { unimplemented!() }
-/// fn rng() -> rand::rngs::ThreadRng { unimplemented!() }
 ///
 /// let responder = responder();
-/// let (_first, _transport) = responder
-///     .step_1_with_now_rng([0; ELLSWIFT_ENCODING_SIZE], 0, &mut rng())
-///     .unwrap();
-/// let _second = responder.step_1_with_now_rng([0; ELLSWIFT_ENCODING_SIZE], 0, &mut rng());
+/// let (_first, _transport) = responder.step_1([0; ELLSWIFT_ENCODING_SIZE]).unwrap();
+/// let _second = responder.step_1([0; ELLSWIFT_ENCODING_SIZE]);
 /// ```
 ///
 /// Nor does sending the first message twice, which would mix it into the transcript twice and
@@ -130,7 +127,7 @@ impl Handshake<Initiator> {
         Ok((
             HandshakeMessage::from_message(message),
             Handshake {
-                role: Box::new(InitiatorSent(*self.role)),
+                role: Box::new(InitiatorSent(self.role)),
             },
         ))
     }
@@ -140,7 +137,7 @@ impl Handshake<InitiatorSent> {
     /// Completes the handshake with the responder's reply, consuming the state.
     #[cfg(feature = "std")]
     pub fn step_2(
-        mut self,
+        self,
         message: [u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE],
     ) -> Result<Transport> {
         self.role
@@ -154,7 +151,7 @@ impl Handshake<InitiatorSent> {
     /// another source of time.
     #[inline]
     pub fn step_2_with_now(
-        mut self,
+        self,
         message: [u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE],
         now: u32,
     ) -> Result<Transport> {
@@ -174,28 +171,11 @@ impl Handshake<Responder> {
 
     /// Answers the initiator's public key, completing the handshake on this side and consuming
     /// the state. The returned frame is what the initiator needs for its [`Handshake::step_2`].
-    #[cfg(feature = "std")]
     pub fn step_1(
-        mut self,
+        self,
         re_pub: [u8; ELLSWIFT_ENCODING_SIZE],
     ) -> Result<(HandshakeMessage, Transport)> {
         let (message, engine) = self.role.step_1(re_pub)?;
-        Ok((
-            HandshakeMessage::from_message(message),
-            Transport::new(engine),
-        ))
-    }
-
-    /// [`Self::step_1`] given the current time and a random number generator, for `no_std`
-    /// environments that have their own of each.
-    #[inline]
-    pub fn step_1_with_now_rng<G: rand::Rng + rand::CryptoRng>(
-        mut self,
-        re_pub: [u8; ELLSWIFT_ENCODING_SIZE],
-        now: u32,
-        rng: &mut G,
-    ) -> Result<(HandshakeMessage, Transport)> {
-        let (message, engine) = self.role.step_1_with_now_rng(re_pub, now, rng)?;
         Ok((
             HandshakeMessage::from_message(message),
             Transport::new(engine),

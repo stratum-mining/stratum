@@ -57,19 +57,15 @@ mod noise {
 
     const AUTHORITY_PUBLIC_K: &str = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72";
     const AUTHORITY_PRIVATE_K: &str = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n";
-    const CERT_VALIDITY: core::time::Duration = core::time::Duration::from_secs(3600);
+    const CERT_VALIDITY: u32 = 3600;
 
     pub fn make_handshake_pair() -> (Handshake<Initiator>, Handshake<Responder>) {
         let public_k: Secp256k1PublicKey = AUTHORITY_PUBLIC_K.to_string().try_into().unwrap();
         let private_k: Secp256k1SecretKey = AUTHORITY_PRIVATE_K.to_string().try_into().unwrap();
 
         let initiator = Initiator::from_raw_k(public_k.into_bytes()).unwrap();
-        let responder = Responder::from_authority_kp(
-            &public_k.into_bytes(),
-            &private_k.into_bytes(),
-            CERT_VALIDITY,
-        )
-        .unwrap();
+        let authority = private_k.0.keypair(&secp256k1::Secp256k1::signing_only());
+        let responder = Responder::new(authority, CERT_VALIDITY);
 
         (
             Handshake::initiator(initiator),
