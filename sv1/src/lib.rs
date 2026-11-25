@@ -28,11 +28,11 @@
 //! message. Their handlers are required, so an implementor cannot miss a message.
 //!
 //! References:
-//! [https://docs.google.com/document/d/17zHy1SUlhgtCMbypO8cHgpWH73V5iUQKk_0rWvMqSNs/edit?hl=en_US#]
-//! [https://braiins.com/stratum-v1/docs]
-//! [https://en.bitcoin.it/wiki/Stratum_mining_protocol]
-//! [https://en.bitcoin.it/wiki/BIP_0310]
-//! [https://docs.google.com/spreadsheets/d/1z8a3S9gFkS8NGhBCxOMUDqs7h9SQltz8-VX3KPHk7Jw/edit#gid=0]
+//! * <https://docs.google.com/document/d/17zHy1SUlhgtCMbypO8cHgpWH73V5iUQKk_0rWvMqSNs/edit?hl=en_US#>
+//! * <https://braiins.com/stratum-v1/docs>
+//! * <https://en.bitcoin.it/wiki/Stratum_mining_protocol>
+//! * <https://en.bitcoin.it/wiki/BIP_0310>
+//! * <https://docs.google.com/spreadsheets/d/1z8a3S9gFkS8NGhBCxOMUDqs7h9SQltz8-VX3KPHk7Jw/edit#gid=0>
 
 pub mod error;
 pub mod json_rpc;
