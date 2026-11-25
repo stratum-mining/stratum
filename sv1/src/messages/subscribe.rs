@@ -54,6 +54,8 @@ pub struct SubscribeResult {
     /// Pairs of notification method and subscription ID.
     pub subscriptions: Vec<(String, String)>,
     pub extranonce1: Extranonce,
+    /// At most 32. A larger size is refused when decoding, and a `mining.submit` could not carry
+    /// an extranonce2 of that size.
     pub extranonce2_size: usize,
 }
 

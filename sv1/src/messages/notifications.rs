@@ -36,6 +36,8 @@ pub struct SetDifficulty {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SetExtranonce {
     pub extranonce1: Extranonce,
+    /// At most 32. A larger size is refused when decoding, and a `mining.submit` could not carry
+    /// an extranonce2 of that size.
     pub extranonce2_size: usize,
 }
 
