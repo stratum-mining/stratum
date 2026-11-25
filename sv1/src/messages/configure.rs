@@ -8,6 +8,13 @@ use serde::{de, Deserialize, Deserializer};
 use serde_json::{Map, Value};
 use std::{convert::TryFrom, fmt};
 
+const EXTENSION_CODES: [&str; 4] = [
+    "version-rolling",
+    "minimum-difficulty",
+    "subscribe-extranonce",
+    "info",
+];
+
 /// `mining.configure`, as defined by [BIP 310](https://github.com/bitcoin/bips/blob/master/bip-0310.mediawiki).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Configure {
@@ -21,6 +28,8 @@ pub enum ConfigureExtension {
     MinimumDifficulty(f64),
     SubscribeExtranonce,
     Info(InfoParams),
+    /// A code this crate does not define. Its parameters are not carried.
+    Unknown(String),
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -96,8 +105,20 @@ impl Configure {
             .any(|extension| matches!(extension, ConfigureExtension::SubscribeExtranonce))
     }
 
-    /// An extension is requested by its code, or by any of its parameters. Accepts a missing or
-    /// null parameter object, and ignores elements after it.
+    /// The listed codes this crate does not define. BIP 310 expects each to be answered `false`,
+    /// through [`ConfigureResult::unsupported`].
+    pub fn unknown_extensions(&self) -> impl Iterator<Item = &str> {
+        self.extensions
+            .iter()
+            .filter_map(|extension| match extension {
+                ConfigureExtension::Unknown(code) => Some(code.as_str()),
+                _ => None,
+            })
+    }
+
+    /// An extension is requested by its code, or by any of its parameters. A code this crate
+    /// does not define is kept without its parameters. Accepts a missing or null parameter
+    /// object, and ignores elements after it.
     pub(super) fn from_params(params: &Value) -> Result<Self, ParamError> {
         let params = params_array(params)?;
         let codes = params
@@ -158,6 +179,14 @@ impl Configure {
             extensions.push(ConfigureExtension::Info(info));
         }
 
+        extensions.extend(
+            codes
+                .iter()
+                .filter_map(Value::as_str)
+                .filter(|code| !code.is_empty() && !EXTENSION_CODES.contains(code))
+                .map(|code| ConfigureExtension::Unknown(code.to_string())),
+        );
+
         Ok(Configure { extensions })
     }
 
@@ -199,6 +228,7 @@ impl Configure {
                         }
                     }
                 }
+                ConfigureExtension::Unknown(code) => codes.push(code),
             }
         }
         Value::Array(vec![codes.into(), parameters.into()])
@@ -229,6 +259,8 @@ pub struct ConfigureResult {
     pub minimum_difficulty: Option<bool>,
     pub subscribe_extranonce: Option<bool>,
     pub info: Option<bool>,
+    /// Codes this crate does not define, answered `false`.
+    pub unsupported: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -253,6 +285,10 @@ impl VersionRollingResult {
 impl From<ConfigureResult> for Value {
     fn from(result: ConfigureResult) -> Self {
         let mut values = Map::new();
+        // First, so that none of them replaces a value written below.
+        for code in result.unsupported {
+            values.insert(code, false.into());
+        }
         if let Some(version_rolling) = result.version_rolling {
             values.insert("version-rolling".into(), version_rolling.enabled.into());
             if version_rolling.enabled {
@@ -292,7 +328,8 @@ impl ConfigureResult {
     /// Enabled version rolling needs a `version-rolling.mask`; a refusal reads as a zero mask
     /// whatever it carries, so it never yields bits to roll. The mask is clamped to
     /// [`VERSION_ROLLING_MASK`], so a client never rolls reserved bits. BIP 310 gives the result
-    /// no `version-rolling.min-bit-count`, so one is ignored.
+    /// no `version-rolling.min-bit-count`, so one is ignored. Any other code that is refused is
+    /// kept in [`ConfigureResult::unsupported`].
     fn from_value(result: &Value) -> Result<Self, ParamError> {
         let values = result
             .as_object()
@@ -318,11 +355,22 @@ impl ConfigureResult {
             (None, None) => None,
             _ => return Err(ParamError::new("version-rolling", "incomplete")),
         };
+        let unsupported = values
+            .iter()
+            .filter(|(code, value)| {
+                !code.is_empty()
+                    && !code.contains('.')
+                    && !EXTENSION_CODES.contains(&code.as_str())
+                    && matches!(value, Value::Bool(false) | Value::String(_))
+            })
+            .map(|(code, _)| code.clone())
+            .collect();
         Ok(ConfigureResult {
             version_rolling,
             minimum_difficulty: extension_result(values, "minimum-difficulty")?,
             subscribe_extranonce: extension_result(values, "subscribe-extranonce")?,
             info: extension_result(values, "info")?,
+            unsupported,
         })
     }
 }

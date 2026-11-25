@@ -376,6 +376,7 @@ fn configure_summary(configure: &Configure) -> Vec<String> {
             ConfigureExtension::MinimumDifficulty(value) => format!("minimum-difficulty {value}"),
             ConfigureExtension::SubscribeExtranonce => "subscribe-extranonce".to_string(),
             ConfigureExtension::Info(info) => format!("info {:?}", info.connection_url),
+            ConfigureExtension::Unknown(code) => format!("unknown {code}"),
             other => format!("{other:?}"),
         })
         .collect()
@@ -383,7 +384,7 @@ fn configure_summary(configure: &Configure) -> Vec<String> {
 
 #[test]
 fn configure_forms() {
-    let cases: [(&str, &[&str]); 23] = [
+    let cases: [(&str, &[&str]); 24] = [
         (
             r#"[["version-rolling"],{"version-rolling.mask":"1fffe000","version-rolling.min-bit-count":2}]"#,
             &["version-rolling mask=Some(536862720) min=Some(2)"],
@@ -456,7 +457,11 @@ fn configure_forms() {
         ),
         (r#"[["info"]]"#, &["info None"]),
         (r#"[["info"],{}]"#, &["info None"]),
-        (r#"[["unknown"],{"unknown.value":1}]"#, &[]),
+        (r#"[["unknown"],{"unknown.value":1}]"#, &["unknown unknown"]),
+        (
+            r#"[["info","unknown",7,"other"],{}]"#,
+            &["info None", "unknown unknown", "unknown other"],
+        ),
         (
             r#"[["version-rolling","minimum-difficulty","subscribe-extranonce"],{"version-rolling.mask":"ffffffff","version-rolling.min-bit-count":16,"minimum-difficulty.value":2048}]"#,
             &[
@@ -537,6 +542,10 @@ fn client_requests_encode_canonically() {
         (
             r#"{"id":7,"method":"mining.configure","params":[["version-rolling","minimum-difficulty"],{"version-rolling.mask":"1fffe000","version-rolling.min-bit-count":"00000002","minimum-difficulty.value":2048}]}"#,
             json!({"id": 7, "method": "mining.configure", "params": [["version-rolling", "minimum-difficulty"], {"version-rolling.mask": "1fffe000", "version-rolling.min-bit-count": 2, "minimum-difficulty.value": 2048}]}),
+        ),
+        (
+            r#"{"id":7,"method":"mining.configure","params":[["unknown","subscribe-extranonce"],{"unknown.value":1}]}"#,
+            json!({"id": 7, "method": "mining.configure", "params": [["subscribe-extranonce", "unknown"], {}]}),
         ),
     ] {
         let request = client_request(line);
@@ -765,6 +774,12 @@ fn configure_result_forms() {
     );
     assert_eq!(result.subscribe_extranonce, Some(true));
     assert_eq!(result.info, Some(false));
+    assert!(result.unsupported.is_empty());
+
+    let result = configure_result(
+        r#"{"id":7,"result":{"unknown":false,"other":"not supported","third":true,"unknown.value":"x"},"error":null}"#,
+    );
+    assert_eq!(result.unsupported, ["other", "unknown"]);
 
     for result in [
         r#"{"version-rolling":true}"#,
@@ -816,6 +831,7 @@ fn server_response_encoding() {
                 minimum_difficulty: Some(false),
                 subscribe_extranonce: Some(true),
                 info: Some(true),
+                unsupported: vec!["unknown".into(), "version-rolling.mask".into()],
             },
         )),
         json!({
@@ -827,6 +843,7 @@ fn server_response_encoding() {
                 "minimum-difficulty": false,
                 "subscribe-extranonce": true,
                 "info": true,
+                "unknown": false,
             },
         })
     );
