@@ -940,4 +940,8 @@ impl<T: Buffer> BufferPool<T> {
     pub(crate) fn live_slots(&self) -> u8 {
         self.inner_memory.memory.load()
     }
+
+    pub(crate) fn system_memory(&self) -> &T {
+        &self.system_memory
+    }
 }
