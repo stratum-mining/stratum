@@ -225,7 +225,7 @@ impl<T: GetSize> GetSize for Seq0255<'_, T> {
     fn get_size(&self) -> usize {
         let mut size = Self::HEADERSIZE;
         for with_size in &self.0 {
-            size += with_size.get_size()
+            size = size.saturating_add(with_size.get_size());
         }
         size
     }
@@ -235,7 +235,7 @@ impl<T: GetSize> GetSize for Seq0255Owned<T> {
     fn get_size(&self) -> usize {
         let mut size = Self::HEADERSIZE;
         for with_size in &self.0 {
-            size += with_size.get_size()
+            size = size.saturating_add(with_size.get_size());
         }
         size
     }
@@ -366,7 +366,7 @@ impl<T: GetSize> GetSize for Seq064K<'_, T> {
     fn get_size(&self) -> usize {
         let mut size = Self::HEADERSIZE;
         for with_size in &self.0 {
-            size += with_size.get_size()
+            size = size.saturating_add(with_size.get_size());
         }
         size
     }
@@ -376,7 +376,7 @@ impl<T: GetSize> GetSize for Seq064KOwned<T> {
     fn get_size(&self) -> usize {
         let mut size = Self::HEADERSIZE;
         for with_size in &self.0 {
-            size += with_size.get_size()
+            size = size.saturating_add(with_size.get_size());
         }
         size
     }
@@ -828,7 +828,7 @@ impl<T: GetSize> GetSize for Sv2Option<'_, T> {
     fn get_size(&self) -> usize {
         let mut size = Self::HEADERSIZE;
         for with_size in &self.0 {
-            size += with_size.get_size()
+            size = size.saturating_add(with_size.get_size());
         }
         size
     }
@@ -838,7 +838,7 @@ impl<T: GetSize> GetSize for Sv2OptionOwned<T> {
     fn get_size(&self) -> usize {
         let mut size = Self::HEADERSIZE;
         for with_size in &self.0 {
-            size += with_size.get_size()
+            size = size.saturating_add(with_size.get_size());
         }
         size
     }
@@ -859,6 +859,40 @@ mod test {
         assert_eq!(Sv2OptionOwned::<u32>::new(None).as_ref(), None);
         assert_eq!(Sv2Option::new(Some(7u32)).as_ref(), Some(&7));
         assert_eq!(Sv2Option::<u32>::new(None).as_ref(), None);
+    }
+
+    #[test]
+    fn get_size_saturates_instead_of_wrapping() {
+        use super::{Sv2Option, Sv2OptionOwned};
+        use crate::GetSize;
+
+        // Two of these overflow `usize` when added, the way large elements can on 32-bit targets.
+        #[derive(Clone, Copy)]
+        struct Huge;
+        impl GetSize for Huge {
+            fn get_size(&self) -> usize {
+                usize::MAX / 2 + 1
+            }
+        }
+
+        let pair = alloc::vec![Huge, Huge];
+        assert_eq!(Seq0255::new(pair.clone()).unwrap().get_size(), usize::MAX);
+        assert_eq!(
+            Seq0255Owned::new(pair.clone()).unwrap().get_size(),
+            usize::MAX
+        );
+        assert_eq!(Seq064K::new(pair.clone()).unwrap().get_size(), usize::MAX);
+        assert_eq!(Seq064KOwned::new(pair).unwrap().get_size(), usize::MAX);
+
+        // The option header plus one element is enough to overflow.
+        struct Max;
+        impl GetSize for Max {
+            fn get_size(&self) -> usize {
+                usize::MAX
+            }
+        }
+        assert_eq!(Sv2Option::new(Some(Max)).get_size(), usize::MAX);
+        assert_eq!(Sv2OptionOwned::new(Some(Max)).get_size(), usize::MAX);
     }
 
     #[test]
