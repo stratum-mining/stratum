@@ -46,9 +46,9 @@
 //! instead signs a certificate for every [`Responder`] it builds and needs the authority private
 //! key on the server; it is meant for development and testing.
 //!
-//! [`SignatureNoiseMessage`] is the certificate itself: the issuer signs a validity window over the
-//! server's static key with [`SignatureNoiseMessage::sign_with_rng`] and hands the result to the
-//! server; its `From` conversions give the 74 bytes the handshake carries and back.
+//! The certificate travels as a [`SignatureNoiseMessage`]: the issuer signs a validity window over
+//! the server's static key with [`SignatureNoiseMessage::sign_with_rng`] and hands the result to
+//! the server; its `From` conversions give the 74 bytes the handshake carries and back.
 
 #![cfg_attr(all(not(feature = "std"), not(test)), no_std)]
 
@@ -212,4 +212,4 @@ impl NoiseDecryptor {
 pub use error::Error;
 pub use initiator::Initiator;
 pub use responder::Responder;
-pub use signature_message::SignatureNoiseMessage;
+pub use signature_message::{CertificateError, SignatureNoiseMessage};

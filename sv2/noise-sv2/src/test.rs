@@ -60,7 +60,10 @@ fn initiator_rejects_a_certificate_from_another_authority() {
     let (second_message, _) = responder.step_1(first_message).unwrap();
     assert!(matches!(
         initiator.step_2(second_message),
-        Err(Error::InvalidCertificate(_))
+        Err(Error::InvalidCertificate {
+            reason: crate::CertificateError::InvalidSignature,
+            ..
+        })
     ));
 }
 
@@ -107,7 +110,10 @@ fn pre_issued_certificate_is_sent_verbatim() {
     // initiator rejects it.
     assert!(matches!(
         handshake(issue(now - 120, now - 60)),
-        Err(Error::InvalidCertificate(_))
+        Err(Error::InvalidCertificate {
+            reason: crate::CertificateError::Expired { .. },
+            ..
+        })
     ));
 
     // So is one that the authority issued for another static key, which is what pairing the
@@ -121,6 +127,9 @@ fn pre_issued_certificate_is_sent_verbatim() {
     );
     assert!(matches!(
         handshake(for_another_key),
-        Err(Error::InvalidCertificate(_))
+        Err(Error::InvalidCertificate {
+            reason: crate::CertificateError::InvalidSignature,
+            ..
+        })
     ));
 }
