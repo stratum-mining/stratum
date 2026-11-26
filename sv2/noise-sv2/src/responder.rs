@@ -363,6 +363,7 @@ impl Responder {
         let engine = crate::NoiseEngine {
             encryptor,
             decryptor,
+            certificate: None,
         };
         Ok((to_send, engine))
     }
@@ -423,11 +424,14 @@ mod test {
 
         assert_eq!(responder.certificate.valid_from, 100);
         assert_eq!(responder.certificate.not_valid_after, 160);
-        assert!(responder.certificate.verify_with_now(
-            &responder.s.x_only_public_key().0,
-            &authority.x_only_public_key().0,
-            100,
-        ));
+        assert_eq!(
+            responder.certificate.verify_with_now(
+                &responder.s.x_only_public_key().0,
+                &authority.x_only_public_key().0,
+                100,
+            ),
+            Ok(())
+        );
     }
 
     #[test]

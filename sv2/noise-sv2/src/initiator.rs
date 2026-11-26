@@ -45,7 +45,7 @@ use crate::{
     cipher_state::{Cipher, CipherState},
     error::Error,
     handshake::HandshakeOp,
-    signature_message::SignatureNoiseMessage,
+    signature_message::{Certificate, SignatureNoiseMessage},
     AeadError, NoiseEngine, ELLSWIFT_ENCODING_SIZE, ENCRYPTED_ELLSWIFT_ENCODING_SIZE,
     ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
     SIGNATURE_NOISE_MESSAGE_SIZE,
@@ -249,8 +249,9 @@ impl Initiator {
     ///
     /// On success, this method returns a [`NoiseEngine`] instance initialized with session ciphers
     /// for secure communication. If the provided `message` has an incorrect length, it returns an
-    /// [`Error::InvalidMessageLength`]. If decryption or signature verification fails, it returns
-    /// an [`Error::InvalidCertificate`].
+    /// [`Error::InvalidMessageLength`]. If the certificate fails verification, it returns an
+    /// [`Error::InvalidCertificate`] carrying the [`SignatureNoiseMessage`] and the check it
+    /// failed. The verified certificate is available from [`NoiseEngine::certificate`].
     ///
     /// # Security
     ///
@@ -330,7 +331,8 @@ impl Initiator {
         self.mix_key(&ecdh_static);
         ecdh_static.zeroize();
 
-        // Decrypt and verify the SignatureNoiseMessage
+        // Decrypt the SignatureNoiseMessage and verify the certificate it forms with the
+        // responder's static key
         let mut to_decrypt = message[ELLSWIFT_ENCODING_SIZE + ENCRYPTED_ELLSWIFT_ENCODING_SIZE
             ..INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE]
             .to_vec();
@@ -346,28 +348,37 @@ impl Initiator {
             .0
             .serialize();
         let rs_pk_xonly = XOnlyPublicKey::from_slice(&rs_pub_key).unwrap();
-        if signature_message.verify_with_now(&rs_pk_xonly, &self.responder_authority_pk, now) {
-            let (mut temp_k1, mut temp_k2) = Self::hkdf_2(self.get_ck(), &[]);
-            let c1 = ChaCha20Poly1305::new(Key::from_slice(&temp_k1[..]));
-            let c2 = ChaCha20Poly1305::new(Key::from_slice(&temp_k2[..]));
-            let c1: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k1, c1);
-            let c2: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k2, c2);
-            let mut encryptor = c1;
-            let mut decryptor = c2;
-            encryptor.erase_k();
-            decryptor.erase_k();
-            // The ciphers keep the only copies of the session keys from here on; `erase_k` above
-            // wiped the copies the `Cipher`s carried, and these are the ones the handshake used.
-            temp_k1.zeroize();
-            temp_k2.zeroize();
-            let engine = crate::NoiseEngine {
-                encryptor,
-                decryptor,
-            };
-            Ok(engine)
-        } else {
-            Err(Error::InvalidCertificate(plaintext.into()))
+        if let Err(reason) =
+            signature_message.verify_with_now(&rs_pk_xonly, &self.responder_authority_pk, now)
+        {
+            return Err(Error::InvalidCertificate {
+                signature_noise_message: signature_message,
+                reason,
+            });
         }
+        let (mut temp_k1, mut temp_k2) = Self::hkdf_2(self.get_ck(), &[]);
+        let c1 = ChaCha20Poly1305::new(Key::from_slice(&temp_k1[..]));
+        let c2 = ChaCha20Poly1305::new(Key::from_slice(&temp_k2[..]));
+        let c1: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k1, c1);
+        let c2: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k2, c2);
+        let mut encryptor = c1;
+        let mut decryptor = c2;
+        encryptor.erase_k();
+        decryptor.erase_k();
+        // The ciphers keep the only copies of the session keys from here on; `erase_k` above
+        // wiped the copies the `Cipher`s carried, and these are the ones the handshake used.
+        temp_k1.zeroize();
+        temp_k2.zeroize();
+        let engine = crate::NoiseEngine {
+            encryptor,
+            decryptor,
+            certificate: Some(Certificate {
+                signature_noise_message: signature_message,
+                server_static_pubkey: rs_pk_xonly,
+                authority_pubkey: self.responder_authority_pk,
+            }),
+        };
+        Ok(engine)
     }
 
     // Securely erases sensitive data from the [`Initiator`] memory.

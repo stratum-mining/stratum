@@ -35,7 +35,8 @@
 //!
 //! Every [`Initiator`] pins the responder's authority public key and verifies the certificate
 //! received during the handshake against it, as the Sv2 spec requires (section 4.5.3). The crate
-//! offers no handshake that skips that step: a session is authenticated or not established.
+//! offers no handshake that skips that step: a session is authenticated or not established. The
+//! certificate it verified is available from [`NoiseEngine::certificate`].
 //!
 //! ## Authority key custody
 //!
@@ -46,9 +47,9 @@
 //! instead signs a certificate for every [`Responder`] it builds and needs the authority private
 //! key on the server; it is meant for development and testing.
 //!
-//! [`SignatureNoiseMessage`] is the certificate itself: the issuer signs a validity window over the
-//! server's static key with [`SignatureNoiseMessage::sign_with_rng`] and hands the result to the
-//! server; its `From` conversions give the 74 bytes the handshake carries and back.
+//! The certificate travels as a [`SignatureNoiseMessage`]: the issuer signs a validity window over
+//! the server's static key with [`SignatureNoiseMessage::sign_with_rng`] and hands the result to
+//! the server; its `From` conversions give the 74 bytes the handshake carries and back.
 
 #![cfg_attr(all(not(feature = "std"), not(test)), no_std)]
 
@@ -141,6 +142,9 @@ pub struct NoiseEngine {
 
     // Cipher to decrypt incoming messages.
     decryptor: Cipher<ChaCha20Poly1305>,
+
+    // The responder's certificate, verified by the initiator; the responder keeps none.
+    certificate: Option<Certificate>,
 }
 
 impl core::fmt::Debug for NoiseEngine {
@@ -150,6 +154,15 @@ impl core::fmt::Debug for NoiseEngine {
 }
 
 impl NoiseEngine {
+    /// The responder's certificate, verified against the authority public key the [`Initiator`]
+    /// was built with.
+    ///
+    /// `None` on the [`Responder`] side, which has no authority key to verify against. Read it
+    /// before [`Self::into_split`], which drops it.
+    pub fn certificate(&self) -> Option<&Certificate> {
+        self.certificate.as_ref()
+    }
+
     /// Encrypts a message (`msg`) in place using the stored cipher.
     pub fn encrypt<T: Buffer>(&mut self, msg: &mut T) -> Result<(), AeadError> {
         self.encryptor.encrypt(msg)
@@ -212,4 +225,4 @@ impl NoiseDecryptor {
 pub use error::Error;
 pub use initiator::Initiator;
 pub use responder::Responder;
-pub use signature_message::SignatureNoiseMessage;
+pub use signature_message::{Certificate, CertificateError, SignatureNoiseMessage};

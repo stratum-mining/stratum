@@ -1,25 +1,18 @@
-// # Signature-Based Message Handling
+// # Signature Noise Message and Certificate
 //
-// Defines the [`SignatureNoiseMessage`] struct, which represents a signed message used in the
-// Noise protocol to authenticate and verify the identity of a party during the handshake.
-//
-// This module provides utilities for creating, signing, and verifying Noise protocol messages
-// using Schnorr signatures over the [`secp256k1`] elliptic curve. It encapsulates signed messages
-// along with versioning and validity timestamps. The following capabilities are supported:
-//
-// - Conversion between the 74-byte wire layout and structured [`SignatureNoiseMessage`] instances.
-// - Message signing using Schnorr signatures and the [`secp256k1`] curve.
-// - Verification of signed messages, ensuring they fall within valid time periods and are signed by
-//   an authorized public key.
+// Defines the [`SignatureNoiseMessage`] (spec 4.5.2 `SIGNATURE_NOISE_MESSAGE`), which the
+// responder sends as the payload of the second handshake message, and verification of the
+// certificate (spec 4.5.3 `CERTIFICATE`) it forms together with the responder's static public key,
+// kept as a [`Certificate`] once that verification succeeds.
 //
 // ## Usage
 //
-// The [`SignatureNoiseMessage`] is the certificate a [`crate::Responder`] presents. Whoever holds
-// the authority key, the responder itself or a separate issuer, uses the `sign` method to produce
-// the message: a Schnorr signature over the version, the validity period and the responder's
-// static public key. The [`crate::Initiator`] uses the `verify` method to check the signed
-// message from the responder, comparing it against the provided public key and authority key,
-// while ensuring the message falls within the specified validity period.
+// Whoever holds the authority key, a [`crate::Responder`] signing at construction or a separate
+// issuer, uses `sign` or `sign_with_rng` to produce the signature over the version, the validity
+// window and the responder's static public key. The [`crate::Initiator`] uses `verify_with_now`
+// to check that certificate against the authority public key it pins and the current time;
+// whoever loads a pre-issued certificate can run the same check ahead of any handshake and learn
+// which part of it failed.
 
 use core::convert::TryInto;
 use core::fmt;
@@ -31,13 +24,12 @@ use crate::{CERTIFICATE_TIME_LEEWAY, CERTIFICATE_VERSION, SIGNATURE_NOISE_MESSAG
 // Size in bytes of the signed header: `version`, `valid_from` and `not_valid_after`.
 const HEADER_SIZE: usize = 10;
 
-/// `SignatureNoiseMessage` represents a signed message used in the Noise NX protocol
-/// for authentication during the handshake process. It encapsulates the necessary
-/// details for signature verification, including protocol versioning, validity periods,
-/// and a Schnorr signature over the message.
+/// The 74-byte `SIGNATURE_NOISE_MESSAGE` (spec 4.5.2) the responder sends during the handshake.
 ///
-/// This structure ensures that messages are authenticated and valid only within
-/// a specified time window, using Schnorr signatures over the `secp256k1` elliptic curve.
+/// It carries the certificate's version and validity window and the authority's Schnorr
+/// signature over the certificate (spec 4.5.3), which also covers the responder's static public
+/// key. The message alone authenticates nothing: only the certificate it forms with that key can
+/// be verified against the authority key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SignatureNoiseMessage {
     /// Certificate format version; only [`crate::CERTIFICATE_VERSION`] verifies.
@@ -50,21 +42,72 @@ pub struct SignatureNoiseMessage {
     pub signature: [u8; 64],
 }
 
+// The signature is left out: it means nothing to a human reading logs, and `Debug` still has it.
 impl fmt::Display for SignatureNoiseMessage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // write header
         write!(
             f,
-            "SignatureNoiseMessage {{ version: {}, valid_from: {}, not_valid_after: {}, signature: ",
+            "signature noise message version {}, valid from {} until {} (unix time)",
             self.version, self.valid_from, self.not_valid_after
-        )?;
+        )
+    }
+}
 
-        // write signature as hex manually
-        for byte in &self.signature {
-            write!(f, "{:02x}", byte)?;
+/// The responder's certificate (spec 4.5.3 `CERTIFICATE`), which the handshake never sends as
+/// such: it is formed by the [`SignatureNoiseMessage`] received during the handshake and the
+/// server's static public key its signature covers, together with the authority public key that
+/// signature was verified against.
+///
+/// Only a `Certificate` returned by [`crate::NoiseEngine::certificate`] is known to have been
+/// verified; one built from its public fields carries no such guarantee.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Certificate {
+    /// The `SIGNATURE_NOISE_MESSAGE` the responder sent.
+    pub signature_noise_message: SignatureNoiseMessage,
+    /// The responder's static public key used in the NX handshake, which the signature covers.
+    pub server_static_pubkey: XOnlyPublicKey,
+    /// The authority public key the signature was verified against; not covered by the signature.
+    pub authority_pubkey: XOnlyPublicKey,
+}
+
+/// The check the responder's certificate failed during verification, in the order
+/// [`SignatureNoiseMessage::verify_with_now`] runs them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CertificateError {
+    /// The certificate version is not [`CERTIFICATE_VERSION`].
+    UnsupportedVersion,
+    /// The certificate signature, over the version, the validity window and the responder's static
+    /// public key, does not verify against the authority public key. Either key can be the cause,
+    /// as can malformed signature bytes; the signature cannot tell them apart.
+    InvalidSignature,
+    /// The validity window ends before it starts, so it contains no time at all.
+    EmptyValidityWindow,
+    /// `now` (unix time) falls before the certificate's `valid_from`, beyond the clock leeway.
+    NotYetValid {
+        /// The clock reading the window was checked against (unix time).
+        now: u32,
+    },
+    /// `now` (unix time) falls after the certificate's `not_valid_after`, beyond the clock leeway.
+    Expired {
+        /// The clock reading the window was checked against (unix time).
+        now: u32,
+    },
+}
+
+impl fmt::Display for CertificateError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnsupportedVersion => {
+                write!(f, "unsupported version, expected {CERTIFICATE_VERSION}")
+            }
+            Self::InvalidSignature => write!(
+                f,
+                "signature does not verify for this server static pubkey and authority pubkey"
+            ),
+            Self::EmptyValidityWindow => write!(f, "validity window ends before it starts"),
+            Self::NotYetValid { now } => write!(f, "not yet valid, local clock reads {now}"),
+            Self::Expired { now } => write!(f, "expired, local clock reads {now}"),
         }
-
-        write!(f, " }}")
     }
 }
 impl From<SignatureNoiseMessage> for [u8; SIGNATURE_NOISE_MESSAGE_SIZE] {
@@ -97,10 +140,15 @@ impl From<[u8; SIGNATURE_NOISE_MESSAGE_SIZE]> for SignatureNoiseMessage {
 }
 
 impl SignatureNoiseMessage {
-    /// Verifies the [`SignatureNoiseMessage`] against the responder's static public key and the
-    /// authority public key at the current system time. See [`Self::verify_with_now`].
+    /// Verifies the certificate this message forms with the responder's static public key
+    /// `static_pk` against the authority public key `authority_pk` at the current system time.
+    /// See [`Self::verify_with_now`].
     #[cfg(feature = "std")]
-    pub fn verify(&self, static_pk: &XOnlyPublicKey, authority_pk: &XOnlyPublicKey) -> bool {
+    pub fn verify(
+        &self,
+        static_pk: &XOnlyPublicKey,
+        authority_pk: &XOnlyPublicKey,
+    ) -> Result<(), CertificateError> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -108,12 +156,16 @@ impl SignatureNoiseMessage {
         self.verify_with_now(static_pk, authority_pk, now)
     }
 
-    /// Verifies the validity and authenticity of the `SignatureNoiseMessage` at a given timestamp
-    /// with [`CERTIFICATE_TIME_LEEWAY`] seconds of tolerance.
+    /// Verifies the certificate this message forms with the responder's static public key
+    /// `static_pk` against the authority public key `authority_pk`, at a given timestamp with
+    /// [`CERTIFICATE_TIME_LEEWAY`] seconds of tolerance.
     ///
-    /// The message must carry the supported certificate version, `now` must fall inside its
-    /// validity window, and its signature over the responder's static key `static_pk` must verify
-    /// against `authority_pk`.
+    /// The message must carry the supported certificate version, its signature over `static_pk`
+    /// must verify against `authority_pk`, and `now` must fall inside its validity window. The
+    /// checks run in that order and the first failure is returned, so a window problem is only
+    /// ever reported for timestamps the authority signed: a forged certificate, or one issued for
+    /// another static key or by another authority, is [`CertificateError::InvalidSignature`]
+    /// whatever its timestamps.
     ///
     /// The current system time should be provided to avoid relying on `std` and allow `no_std`
     /// environments to use another source of time.
@@ -123,24 +175,20 @@ impl SignatureNoiseMessage {
         static_pk: &XOnlyPublicKey,
         authority_pk: &XOnlyPublicKey,
         now: u32,
-    ) -> bool {
+    ) -> Result<(), CertificateError> {
         if self.version != CERTIFICATE_VERSION {
-            return false;
-        }
-
-        if !self.is_within_validity_window(now) {
-            return false;
+            return Err(CertificateError::UnsupportedVersion);
         }
 
         let secp = Secp256k1::verification_only();
         // m = SHA-256(version || valid_from || not_valid_after || server_static_key)
         let m = [&self.header()[..], &static_pk.serialize()].concat();
         let m = Message::from_hashed_data::<sha256::Hash>(&m);
-        let s = match Signature::from_slice(&self.signature) {
-            Ok(s) => s,
-            _ => return false,
-        };
-        secp.verify_schnorr(&s, &m, authority_pk).is_ok()
+        Signature::from_slice(&self.signature)
+            .and_then(|s| secp.verify_schnorr(&s, &m, authority_pk))
+            .map_err(|_| CertificateError::InvalidSignature)?;
+
+        self.check_validity_window(now)
     }
 
     /// Whether `now` (Unix time) falls inside the validity window, with
@@ -151,11 +199,23 @@ impl SignatureNoiseMessage {
     /// who signed the message.
     #[inline]
     pub fn is_within_validity_window(&self, now: u32) -> bool {
+        self.check_validity_window(now).is_ok()
+    }
+
+    // The time check of `verify_with_now`, which runs it only once the signature has verified.
+    fn check_validity_window(&self, now: u32) -> Result<(), CertificateError> {
+        if self.valid_from > self.not_valid_after {
+            return Err(CertificateError::EmptyValidityWindow);
+        }
         // Use saturating ops to cap edges (valid_from ≥ 0, not_valid_after ≤ u32::MAX),
         // preventing wrap-around and subtle validation bugs with untrusted timestamps.
-        self.valid_from <= self.not_valid_after
-            && self.valid_from.saturating_sub(CERTIFICATE_TIME_LEEWAY) <= now
-            && now <= self.not_valid_after.saturating_add(CERTIFICATE_TIME_LEEWAY)
+        if self.valid_from.saturating_sub(CERTIFICATE_TIME_LEEWAY) > now {
+            return Err(CertificateError::NotYetValid { now });
+        }
+        if now > self.not_valid_after.saturating_add(CERTIFICATE_TIME_LEEWAY) {
+            return Err(CertificateError::Expired { now });
+        }
+        Ok(())
     }
 
     /// Issues a [`SignatureNoiseMessage`] of the supported certificate version for the server's
@@ -238,26 +298,78 @@ mod test {
     #[test]
     #[cfg(feature = "std")]
     #[cfg_attr(miri, ignore)]
-    fn verify_rejects_unsupported_certificate_version() {
+    fn verify_reports_why_a_certificate_is_rejected() {
         use rand::{rngs::StdRng, SeedableRng};
 
         let secp = Secp256k1::new();
         let mut rng = StdRng::seed_from_u64(42);
         let authority = Keypair::new(&secp, &mut rng);
+        let authority_pk = authority.x_only_public_key().0;
         let static_pk = Keypair::new(&secp, &mut rng).x_only_public_key().0;
-
-        let mut certificate =
+        let valid =
             SignatureNoiseMessage::sign_with_rng(100, 200, &static_pk, &authority, &mut rng);
-        assert!(certificate.verify_with_now(&static_pk, &authority.x_only_public_key().0, 150));
+        // Signs `message` as the authority would, whatever its header says.
+        let mut resign = |message: &mut SignatureNoiseMessage| {
+            let m = [&message.header()[..], &static_pk.serialize()].concat();
+            let m = Message::from_hashed_data::<sha256::Hash>(&m);
+            message.signature = *secp
+                .sign_schnorr_with_rng(&m, &authority, &mut rng)
+                .as_ref();
+        };
 
-        // The same certificate, validly signed for a version this crate does not support.
-        certificate.version = CERTIFICATE_VERSION + 1;
-        let m = [&certificate.header()[..], &static_pk.serialize()].concat();
-        let m = Message::from_hashed_data::<sha256::Hash>(&m);
-        certificate.signature = *secp
-            .sign_schnorr_with_rng(&m, &authority, &mut rng)
-            .as_ref();
-        assert!(!certificate.verify_with_now(&static_pk, &authority.x_only_public_key().0, 150));
+        assert_eq!(
+            valid.verify_with_now(&static_pk, &authority_pk, 150),
+            Ok(())
+        );
+
+        let mut unsupported = valid;
+        unsupported.version = CERTIFICATE_VERSION + 1;
+        resign(&mut unsupported);
+        assert_eq!(
+            unsupported.verify_with_now(&static_pk, &authority_pk, 150),
+            Err(CertificateError::UnsupportedVersion)
+        );
+
+        let mut empty = valid;
+        empty.valid_from = 201;
+        resign(&mut empty);
+        assert_eq!(
+            empty.verify_with_now(&static_pk, &authority_pk, 200),
+            Err(CertificateError::EmptyValidityWindow)
+        );
+
+        let too_early = 100 - CERTIFICATE_TIME_LEEWAY - 1;
+        let too_late = 200 + CERTIFICATE_TIME_LEEWAY + 1;
+        assert_eq!(
+            valid.verify_with_now(&static_pk, &authority_pk, too_early),
+            Err(CertificateError::NotYetValid { now: too_early })
+        );
+        assert_eq!(
+            valid.verify_with_now(&static_pk, &authority_pk, too_late),
+            Err(CertificateError::Expired { now: too_late })
+        );
+
+        let mut forged = valid;
+        forged.signature[0] ^= 1;
+        assert_eq!(
+            forged.verify_with_now(&static_pk, &authority_pk, 150),
+            Err(CertificateError::InvalidSignature)
+        );
+        // Issued for another static key, or checked against another authority.
+        let other_pk = Keypair::new(&secp, &mut rng).x_only_public_key().0;
+        assert_eq!(
+            valid.verify_with_now(&other_pk, &authority_pk, 150),
+            Err(CertificateError::InvalidSignature)
+        );
+        assert_eq!(
+            valid.verify_with_now(&static_pk, &other_pk, 150),
+            Err(CertificateError::InvalidSignature)
+        );
+        // Outside its window, a forged certificate is still reported as forged, not as expired.
+        assert_eq!(
+            forged.verify_with_now(&static_pk, &authority_pk, too_late),
+            Err(CertificateError::InvalidSignature)
+        );
     }
 
     #[test]
