@@ -363,6 +363,7 @@ impl Responder {
         let engine = crate::NoiseEngine {
             encryptor,
             decryptor,
+            certificate: None,
         };
         Ok((to_send, engine))
     }

@@ -45,7 +45,7 @@ use crate::{
     cipher_state::{Cipher, CipherState},
     error::Error,
     handshake::HandshakeOp,
-    signature_message::SignatureNoiseMessage,
+    signature_message::{Certificate, SignatureNoiseMessage},
     AeadError, NoiseEngine, ELLSWIFT_ENCODING_SIZE, ENCRYPTED_ELLSWIFT_ENCODING_SIZE,
     ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
     SIGNATURE_NOISE_MESSAGE_SIZE,
@@ -251,7 +251,7 @@ impl Initiator {
     /// for secure communication. If the provided `message` has an incorrect length, it returns an
     /// [`Error::InvalidMessageLength`]. If the certificate fails verification, it returns an
     /// [`Error::InvalidCertificate`] carrying the [`SignatureNoiseMessage`] and the check it
-    /// failed.
+    /// failed. The verified certificate is available from [`NoiseEngine::certificate`].
     ///
     /// # Security
     ///
@@ -372,6 +372,11 @@ impl Initiator {
         let engine = crate::NoiseEngine {
             encryptor,
             decryptor,
+            certificate: Some(Certificate {
+                signature_noise_message: signature_message,
+                server_static_pubkey: rs_pk_xonly,
+                authority_pubkey: self.responder_authority_pk,
+            }),
         };
         Ok(engine)
     }
