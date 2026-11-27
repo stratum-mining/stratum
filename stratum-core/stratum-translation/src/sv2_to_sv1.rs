@@ -146,6 +146,13 @@ enum AdvertisedSv1Difficulty {
 /// so a miner told a higher difficulty than upstream silently discards every share between the
 /// upstream target and the next power of two - up to half its hashrate. Rounding down merely
 /// makes the miner submit some shares below the upstream target, which the proxy filters.
+///
+/// # Errors
+/// * `InvalidSv1Difficulty` - If the target gives a difficulty that is not finite and positive,
+///   such as an all-zero target.
+/// * `InvalidSv1IntegerPowerOfTwoRoundingThreshold` - If the threshold is not finite or is below
+///   one.
+/// * `Sv1DifficultyOverflow` - If the difficulty to round does not fit in a `u64`.
 pub fn build_sv1_set_difficulty_from_sv2_target_with_integer_power_of_two_rounding(
     target: Target,
     minimum_difficulty_for_integer_power_of_two_rounding: f64,
@@ -200,6 +207,11 @@ fn advertised_sv1_difficulty_from_difficulty(
 /// Callers validating SV1 shares should use this target for downstream validation, then use the
 /// original upstream target to decide whether an accepted downstream share is strong enough to
 /// forward upstream.
+///
+/// # Errors
+/// Fails for the same inputs as
+/// [`build_sv1_set_difficulty_from_sv2_target_with_integer_power_of_two_rounding`], with the same
+/// errors.
 pub fn sv1_advertised_target_from_sv2_target(
     target: Target,
     minimum_difficulty_for_integer_power_of_two_rounding: f64,
