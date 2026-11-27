@@ -25,7 +25,8 @@ pub struct Configure {
 #[non_exhaustive]
 pub enum ConfigureExtension {
     VersionRolling(VersionRolling),
-    /// `None` when the code was listed without its value.
+    /// `None` when the code was listed without its value. A value that is not finite and
+    /// non-negative is not sent.
     MinimumDifficulty(Option<f64>),
     SubscribeExtranonce,
     Info(InfoParams),
@@ -215,14 +216,13 @@ impl Configure {
                 }
                 ConfigureExtension::MinimumDifficulty(value) => {
                     codes.push("minimum-difficulty");
-                    if let Some(value) = value {
+                    if let Some(value) = value.filter(|value| value.is_finite() && *value >= 0.0) {
                         // A whole value goes out as an integer, the form BIP 310 shows.
-                        let value =
-                            if value.fract() == 0.0 && (0.0..u64::MAX as f64).contains(value) {
-                                Value::from(*value as u64)
-                            } else {
-                                Value::from(*value)
-                            };
+                        let value = if value.fract() == 0.0 && value < u64::MAX as f64 {
+                            Value::from(value as u64)
+                        } else {
+                            Value::from(value)
+                        };
                         parameters.insert("minimum-difficulty.value".into(), value);
                     }
                 }

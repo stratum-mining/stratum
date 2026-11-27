@@ -9,7 +9,8 @@ use sv1_api::{
     utils::{Extranonce, HexU32Be},
     Authorize, ClientToServer, Configure, ConfigureExtension, ConfigureResult, Id, Message, Method,
     Notify, Request, Response, RpcError, ServerToClient, SetDifficulty, SetExtranonce,
-    SetVersionMask, SubmitError, SubmitOutcome, SubscribeResult, VersionRollingResult,
+    SetVersionMask, SubmitError, SubmitOutcome, SubscribeResult, SuggestDifficulty,
+    VersionRollingResult,
 };
 
 fn decode(line: &str) -> Message {
@@ -962,6 +963,29 @@ fn set_version_mask_is_clamped() {
         mask: HexU32Be(0xffffffff),
     });
     assert_eq!(encoded["params"], json!(["1fffffe0"]));
+}
+
+#[test]
+fn unusable_difficulties_are_not_sent() {
+    for value in [f64::NAN, f64::INFINITY, -1.0] {
+        let configure = ClientToServer::Configure(Request {
+            id: Id::from(7u64),
+            params: Configure {
+                extensions: vec![ConfigureExtension::MinimumDifficulty(Some(value))],
+            },
+        });
+        let encoded = to_json(configure);
+        assert_eq!(encoded["params"], json!([["minimum-difficulty"], {}]));
+        client_request(&encoded.to_string());
+
+        let suggest = ClientToServer::SuggestDifficulty(Request {
+            id: Id::from(6u64),
+            params: SuggestDifficulty {
+                difficulty: Some(value),
+            },
+        });
+        assert_eq!(to_json(suggest)["params"], json!([]));
+    }
 }
 
 #[test]
