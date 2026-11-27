@@ -696,17 +696,30 @@ impl AnyMessage<'_> {
 /// Single entry point for parsing any SV2 protocol message frame with TLV support.
 ///
 /// The bytes following the message are read as TLV fields. Fields of extensions listed in
-/// `negotiated_extensions` are returned, fields of other extensions are skipped.
+/// `negotiated_extensions` are returned, fields of other extensions are skipped. The TLV suffix
+/// is only read when `negotiated_extensions` is not empty.
 ///
 /// # Errors
 ///
 /// Returns [`ParserError::TlvError`] if a TLV field declares more bytes than the payload has
-/// left, whether or not its extension is negotiated.
+/// left, whether or not its extension is negotiated. With an empty `negotiated_extensions` no
+/// TLV field is checked.
+///
+/// Returns [`ParserError::PayloadLengthMismatch`] if the payload is not exactly as long as the
+/// header declares, and [`ParserError::ChannelBitMismatch`] if the header's channel_msg bit
+/// differs from the one the decoded message type defines.
+///
+/// Returns [`ParserError::UnknownExtension`] if the header's `extension_type` is not one this
+/// crate implements. That frame is not malformed: Sv2 spec §3.4.1 requires it to be discarded
+/// and ignored when processed locally, or forwarded by a proxy when its channel_msg bit is set.
 pub fn parse_message_frame_with_tlvs<'a>(
     header: Header,
     payload: &'a mut [u8],
     negotiated_extensions: &[u16],
 ) -> Result<(AnyMessage<'a>, Option<Vec<Tlv>>), ParserError> {
+    if negotiated_extensions.is_empty() {
+        return Ok(((header, payload).try_into()?, None));
+    }
     let raw_payload = payload.to_vec();
     let message: AnyMessage<'a> = (header, payload).try_into()?;
     let message_size = message.get_size();
@@ -1943,6 +1956,9 @@ impl TryFrom<u8> for ExtensionsNegotiationTypes {
 /// Note: The channel_msg bit (bit 15) is automatically stripped from extension_type
 /// to ensure correct matching regardless of whether the caller passes the raw header
 /// value or a pre-processed one.
+///
+/// Returns [`ParserError::UnknownExtension`] for an `extension_type` this crate does not
+/// implement.
 impl<'a> TryFrom<(u16, u8, &'a mut [u8])> for Extensions<'a> {
     type Error = ParserError;
 
@@ -1977,7 +1993,11 @@ impl<'a> TryFrom<(u16, u8, &'a mut [u8])> for Extensions<'a> {
                     }
                 }
             }
-            _ => Err(ParserError::UnexpectedMessage(msg_type)),
+            // Known, but it only adds TLV fields and defines no message of its own.
+            EXTENSION_TYPE_WORKER_HASHRATE_TRACKING => {
+                Err(ParserError::UnexpectedMessage(msg_type))
+            }
+            _ => Err(ParserError::UnknownExtension(extension_type)),
         }
     }
 }
@@ -2283,17 +2303,36 @@ impl IsSv2Message for MiningDeviceMessagesOwned {
     }
 }
 
-/// TryFrom implementation for AnyMessage that includes extension_type from Header.
+/// Decodes a frame's payload according to its `Header`.
 ///
-/// This implementation handles all message types including Extensions messages which require
-/// both extension_type and message_type to be correctly parsed. Standard protocol messages
-/// (Common, Mining, etc.) have extension_type == 0 and only need the message_type.
+/// The header's extension_type selects between Extensions messages and the standard protocol
+/// messages (extension_type == 0). The payload must be exactly as long as the header declares,
+/// and the header's channel_msg bit must match the one the decoded message type defines.
 impl<'a> TryFrom<(Header, &'a mut [u8])> for AnyMessage<'a> {
     type Error = ParserError;
 
     fn try_from(v: (Header, &'a mut [u8])) -> Result<Self, Self::Error> {
-        let header = v.0;
-        let payload = v.1;
+        let (header, payload) = v;
+        if payload.len() != header.payload_length() {
+            return Err(ParserError::PayloadLengthMismatch {
+                declared: header.payload_length(),
+                actual: payload.len(),
+            });
+        }
+        let message = Self::decode_payload(header, payload)?;
+        if message.channel_bit() != header.channel_msg() {
+            return Err(ParserError::ChannelBitMismatch {
+                extension_type: header.ext_type_without_channel_msg(),
+                message_type: header.msg_type(),
+                channel_msg: header.channel_msg(),
+            });
+        }
+        Ok(message)
+    }
+}
+
+impl<'a> AnyMessage<'a> {
+    fn decode_payload(header: Header, payload: &'a mut [u8]) -> Result<Self, ParserError> {
         let extension_type = header.ext_type_without_channel_msg();
         let message_type = header.msg_type();
 
@@ -2673,13 +2712,16 @@ impl<'a> TryFrom<AnyMessage<'a>> for MiningDeviceMessages<'a> {
 #[cfg(test)]
 mod test {
     use crate::{
-        parse_message_frame_with_tlvs, AnyMessage, Extensions, ExtensionsNegotiation,
-        JobDeclaration, Mining, ParserError, Tlv, TlvError,
+        parse_message_frame_with_tlvs, AnyMessage, CommonMessages, Extensions,
+        ExtensionsNegotiation, JobDeclaration, Mining, ParserError, Tlv, TlvError,
     };
     use alloc::vec;
     use alloc::vec::Vec;
     use binary_sv2::{Seq0255, Seq064K, Str0255, Sv2Option, B0255, B032, B064K, U256};
     use codec_sv2::{EncodableFrame, MessageFrame};
+    use common_messages_sv2::{
+        MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+    };
     use core::convert::{TryFrom, TryInto};
     use extensions_sv2::{RequestExtensions, EXTENSION_TYPE_EXTENSIONS_NEGOTIATION};
     use framing_sv2::header::Header;
@@ -2868,6 +2910,18 @@ mod test {
     }
 
     #[test]
+    fn tlv_suffix_is_not_read_without_negotiated_extensions() {
+        let (header, mut payload) = frame_with_tlv_suffix(&TRUNCATED_TLV);
+
+        let (message, tlvs) = parse_message_frame_with_tlvs(header, &mut payload, &[]).unwrap();
+        assert!(matches!(
+            message,
+            AnyMessage::Mining(Mining::SetCustomMiningJobSuccess(_))
+        ));
+        assert_eq!(tlvs, None);
+    }
+
+    #[test]
     fn valid_tlvs_are_filtered_by_negotiated_extension() {
         let negotiated = Tlv::new(0x0002, 0x01, b"rig-7".to_vec()).unwrap();
         let unnegotiated = Tlv::new(0x0003, 0x01, b"ignored".to_vec()).unwrap();
@@ -2960,5 +3014,127 @@ mod test {
             message_length, payload_length,
             "Header declared length [{message_length} bytes] differs from the actual payload length [{payload_length} bytes]",
         );
+    }
+
+    fn header(extension_type: u16, message_type: u8, payload_length: usize) -> Header {
+        let ext = extension_type.to_le_bytes();
+        let len = (payload_length as u32).to_le_bytes();
+        Header::from_bytes(&[ext[0], ext[1], message_type, len[0], len[1], len[2]]).unwrap()
+    }
+
+    // SetupConnectionSuccess { used_version: 2, flags: 0 }
+    const SETUP_CONNECTION_SUCCESS: [u8; 6] = [2, 0, 0, 0, 0, 0];
+    // ChannelEndpointChanged { channel_id: 1 }
+    const CHANNEL_ENDPOINT_CHANGED: [u8; 4] = [1, 0, 0, 0];
+    const CHANNEL_MSG: u16 = 0x8000;
+
+    #[test]
+    fn header_decode_accepts_consistent_frames() {
+        let mut payload = SETUP_CONNECTION_SUCCESS;
+        let h = header(0, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS, payload.len());
+        assert!(matches!(
+            AnyMessage::try_from((h, &mut payload[..])),
+            Ok(AnyMessage::Common(CommonMessages::SetupConnectionSuccess(
+                _
+            )))
+        ));
+
+        let mut payload = CHANNEL_ENDPOINT_CHANGED;
+        let h = header(
+            CHANNEL_MSG,
+            MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
+            payload.len(),
+        );
+        assert!(matches!(
+            AnyMessage::try_from((h, &mut payload[..])),
+            Ok(AnyMessage::Common(CommonMessages::ChannelEndpointChanged(
+                _
+            )))
+        ));
+    }
+
+    #[test]
+    fn header_decode_rejects_payload_length_mismatch() {
+        for declared in [0, 5, 7] {
+            let mut payload = SETUP_CONNECTION_SUCCESS;
+            let h = header(0, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS, declared);
+            assert!(matches!(
+                AnyMessage::try_from((h, &mut payload[..])),
+                Err(ParserError::PayloadLengthMismatch { declared: d, actual: 6 }) if d == declared
+            ));
+        }
+    }
+
+    #[test]
+    fn header_decode_rejects_channel_bit_mismatch() {
+        let mut payload = SETUP_CONNECTION_SUCCESS;
+        let h = header(
+            CHANNEL_MSG,
+            MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+            payload.len(),
+        );
+        assert!(matches!(
+            AnyMessage::try_from((h, &mut payload[..])),
+            Err(ParserError::ChannelBitMismatch {
+                channel_msg: true,
+                ..
+            })
+        ));
+
+        let mut payload = CHANNEL_ENDPOINT_CHANGED;
+        let h = header(0, MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED, payload.len());
+        assert!(matches!(
+            AnyMessage::try_from((h, &mut payload[..])),
+            Err(ParserError::ChannelBitMismatch {
+                channel_msg: false,
+                ..
+            })
+        ));
+    }
+
+    // 0x4000 is in the experimental extension range (spec §3.4) and is not implemented here.
+    #[test]
+    fn unknown_extension_is_reported_as_unknown() {
+        for extension_type in [0x4000, 0x4000 | CHANNEL_MSG] {
+            let mut payload = [1, 2, 3];
+            let h = header(extension_type, 0x00, payload.len());
+            assert!(matches!(
+                AnyMessage::try_from((h, &mut payload[..])),
+                Err(ParserError::UnknownExtension(0x4000))
+            ));
+            assert!(matches!(
+                crate::parse_message_frame_with_tlvs(h, &mut payload[..], &[0x0002]),
+                Err(ParserError::UnknownExtension(0x4000))
+            ));
+        }
+    }
+
+    #[test]
+    fn known_extension_with_unknown_message_is_unexpected() {
+        for extension_type in [
+            EXTENSION_TYPE_EXTENSIONS_NEGOTIATION,
+            extensions_sv2::EXTENSION_TYPE_WORKER_HASHRATE_TRACKING,
+        ] {
+            let mut payload = [];
+            let h = header(extension_type, 0xff, 0);
+            assert!(matches!(
+                AnyMessage::try_from((h, &mut payload[..])),
+                Err(ParserError::UnexpectedMessage(0xff))
+            ));
+        }
+    }
+
+    #[test]
+    fn frame_with_tlvs_applies_header_checks() {
+        let mut payload = SETUP_CONNECTION_SUCCESS;
+        let h = header(
+            CHANNEL_MSG,
+            MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+            payload.len(),
+        );
+        assert!(matches!(
+            crate::parse_message_frame_with_tlvs(h, &mut payload[..], &[0x0002]),
+            Err(ParserError::ChannelBitMismatch { .. })
+        ));
     }
 }

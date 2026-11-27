@@ -2,10 +2,7 @@ use extensions_sv2::{
     RequestExtensionsErrorOwned, RequestExtensionsOwned, RequestExtensionsSuccessOwned,
 };
 use framing_sv2::header::Header;
-use parsers_sv2::{
-    parse_message_frame_with_tlvs, AnyMessage, Extensions, ExtensionsNegotiationOwned,
-    ExtensionsOwned, Tlv,
-};
+use parsers_sv2::{AnyMessage, ExtensionsNegotiationOwned, ExtensionsOwned, Tlv};
 
 use crate::error::HandlerErrorType;
 
@@ -18,9 +15,10 @@ use crate::error::HandlerErrorType;
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
-/// extension data appended. TLV fields are only passed if they match negotiated extensions
-/// returned by `get_negotiated_extensions_with_server()`.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
 pub trait HandleExtensionsFromServerOwnedSync {
     type Error: HandlerErrorType;
 
@@ -36,6 +34,9 @@ pub trait HandleExtensionsFromServerOwnedSync {
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
     /// to `handle_extensions_message_from_server` with the parsed message and TLV fields.
+    ///
+    /// A frame whose `extension_type` this crate does not implement is dropped and `Ok(())` is
+    /// returned, as Sv2 spec §3.4.1 requires for a message processed locally.
     fn handle_extensions_message_frame_from_server(
         &mut self,
         server_id: Option<usize>,
@@ -43,19 +44,12 @@ pub trait HandleExtensionsFromServerOwnedSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-        if negotiated_extensions.is_empty() {
-            let parsed: Extensions<'_> = (header.ext_type(), header.msg_type(), payload)
-                .try_into()
-                .map_err(Self::Error::parse_error)?;
-            return self.handle_extensions_message_from_server(
-                server_id,
-                parsed.into_owned(),
-                None,
-            );
-        }
-        let (parsed, tlv_fields) =
-            parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                .map_err(Self::Error::parse_error)?;
+        let Some((parsed, tlv_fields)) =
+            crate::parse_frame(header, payload, &negotiated_extensions)
+                .map_err(Self::Error::parse_error)?
+        else {
+            return Ok(());
+        };
         match parsed {
             AnyMessage::Extensions(parsed) => self.handle_extensions_message_from_server(
                 server_id,
@@ -71,10 +65,9 @@ pub trait HandleExtensionsFromServerOwnedSync {
 
     /// Handles a parsed extensions message from a server.
     ///
-    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
-    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
-    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
-    /// `extension_type`, `field_type`, `length`, and `value`.
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     fn handle_extensions_message_from_server(
         &mut self,
         server_id: Option<usize>,
@@ -124,9 +117,10 @@ pub trait HandleExtensionsFromServerOwnedSync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
-/// extension data appended. TLV fields are only passed if they match negotiated extensions
-/// returned by `get_negotiated_extensions_with_server()`.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
 #[trait_variant::make(Send)]
 pub trait HandleExtensionsFromServerOwnedAsync {
     type Error: HandlerErrorType;
@@ -143,6 +137,9 @@ pub trait HandleExtensionsFromServerOwnedAsync {
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
     /// to `handle_extensions_message_from_server` with the parsed message and TLV fields.
+    ///
+    /// A frame whose `extension_type` this crate does not implement is dropped and `Ok(())` is
+    /// returned, as Sv2 spec §3.4.1 requires for a message processed locally.
     async fn handle_extensions_message_frame_from_server(
         &mut self,
         server_id: Option<usize>,
@@ -151,17 +148,12 @@ pub trait HandleExtensionsFromServerOwnedAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-            if negotiated_extensions.is_empty() {
-                let parsed: Extensions<'_> = (header.ext_type(), header.msg_type(), payload)
-                    .try_into()
-                    .map_err(Self::Error::parse_error)?;
-                return self
-                    .handle_extensions_message_from_server(server_id, parsed.into_owned(), None)
-                    .await;
-            }
-            let (parsed, tlv_fields) =
-                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                    .map_err(Self::Error::parse_error)?;
+            let Some((parsed, tlv_fields)) =
+                crate::parse_frame(header, payload, &negotiated_extensions)
+                    .map_err(Self::Error::parse_error)?
+            else {
+                return Ok(());
+            };
             match parsed {
                 AnyMessage::Extensions(parsed) => {
                     self.handle_extensions_message_from_server(
@@ -181,10 +173,9 @@ pub trait HandleExtensionsFromServerOwnedAsync {
 
     /// Handles a parsed extensions message from a server.
     ///
-    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
-    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
-    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
-    /// `extension_type`, `field_type`, `length`, and `value`.
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     async fn handle_extensions_message_from_server(
         &mut self,
         server_id: Option<usize>,
@@ -238,9 +229,10 @@ pub trait HandleExtensionsFromServerOwnedAsync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
-/// extension data appended. TLV fields are only passed if they match negotiated extensions
-/// returned by `get_negotiated_extensions_with_client()`.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
 pub trait HandleExtensionsFromClientOwnedSync {
     type Error: HandlerErrorType;
 
@@ -256,6 +248,9 @@ pub trait HandleExtensionsFromClientOwnedSync {
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
     /// to `handle_extensions_message_from_client` with the parsed message and TLV fields.
+    ///
+    /// A frame whose `extension_type` this crate does not implement is dropped and `Ok(())` is
+    /// returned, as Sv2 spec §3.4.1 requires for a message processed locally.
     fn handle_extensions_message_frame_from_client(
         &mut self,
         client_id: Option<usize>,
@@ -263,19 +258,12 @@ pub trait HandleExtensionsFromClientOwnedSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-        if negotiated_extensions.is_empty() {
-            let parsed: Extensions<'_> = (header.ext_type(), header.msg_type(), payload)
-                .try_into()
-                .map_err(Self::Error::parse_error)?;
-            return self.handle_extensions_message_from_client(
-                client_id,
-                parsed.into_owned(),
-                None,
-            );
-        }
-        let (parsed, tlv_fields) =
-            parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                .map_err(Self::Error::parse_error)?;
+        let Some((parsed, tlv_fields)) =
+            crate::parse_frame(header, payload, &negotiated_extensions)
+                .map_err(Self::Error::parse_error)?
+        else {
+            return Ok(());
+        };
         match parsed {
             AnyMessage::Extensions(parsed) => self.handle_extensions_message_from_client(
                 client_id,
@@ -291,10 +279,9 @@ pub trait HandleExtensionsFromClientOwnedSync {
 
     /// Handles a parsed extensions message from a client.
     ///
-    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
-    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
-    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
-    /// `extension_type`, `field_type`, `length`, and `value`.
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     fn handle_extensions_message_from_client(
         &mut self,
         client_id: Option<usize>,
@@ -340,9 +327,10 @@ pub trait HandleExtensionsFromClientOwnedSync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
-/// extension data appended. TLV fields are only passed if they match negotiated extensions
-/// returned by `get_negotiated_extensions_with_client()`.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
 #[trait_variant::make(Send)]
 pub trait HandleExtensionsFromClientOwnedAsync {
     type Error: HandlerErrorType;
@@ -359,6 +347,9 @@ pub trait HandleExtensionsFromClientOwnedAsync {
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
     /// to `handle_extensions_message_from_client` with the parsed message and TLV fields.
+    ///
+    /// A frame whose `extension_type` this crate does not implement is dropped and `Ok(())` is
+    /// returned, as Sv2 spec §3.4.1 requires for a message processed locally.
     async fn handle_extensions_message_frame_from_client(
         &mut self,
         client_id: Option<usize>,
@@ -367,17 +358,12 @@ pub trait HandleExtensionsFromClientOwnedAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-            if negotiated_extensions.is_empty() {
-                let parsed: Extensions<'_> = (header.ext_type(), header.msg_type(), payload)
-                    .try_into()
-                    .map_err(Self::Error::parse_error)?;
-                return self
-                    .handle_extensions_message_from_client(client_id, parsed.into_owned(), None)
-                    .await;
-            }
-            let (parsed, tlv_fields) =
-                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                    .map_err(Self::Error::parse_error)?;
+            let Some((parsed, tlv_fields)) =
+                crate::parse_frame(header, payload, &negotiated_extensions)
+                    .map_err(Self::Error::parse_error)?
+            else {
+                return Ok(());
+            };
             match parsed {
                 AnyMessage::Extensions(parsed) => {
                     self.handle_extensions_message_from_client(
@@ -397,10 +383,9 @@ pub trait HandleExtensionsFromClientOwnedAsync {
 
     /// Handles a parsed extensions message from a client.
     ///
-    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
-    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
-    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
-    /// `extension_type`, `field_type`, `length`, and `value`.
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     async fn handle_extensions_message_from_client(
         &mut self,
         client_id: Option<usize>,

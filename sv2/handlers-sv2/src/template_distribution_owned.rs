@@ -1,7 +1,5 @@
 use framing_sv2::header::Header;
-use parsers_sv2::{
-    parse_message_frame_with_tlvs, AnyMessage, TemplateDistribution, TemplateDistributionOwned, Tlv,
-};
+use parsers_sv2::{AnyMessage, TemplateDistributionOwned, Tlv};
 use template_distribution_sv2::*;
 
 use crate::error::HandlerErrorType;
@@ -15,9 +13,10 @@ use crate::error::HandlerErrorType;
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
-/// extension data appended. TLV fields are only passed if they match negotiated extensions
-/// returned by `get_negotiated_extensions_with_server()`.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
 pub trait HandleTemplateDistributionMessagesFromServerOwnedSync {
     type Error: HandlerErrorType;
 
@@ -33,6 +32,9 @@ pub trait HandleTemplateDistributionMessagesFromServerOwnedSync {
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
     /// to `handle_template_distribution_message_from_server` with the parsed message and TLV fields.
+    ///
+    /// A frame whose `extension_type` this crate does not implement is dropped and `Ok(())` is
+    /// returned, as Sv2 spec §3.4.1 requires for a message processed locally.
     fn handle_template_distribution_message_frame_from_server(
         &mut self,
         server_id: Option<usize>,
@@ -40,19 +42,12 @@ pub trait HandleTemplateDistributionMessagesFromServerOwnedSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-        if negotiated_extensions.is_empty() {
-            let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
-                .try_into()
-                .map_err(Self::Error::parse_error)?;
-            return self.handle_template_distribution_message_from_server(
-                server_id,
-                parsed.into_owned(),
-                None,
-            );
-        }
-        let (parsed, tlv_fields) =
-            parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                .map_err(Self::Error::parse_error)?;
+        let Some((parsed, tlv_fields)) =
+            crate::parse_frame(header, payload, &negotiated_extensions)
+                .map_err(Self::Error::parse_error)?
+        else {
+            return Ok(());
+        };
         match parsed {
             AnyMessage::TemplateDistribution(parsed) => self
                 .handle_template_distribution_message_from_server(
@@ -69,10 +64,9 @@ pub trait HandleTemplateDistributionMessagesFromServerOwnedSync {
 
     /// Handles a parsed template distribution message from a server.
     ///
-    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
-    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
-    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
-    /// `extension_type`, `field_type`, `length`, and `value`.
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     fn handle_template_distribution_message_from_server(
         &mut self,
         server_id: Option<usize>,
@@ -143,9 +137,10 @@ pub trait HandleTemplateDistributionMessagesFromServerOwnedSync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
-/// extension data appended. TLV fields are only passed if they match negotiated extensions
-/// returned by `get_negotiated_extensions_with_server()`.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
 #[trait_variant::make(Send)]
 pub trait HandleTemplateDistributionMessagesFromServerOwnedAsync {
     type Error: HandlerErrorType;
@@ -162,6 +157,9 @@ pub trait HandleTemplateDistributionMessagesFromServerOwnedAsync {
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
     /// to `handle_template_distribution_message_from_server` with the parsed message and TLV fields.
+    ///
+    /// A frame whose `extension_type` this crate does not implement is dropped and `Ok(())` is
+    /// returned, as Sv2 spec §3.4.1 requires for a message processed locally.
     async fn handle_template_distribution_message_frame_from_server(
         &mut self,
         server_id: Option<usize>,
@@ -170,21 +168,12 @@ pub trait HandleTemplateDistributionMessagesFromServerOwnedAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-            if negotiated_extensions.is_empty() {
-                let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
-                    .try_into()
-                    .map_err(Self::Error::parse_error)?;
-                return self
-                    .handle_template_distribution_message_from_server(
-                        server_id,
-                        parsed.into_owned(),
-                        None,
-                    )
-                    .await;
-            }
-            let (parsed, tlv_fields) =
-                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                    .map_err(Self::Error::parse_error)?;
+            let Some((parsed, tlv_fields)) =
+                crate::parse_frame(header, payload, &negotiated_extensions)
+                    .map_err(Self::Error::parse_error)?
+            else {
+                return Ok(());
+            };
             match parsed {
                 AnyMessage::TemplateDistribution(parsed) => {
                     self.handle_template_distribution_message_from_server(
@@ -204,10 +193,9 @@ pub trait HandleTemplateDistributionMessagesFromServerOwnedAsync {
 
     /// Handles a parsed template distribution message from a server.
     ///
-    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
-    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
-    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
-    /// `extension_type`, `field_type`, `length`, and `value`.
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     async fn handle_template_distribution_message_from_server(
         &mut self,
         server_id: Option<usize>,
@@ -282,9 +270,10 @@ pub trait HandleTemplateDistributionMessagesFromServerOwnedAsync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
-/// extension data appended. TLV fields are only passed if they match negotiated extensions
-/// returned by `get_negotiated_extensions_with_client()`.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
 pub trait HandleTemplateDistributionMessagesFromClientOwnedSync {
     type Error: HandlerErrorType;
 
@@ -300,6 +289,9 @@ pub trait HandleTemplateDistributionMessagesFromClientOwnedSync {
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
     /// to `handle_template_distribution_message_from_client` with the parsed message and TLV fields.
+    ///
+    /// A frame whose `extension_type` this crate does not implement is dropped and `Ok(())` is
+    /// returned, as Sv2 spec §3.4.1 requires for a message processed locally.
     fn handle_template_distribution_message_frame_from_client(
         &mut self,
         client_id: Option<usize>,
@@ -307,19 +299,12 @@ pub trait HandleTemplateDistributionMessagesFromClientOwnedSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-        if negotiated_extensions.is_empty() {
-            let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
-                .try_into()
-                .map_err(Self::Error::parse_error)?;
-            return self.handle_template_distribution_message_from_client(
-                client_id,
-                parsed.into_owned(),
-                None,
-            );
-        }
-        let (parsed, tlv_fields) =
-            parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                .map_err(Self::Error::parse_error)?;
+        let Some((parsed, tlv_fields)) =
+            crate::parse_frame(header, payload, &negotiated_extensions)
+                .map_err(Self::Error::parse_error)?
+        else {
+            return Ok(());
+        };
         match parsed {
             AnyMessage::TemplateDistribution(parsed) => self
                 .handle_template_distribution_message_from_client(
@@ -336,10 +321,9 @@ pub trait HandleTemplateDistributionMessagesFromClientOwnedSync {
 
     /// Handles a parsed template distribution message from a client.
     ///
-    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
-    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
-    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
-    /// `extension_type`, `field_type`, `length`, and `value`.
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     fn handle_template_distribution_message_from_client(
         &mut self,
         client_id: Option<usize>,
@@ -404,9 +388,10 @@ pub trait HandleTemplateDistributionMessagesFromClientOwnedSync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
-/// extension data appended. TLV fields are only passed if they match negotiated extensions
-/// returned by `get_negotiated_extensions_with_client()`.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
 #[trait_variant::make(Send)]
 pub trait HandleTemplateDistributionMessagesFromClientOwnedAsync {
     type Error: HandlerErrorType;
@@ -423,6 +408,9 @@ pub trait HandleTemplateDistributionMessagesFromClientOwnedAsync {
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
     /// to `handle_template_distribution_message_from_client` with the parsed message and TLV fields.
+    ///
+    /// A frame whose `extension_type` this crate does not implement is dropped and `Ok(())` is
+    /// returned, as Sv2 spec §3.4.1 requires for a message processed locally.
     async fn handle_template_distribution_message_frame_from_client(
         &mut self,
         client_id: Option<usize>,
@@ -431,21 +419,12 @@ pub trait HandleTemplateDistributionMessagesFromClientOwnedAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-            if negotiated_extensions.is_empty() {
-                let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
-                    .try_into()
-                    .map_err(Self::Error::parse_error)?;
-                return self
-                    .handle_template_distribution_message_from_client(
-                        client_id,
-                        parsed.into_owned(),
-                        None,
-                    )
-                    .await;
-            }
-            let (parsed, tlv_fields) =
-                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                    .map_err(Self::Error::parse_error)?;
+            let Some((parsed, tlv_fields)) =
+                crate::parse_frame(header, payload, &negotiated_extensions)
+                    .map_err(Self::Error::parse_error)?
+            else {
+                return Ok(());
+            };
             match parsed {
                 AnyMessage::TemplateDistribution(parsed) => {
                     self.handle_template_distribution_message_from_client(
@@ -465,10 +444,9 @@ pub trait HandleTemplateDistributionMessagesFromClientOwnedAsync {
 
     /// Handles a parsed template distribution message from a client.
     ///
-    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
-    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
-    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
-    /// `extension_type`, `field_type`, `length`, and `value`.
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     async fn handle_template_distribution_message_from_client(
         &mut self,
         client_id: Option<usize>,

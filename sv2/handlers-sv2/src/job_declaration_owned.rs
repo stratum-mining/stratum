@@ -1,13 +1,6 @@
 use framing_sv2::header::Header;
-use job_declaration_sv2::{
-    MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
-    MESSAGE_TYPE_DECLARE_MINING_JOB, MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
-    MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
-    MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PUSH_SOLUTION, *,
-};
-use parsers_sv2::{
-    parse_message_frame_with_tlvs, AnyMessage, JobDeclaration, JobDeclarationOwned, Tlv,
-};
+use job_declaration_sv2::*;
+use parsers_sv2::{AnyMessage, JobDeclarationOwned, Tlv};
 
 use crate::error::HandlerErrorType;
 
@@ -20,9 +13,10 @@ use crate::error::HandlerErrorType;
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
-/// extension data appended. TLV fields are only passed if they match negotiated extensions
-/// returned by `get_negotiated_extensions_with_server()`.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
 pub trait HandleJobDeclarationMessagesFromServerOwnedSync {
     type Error: HandlerErrorType;
 
@@ -38,6 +32,9 @@ pub trait HandleJobDeclarationMessagesFromServerOwnedSync {
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
     /// to `handle_job_declaration_message_from_server` with the parsed message and TLV fields.
+    ///
+    /// A frame whose `extension_type` this crate does not implement is dropped and `Ok(())` is
+    /// returned, as Sv2 spec §3.4.1 requires for a message processed locally.
     fn handle_job_declaration_message_frame_from_server(
         &mut self,
         server_id: Option<usize>,
@@ -45,19 +42,12 @@ pub trait HandleJobDeclarationMessagesFromServerOwnedSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-        if negotiated_extensions.is_empty() {
-            let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
-                .try_into()
-                .map_err(Self::Error::parse_error)?;
-            return self.handle_job_declaration_message_from_server(
-                server_id,
-                parsed.into_owned(),
-                None,
-            );
-        }
-        let (parsed, tlv_fields) =
-            parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                .map_err(Self::Error::parse_error)?;
+        let Some((parsed, tlv_fields)) =
+            crate::parse_frame(header, payload, &negotiated_extensions)
+                .map_err(Self::Error::parse_error)?
+        else {
+            return Ok(());
+        };
         match parsed {
             AnyMessage::JobDeclaration(parsed) => self.handle_job_declaration_message_from_server(
                 server_id,
@@ -73,10 +63,9 @@ pub trait HandleJobDeclarationMessagesFromServerOwnedSync {
 
     /// Handles a parsed job declaration message from a server.
     ///
-    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
-    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
-    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
-    /// `extension_type`, `field_type`, `length`, and `value`.
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     fn handle_job_declaration_message_from_server(
         &mut self,
         server_id: Option<usize>,
@@ -155,9 +144,10 @@ pub trait HandleJobDeclarationMessagesFromServerOwnedSync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
-/// extension data appended. TLV fields are only passed if they match negotiated extensions
-/// returned by `get_negotiated_extensions_with_server()`.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
 #[trait_variant::make(Send)]
 pub trait HandleJobDeclarationMessagesFromServerOwnedAsync {
     type Error: HandlerErrorType;
@@ -174,6 +164,9 @@ pub trait HandleJobDeclarationMessagesFromServerOwnedAsync {
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
     /// to `handle_job_declaration_message_from_server` with the parsed message and TLV fields.
+    ///
+    /// A frame whose `extension_type` this crate does not implement is dropped and `Ok(())` is
+    /// returned, as Sv2 spec §3.4.1 requires for a message processed locally.
     async fn handle_job_declaration_message_frame_from_server(
         &mut self,
         server_id: Option<usize>,
@@ -182,21 +175,12 @@ pub trait HandleJobDeclarationMessagesFromServerOwnedAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-            if negotiated_extensions.is_empty() {
-                let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
-                    .try_into()
-                    .map_err(Self::Error::parse_error)?;
-                return self
-                    .handle_job_declaration_message_from_server(
-                        server_id,
-                        parsed.into_owned(),
-                        None,
-                    )
-                    .await;
-            }
-            let (parsed, tlv_fields) =
-                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                    .map_err(Self::Error::parse_error)?;
+            let Some((parsed, tlv_fields)) =
+                crate::parse_frame(header, payload, &negotiated_extensions)
+                    .map_err(Self::Error::parse_error)?
+            else {
+                return Ok(());
+            };
             match parsed {
                 AnyMessage::JobDeclaration(parsed) => {
                     self.handle_job_declaration_message_from_server(
@@ -216,10 +200,9 @@ pub trait HandleJobDeclarationMessagesFromServerOwnedAsync {
 
     /// Handles a parsed job declaration message from a server.
     ///
-    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
-    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
-    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
-    /// `extension_type`, `field_type`, `length`, and `value`.
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     async fn handle_job_declaration_message_from_server(
         &mut self,
         server_id: Option<usize>,
@@ -303,9 +286,10 @@ pub trait HandleJobDeclarationMessagesFromServerOwnedAsync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
-/// extension data appended. TLV fields are only passed if they match negotiated extensions
-/// returned by `get_negotiated_extensions_with_client()`.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
 pub trait HandleJobDeclarationMessagesFromClientOwnedSync {
     type Error: HandlerErrorType;
 
@@ -321,6 +305,9 @@ pub trait HandleJobDeclarationMessagesFromClientOwnedSync {
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
     /// to `handle_job_declaration_message_from_client` with the parsed message and TLV fields.
+    ///
+    /// A frame whose `extension_type` this crate does not implement is dropped and `Ok(())` is
+    /// returned, as Sv2 spec §3.4.1 requires for a message processed locally.
     fn handle_job_declaration_message_frame_from_client(
         &mut self,
         client_id: Option<usize>,
@@ -328,19 +315,12 @@ pub trait HandleJobDeclarationMessagesFromClientOwnedSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-        if negotiated_extensions.is_empty() {
-            let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
-                .try_into()
-                .map_err(Self::Error::parse_error)?;
-            return self.handle_job_declaration_message_from_client(
-                client_id,
-                parsed.into_owned(),
-                None,
-            );
-        }
-        let (parsed, tlv_fields) =
-            parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                .map_err(Self::Error::parse_error)?;
+        let Some((parsed, tlv_fields)) =
+            crate::parse_frame(header, payload, &negotiated_extensions)
+                .map_err(Self::Error::parse_error)?
+        else {
+            return Ok(());
+        };
         match parsed {
             AnyMessage::JobDeclaration(parsed) => self.handle_job_declaration_message_from_client(
                 client_id,
@@ -356,10 +336,9 @@ pub trait HandleJobDeclarationMessagesFromClientOwnedSync {
 
     /// Handles a parsed job declaration message from a client.
     ///
-    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
-    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
-    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
-    /// `extension_type`, `field_type`, `length`, and `value`.
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     fn handle_job_declaration_message_from_client(
         &mut self,
         client_id: Option<usize>,
@@ -434,9 +413,10 @@ pub trait HandleJobDeclarationMessagesFromClientOwnedSync {
 ///
 /// ## TLV Extension Support
 ///
-/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
-/// extension data appended. TLV fields are only passed if they match negotiated extensions
-/// returned by `get_negotiated_extensions_with_client()`.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
 #[trait_variant::make(Send)]
 pub trait HandleJobDeclarationMessagesFromClientOwnedAsync {
     type Error: HandlerErrorType;
@@ -453,6 +433,9 @@ pub trait HandleJobDeclarationMessagesFromClientOwnedAsync {
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
     /// to `handle_job_declaration_message_from_client` with the parsed message and TLV fields.
+    ///
+    /// A frame whose `extension_type` this crate does not implement is dropped and `Ok(())` is
+    /// returned, as Sv2 spec §3.4.1 requires for a message processed locally.
     async fn handle_job_declaration_message_frame_from_client(
         &mut self,
         client_id: Option<usize>,
@@ -461,21 +444,12 @@ pub trait HandleJobDeclarationMessagesFromClientOwnedAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-            if negotiated_extensions.is_empty() {
-                let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
-                    .try_into()
-                    .map_err(Self::Error::parse_error)?;
-                return self
-                    .handle_job_declaration_message_from_client(
-                        client_id,
-                        parsed.into_owned(),
-                        None,
-                    )
-                    .await;
-            }
-            let (parsed, tlv_fields) =
-                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                    .map_err(Self::Error::parse_error)?;
+            let Some((parsed, tlv_fields)) =
+                crate::parse_frame(header, payload, &negotiated_extensions)
+                    .map_err(Self::Error::parse_error)?
+            else {
+                return Ok(());
+            };
             match parsed {
                 AnyMessage::JobDeclaration(parsed) => {
                     self.handle_job_declaration_message_from_client(
@@ -495,10 +469,9 @@ pub trait HandleJobDeclarationMessagesFromClientOwnedAsync {
 
     /// Handles a parsed job declaration message from a client.
     ///
-    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
-    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
-    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
-    /// `extension_type`, `field_type`, `length`, and `value`.
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     async fn handle_job_declaration_message_from_client(
         &mut self,
         client_id: Option<usize>,
