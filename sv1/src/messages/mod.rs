@@ -205,6 +205,7 @@ pub enum ServerToClient {
     Authorize(Response<bool>),
     Submit(Response<bool>),
     ExtranonceSubscribe(Response<bool>),
+    SuggestDifficulty(Response<bool>),
     Notify(Notify),
     SetDifficulty(SetDifficulty),
     SetExtranonce(SetExtranonce),
@@ -220,6 +221,7 @@ impl ServerToClient {
             ServerToClient::Authorize(_) => Method::Authorize,
             ServerToClient::Submit(_) => Method::Submit,
             ServerToClient::ExtranonceSubscribe(_) => Method::ExtranonceSubscribe,
+            ServerToClient::SuggestDifficulty(_) => Method::SuggestDifficulty,
             ServerToClient::Notify(_) => Method::Notify,
             ServerToClient::SetDifficulty(_) => Method::SetDifficulty,
             ServerToClient::SetExtranonce(_) => Method::SetExtranonce,
@@ -246,6 +248,9 @@ impl ServerToClient {
             Method::Submit => ServerToClient::Submit(Response::decode(id, method, result)?),
             Method::ExtranonceSubscribe => {
                 ServerToClient::ExtranonceSubscribe(Response::decode(id, method, result)?)
+            }
+            Method::SuggestDifficulty => {
+                ServerToClient::SuggestDifficulty(Response::decode(id, method, result)?)
             }
             _ => return Ok(None),
         }))
@@ -286,7 +291,8 @@ impl From<ServerToClient> for Message {
             ServerToClient::Subscribe(response) => response.into(),
             ServerToClient::Authorize(response)
             | ServerToClient::Submit(response)
-            | ServerToClient::ExtranonceSubscribe(response) => response.into(),
+            | ServerToClient::ExtranonceSubscribe(response)
+            | ServerToClient::SuggestDifficulty(response) => response.into(),
             ServerToClient::Notify(notify) => notify.into(),
             ServerToClient::SetDifficulty(set) => set.into(),
             ServerToClient::SetExtranonce(set) => set.into(),

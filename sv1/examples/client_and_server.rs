@@ -378,6 +378,15 @@ impl IsClient for Client {
         Ok(())
     }
 
+    fn handle_suggest_difficulty_result(
+        &mut self,
+        _server_id: Option<usize>,
+        _id: &Id,
+        _acknowledged: bool,
+    ) -> Result<(), Error> {
+        Ok(())
+    }
+
     fn handle_error_response(
         &mut self,
         _server_id: Option<usize>,

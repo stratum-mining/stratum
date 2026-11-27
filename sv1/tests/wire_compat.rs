@@ -1159,7 +1159,13 @@ fn responses_are_typed_by_their_request_method() {
         typed(line, Method::Subscribe),
         Err(Error::InvalidResult { id, method: Method::Subscribe, .. }) if id == Id::from(3u64)
     ));
-    assert_eq!(typed(line, Method::SuggestDifficulty).unwrap(), None);
+    assert_eq!(
+        typed(line, Method::SuggestDifficulty).unwrap(),
+        Some(ServerToClient::SuggestDifficulty(Response::success(
+            Id::from(3u64),
+            true
+        )))
+    );
     assert_eq!(typed(line, Method::Notify).unwrap(), None);
 
     let line = r#"{"id":4,"result":null,"error":[22,"Duplicate share",null]}"#;

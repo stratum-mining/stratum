@@ -270,6 +270,10 @@ pub trait IsClient {
                 id,
                 result: Ok(acknowledged),
             }) => self.handle_extranonce_subscribe_result(server_id, &id, acknowledged),
+            ServerToClient::SuggestDifficulty(Response {
+                id,
+                result: Ok(acknowledged),
+            }) => self.handle_suggest_difficulty_result(server_id, &id, acknowledged),
             ServerToClient::Configure(Response {
                 id,
                 result: Err(error),
@@ -287,6 +291,10 @@ pub trait IsClient {
                 result: Err(error),
             })
             | ServerToClient::ExtranonceSubscribe(Response {
+                id,
+                result: Err(error),
+            })
+            | ServerToClient::SuggestDifficulty(Response {
                 id,
                 result: Err(error),
             }) => self.handle_error_response(server_id, &id, method, error),
@@ -346,6 +354,14 @@ pub trait IsClient {
     ) -> Result<(), Self::Error>;
 
     fn handle_extranonce_subscribe_result(
+        &mut self,
+        server_id: Option<usize>,
+        id: &Id,
+        acknowledged: bool,
+    ) -> Result<(), Self::Error>;
+
+    /// Servers are not required to reply to a suggestion, so this may never run.
+    fn handle_suggest_difficulty_result(
         &mut self,
         server_id: Option<usize>,
         id: &Id,
@@ -412,6 +428,13 @@ pub trait IsClientAsync {
                     self.handle_extranonce_subscribe_result(server_id, &id, acknowledged)
                         .await
                 }
+                ServerToClient::SuggestDifficulty(Response {
+                    id,
+                    result: Ok(acknowledged),
+                }) => {
+                    self.handle_suggest_difficulty_result(server_id, &id, acknowledged)
+                        .await
+                }
                 ServerToClient::Configure(Response {
                     id,
                     result: Err(error),
@@ -429,6 +452,10 @@ pub trait IsClientAsync {
                     result: Err(error),
                 })
                 | ServerToClient::ExtranonceSubscribe(Response {
+                    id,
+                    result: Err(error),
+                })
+                | ServerToClient::SuggestDifficulty(Response {
                     id,
                     result: Err(error),
                 }) => {
@@ -492,6 +519,14 @@ pub trait IsClientAsync {
     ) -> Result<(), Self::Error>;
 
     async fn handle_extranonce_subscribe_result(
+        &mut self,
+        server_id: Option<usize>,
+        id: &Id,
+        acknowledged: bool,
+    ) -> Result<(), Self::Error>;
+
+    /// Servers are not required to reply to a suggestion, so this may never run.
+    async fn handle_suggest_difficulty_result(
         &mut self,
         server_id: Option<usize>,
         id: &Id,
@@ -824,6 +859,11 @@ mod tests {
                 SubmitError::DuplicateShare.into(),
             )),
             ServerToClient::Authorize(Response::failure(Id::from(7u64), SubmitError::Other.into())),
+            ServerToClient::SuggestDifficulty(Response::success(Id::from(8u64), true)),
+            ServerToClient::SuggestDifficulty(Response::failure(
+                Id::from(9u64),
+                SubmitError::Other.into(),
+            )),
             notify,
             ServerToClient::SetDifficulty(SetDifficulty::new(2.0).unwrap()),
             ServerToClient::SetExtranonce(SetExtranonce {
@@ -834,7 +874,7 @@ mod tests {
         ]
     }
 
-    const CLIENT_EVENTS: [&str; 12] = [
+    const CLIENT_EVENTS: [&str; 14] = [
         "configure 1",
         "subscribe 2",
         "authorize 3 true",
@@ -843,6 +883,8 @@ mod tests {
         "extranonce_subscribe 5 true",
         "error 6 mining.submit 22",
         "error 7 mining.authorize 20",
+        "suggest_difficulty 8 true",
+        "error 9 mining.suggest_difficulty 20",
         "notify bf",
         "difficulty 2",
         "extranonce 4",
@@ -935,6 +977,15 @@ mod tests {
             acknowledged: bool,
         ) -> Result<(), Error> {
             self.record(format!("extranonce_subscribe {id} {acknowledged}"))
+        }
+
+        fn handle_suggest_difficulty_result(
+            &mut self,
+            _: Option<usize>,
+            id: &Id,
+            acknowledged: bool,
+        ) -> Result<(), Error> {
+            self.record(format!("suggest_difficulty {id} {acknowledged}"))
         }
 
         fn handle_error_response(
@@ -1044,6 +1095,15 @@ mod tests {
             acknowledged: bool,
         ) -> Result<(), Error> {
             self.record(format!("extranonce_subscribe {id} {acknowledged}"))
+        }
+
+        async fn handle_suggest_difficulty_result(
+            &mut self,
+            _: Option<usize>,
+            id: &Id,
+            acknowledged: bool,
+        ) -> Result<(), Error> {
+            self.record(format!("suggest_difficulty {id} {acknowledged}"))
         }
 
         async fn handle_error_response(

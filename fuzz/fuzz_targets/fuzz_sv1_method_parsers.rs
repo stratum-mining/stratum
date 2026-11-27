@@ -308,6 +308,7 @@ fuzz_target!(|data: &[u8]| {
                 let _ = ServerToClient::from_response(&response, &Method::Subscribe);
                 let _ = ServerToClient::from_response(&response, &Method::Configure);
                 let _ = ServerToClient::from_response(&response, &Method::Submit);
+                let _ = ServerToClient::from_response(&response, &Method::SuggestDifficulty);
             }
         }
     }
