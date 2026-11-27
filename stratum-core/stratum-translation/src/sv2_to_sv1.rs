@@ -61,16 +61,15 @@ pub fn build_sv1_notify_from_sv2(
 
     let job_id = new_job.job_id.to_string();
     let prev_hash = PrevHash(new_prev_hash.prev_hash);
-    let coinbase1 = new_job.coinbase_tx_prefix.to_owned_bytes().into();
-    let coinbase2 = new_job.coinbase_tx_suffix.to_owned_bytes().into();
-    let merkle_path = new_job.merkle_path.clone().into_inner();
+    let coinbase1 = new_job.coinbase_tx_prefix.into_bytes().into();
+    let coinbase2 = new_job.coinbase_tx_suffix.into_bytes().into();
+    let merkle_path = new_job.merkle_path.into_inner();
     let merkle_branch: Vec<MerkleNode> = merkle_path.into_iter().map(MerkleNode).collect();
     let version = HexU32Be(new_job.version);
     let nbits = HexU32Be(new_prev_hash.nbits);
     let ntime = HexU32Be(
         new_job
             .ntime_start
-            .clone()
             .into_inner()
             .unwrap_or(new_prev_hash.ntime_start),
     );
@@ -102,9 +101,7 @@ pub fn build_sv1_notify_from_sv2(
 pub fn build_sv1_set_difficulty_from_sv2_set_target(
     set_target: SetTargetOwned,
 ) -> Result<json_rpc::Message> {
-    build_sv1_set_difficulty_from_sv2_target(Target::from_le_bytes(
-        set_target.target.clone().as_ref().try_into().unwrap(),
-    ))
+    build_sv1_set_difficulty_from_sv2_target(Target::from_le_bytes(set_target.target.to_array()))
 }
 
 /// Builds an SV1 `mining.set_difficulty` JSON-RPC message from an SV2 target.
