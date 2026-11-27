@@ -661,12 +661,30 @@ mod tests {
             r#"{"id":true,"method":"mining.subscribe","params":[]}"#,
             r#"{"id":1,"method":5,"params":[]}"#,
             r#"{"id":1,"id":2,"method":"mining.subscribe","params":[]}"#,
+            r#"{"id":1,"result":null,"error":[]}"#,
             r#"{"id":1,"result":true,"error":[20]}"#,
+            r#"{"id":1,"result":null,"error":[20,"Rejected",null,null]}"#,
+            r#"{"id":1,"result":null,"error":["20","Rejected"]}"#,
+            r#"{"id":1,"result":null,"error":["20","Rejected",null]}"#,
+            r#"{"id":1,"result":null,"error":[20.5,"Rejected"]}"#,
+            r#"{"id":1,"result":null,"error":[20,42]}"#,
+            r#"{"id":1,"result":null,"error":[20,42,null]}"#,
             r#"[{"id":1,"method":"mining.subscribe","params":[]}]"#,
             r#"{"id":1,"method":"mining.subscribe","params":[]"#,
         ] {
             reject(line);
         }
+    }
+
+    #[test]
+    fn error_data_round_trips() {
+        let line = r#"{"id":1,"result":null,"error":[20,"Rejected",{"detail":"invalid share"}]}"#;
+        let decoded = response(line);
+        assert_eq!(
+            decoded.result.as_ref().unwrap_err().data,
+            Some(json!({"detail": "invalid share"}))
+        );
+        assert_eq!(serde_json::to_string(&decoded).unwrap(), line);
     }
 
     #[test]
