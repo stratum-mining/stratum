@@ -259,8 +259,8 @@ impl ServerToClient {
 
 /// Types a notification. A reply is typed with [`ServerToClient::from_response`].
 ///
-/// Any request ID is ignored, so a server that attaches one to a notification is still
-/// understood.
+/// The request ID is ignored, so a server that attaches one to a notification is still
+/// understood. An ID that is not a valid [`Id`] fails earlier, when the envelope is decoded.
 impl TryFrom<json_rpc::RpcRequest> for ServerToClient {
     type Error = DecodeError;
 
