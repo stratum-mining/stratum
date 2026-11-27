@@ -277,10 +277,11 @@ pub struct ConfigureResult {
     pub unsupported: Vec<String>,
 }
 
+/// The mask never covers reserved bits, and is zero when version rolling is refused.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VersionRollingResult {
-    pub enabled: bool,
-    pub mask: HexU32Be,
+    enabled: bool,
+    mask: HexU32Be,
 }
 
 impl VersionRollingResult {
@@ -292,10 +293,25 @@ impl VersionRollingResult {
             mask: mask & VERSION_ROLLING_MASK,
         }
     }
+
+    /// Refuses version rolling.
+    pub fn refused() -> Self {
+        VersionRollingResult {
+            enabled: false,
+            mask: HexU32Be(0),
+        }
+    }
+
+    pub fn enabled(&self) -> bool {
+        self.enabled
+    }
+
+    pub fn mask(&self) -> HexU32Be {
+        self.mask
+    }
 }
 
-/// The mask is clamped to [`VERSION_ROLLING_MASK`], so reserved bits are never offered. A refused
-/// version rolling carries no mask.
+/// A refused version rolling carries no mask.
 impl From<ConfigureResult> for Value {
     fn from(result: ConfigureResult) -> Self {
         let mut values = Map::new();
@@ -306,10 +322,7 @@ impl From<ConfigureResult> for Value {
         if let Some(version_rolling) = result.version_rolling {
             values.insert("version-rolling".into(), version_rolling.enabled.into());
             if version_rolling.enabled {
-                values.insert(
-                    "version-rolling.mask".into(),
-                    (version_rolling.mask & VERSION_ROLLING_MASK).into(),
-                );
+                values.insert("version-rolling.mask".into(), version_rolling.mask.into());
             }
         }
         for (code, supported) in [
@@ -351,21 +364,15 @@ impl ConfigureResult {
         let enabled = extension_result(values, "version-rolling")?;
         let mask = values.get("version-rolling.mask");
         let version_rolling = match (enabled, mask) {
-            (Some(true), Some(mask)) => Some(VersionRollingResult {
-                enabled: true,
-                mask: mask
-                    .as_str()
+            (Some(true), Some(mask)) => Some(VersionRollingResult::new(
+                mask.as_str()
                     .and_then(|mask| HexU32Be::try_from(mask).ok())
-                    .map(|mask| mask & VERSION_ROLLING_MASK)
                     .ok_or(ParamError::new(
                         "version-rolling.mask",
                         "not a 32-bit hex value",
                     ))?,
-            }),
-            (Some(false), _) => Some(VersionRollingResult {
-                enabled: false,
-                mask: HexU32Be(0),
-            }),
+            )),
+            (Some(false), _) => Some(VersionRollingResult::refused()),
             (None, None) => None,
             _ => return Err(ParamError::new("version-rolling", "incomplete")),
         };

@@ -830,9 +830,7 @@ mod tests {
                 extranonce1: Extranonce::try_from(vec![8, 0, 0, 2]).unwrap(),
                 extranonce2_size: 4,
             }),
-            ServerToClient::SetVersionMask(SetVersionMask {
-                mask: HexU32Be(0x1fffe000),
-            }),
+            ServerToClient::SetVersionMask(SetVersionMask::new(HexU32Be(0x1fffe000))),
         ]
     }
 
@@ -891,7 +889,7 @@ mod tests {
             _: Option<usize>,
             set: SetVersionMask,
         ) -> Result<(), Error> {
-            self.record(format!("mask {}", set.mask))
+            self.record(format!("mask {}", set.mask()))
         }
 
         fn handle_configure_result(
@@ -1000,7 +998,7 @@ mod tests {
             _: Option<usize>,
             set: SetVersionMask,
         ) -> Result<(), Error> {
-            self.record(format!("mask {}", set.mask))
+            self.record(format!("mask {}", set.mask()))
         }
 
         async fn handle_configure_result(

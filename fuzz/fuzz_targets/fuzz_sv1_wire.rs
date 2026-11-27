@@ -115,7 +115,7 @@ fn test_msg_conversions(msg: Message) {
                 Ok(m) => {
                     assert_escaped(format!("{m:?}"));
                     if let ServerToClient::SetVersionMask(set) = &m {
-                        assert_no_reserved_bits(set.mask);
+                        assert_no_reserved_bits(set.mask());
                     }
                     let line = serde_json::to_string(&Message::from(m.clone())).unwrap();
                     if let Ok(Message::Request(again)) = Message::decode(&line) {
@@ -136,7 +136,7 @@ fn test_msg_conversions(msg: Message) {
                             if let Ok(Some(version_rolling)) =
                                 reply.result.as_ref().map(|result| &result.version_rolling)
                             {
-                                assert_no_reserved_bits(version_rolling.mask);
+                                assert_no_reserved_bits(version_rolling.mask());
                             }
                         }
                     }

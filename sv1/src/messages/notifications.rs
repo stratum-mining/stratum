@@ -43,11 +43,10 @@ pub struct SetExtranonce {
 
 /// `mining.set_version_mask`, applied immediately.
 ///
-/// The mask is clamped to [`VERSION_ROLLING_MASK`] when decoding and when encoding, so reserved
-/// bits are never offered or accepted.
+/// The mask never covers reserved bits.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SetVersionMask {
-    pub mask: HexU32Be,
+    mask: HexU32Be,
 }
 
 impl From<Notify> for Message {
@@ -91,10 +90,7 @@ impl From<SetExtranonce> for Message {
 
 impl From<SetVersionMask> for Message {
     fn from(set: SetVersionMask) -> Self {
-        Message::notification(
-            Method::SetVersionMask,
-            vec![(set.mask & VERSION_ROLLING_MASK).into()],
-        )
+        Message::notification(Method::SetVersionMask, vec![set.mask.into()])
     }
 }
 
@@ -189,11 +185,20 @@ impl SetExtranonce {
 }
 
 impl SetVersionMask {
+    /// Clamps the mask to [`VERSION_ROLLING_MASK`] so it never covers reserved bits.
+    pub fn new(mask: HexU32Be) -> Self {
+        SetVersionMask {
+            mask: mask & VERSION_ROLLING_MASK,
+        }
+    }
+
+    pub fn mask(&self) -> HexU32Be {
+        self.mask
+    }
+
     pub(super) fn from_params(params: &Value) -> Result<Self, ParamError> {
         match params_array(params)? {
-            [Value::String(mask)] => Ok(SetVersionMask {
-                mask: hex_u32(mask, "mask")? & VERSION_ROLLING_MASK,
-            }),
+            [Value::String(mask)] => Ok(SetVersionMask::new(hex_u32(mask, "mask")?)),
             _ => Err(ParamError::new(
                 "params",
                 "unexpected set_version_mask params",

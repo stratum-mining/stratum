@@ -189,29 +189,27 @@ fn configure(id: u64, params: Value) {
     assert!(request.params.version_rolling_min_bit_count() <= Some(32));
 }
 
-/// Reserved bits are not sent in a `mining.set_version_mask` or a configure result, whatever
-/// mask the sender holds. The result carries no `version-rolling.min-bit-count`.
+/// Reserved bits are not held or sent in a `mining.set_version_mask` or a configure result,
+/// whatever mask they are built from. The result carries no `version-rolling.min-bit-count`.
 fn encoded_masks_are_clamped(id: u64, mask: u32) {
     let clamped = HexU32Be(mask & VERSION_ROLLING_MASK);
 
-    let Message::Request(set) = Message::from(SetVersionMask {
-        mask: HexU32Be(mask),
-    }) else {
+    let set = SetVersionMask::new(HexU32Be(mask));
+    assert_eq!(set.mask(), clamped);
+    let Message::Request(set) = Message::from(set) else {
         unreachable!("a notification is a request");
     };
     assert_eq!(set.params, serde_json::json!([clamped.to_string()]));
     assert_eq!(
         ServerToClient::try_from(set).expect("encoded notifications always decode"),
-        ServerToClient::SetVersionMask(SetVersionMask { mask: clamped })
+        ServerToClient::SetVersionMask(SetVersionMask::new(clamped))
     );
 
     let result = |mask| ConfigureResult {
-        version_rolling: Some(VersionRollingResult {
-            enabled: true,
-            mask,
-        }),
+        version_rolling: Some(VersionRollingResult::new(mask)),
         ..ConfigureResult::default()
     };
+    assert_eq!(VersionRollingResult::new(HexU32Be(mask)).mask(), clamped);
     let reply = sv1_api::Response::success(Id::from(id), result(HexU32Be(mask)));
     let Message::Response(response) = Message::from(reply) else {
         unreachable!("a reply is a response");

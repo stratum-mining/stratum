@@ -676,7 +676,7 @@ fn other_notification_forms() {
     let ServerToClient::SetVersionMask(set) = server_notification(line) else {
         panic!("not a set_version_mask");
     };
-    assert_eq!(set.mask, HexU32Be(0x1fffe000));
+    assert_eq!(set.mask(), HexU32Be(0x1fffe000));
 }
 
 #[test]
@@ -693,17 +693,13 @@ fn notification_encoding() {
         json!({"id": null, "method": "mining.set_extranonce", "params": ["08000002", 4]})
     );
     assert_eq!(
-        to_json(SetVersionMask {
-            mask: HexU32Be(0x1fffe000)
-        }),
+        to_json(SetVersionMask::new(HexU32Be(0x1fffe000))),
         json!({"id": null, "method": "mining.set_version_mask", "params": ["1fffe000"]})
     );
     for notification in [
         ServerToClient::Notify(notify()),
         ServerToClient::SetDifficulty(SetDifficulty::new(0.5).unwrap()),
-        ServerToClient::SetVersionMask(SetVersionMask {
-            mask: HexU32Be(0x1fffe000),
-        }),
+        ServerToClient::SetVersionMask(SetVersionMask::new(HexU32Be(0x1fffe000))),
     ] {
         let line = to_json(notification.clone()).to_string();
         assert_eq!(server_notification(&line), notification, "{line}");
@@ -801,7 +797,7 @@ fn configure_result_forms() {
     for (line, version_rolling, minimum_difficulty) in cases {
         let result = configure_result(line);
         assert_eq!(
-            result.version_rolling.map(|v| (v.enabled, v.mask.0)),
+            result.version_rolling.map(|v| (v.enabled(), v.mask().0)),
             version_rolling,
             "{line}"
         );
@@ -891,10 +887,7 @@ fn server_response_encoding() {
         to_json(Response::success(
             Id::from(7u64),
             ConfigureResult {
-                version_rolling: Some(VersionRollingResult {
-                    enabled: false,
-                    mask: HexU32Be(0x1fffe000),
-                }),
+                version_rolling: Some(VersionRollingResult::refused()),
                 ..ConfigureResult::default()
             },
         )),
@@ -936,12 +929,12 @@ fn submit_errors_round_trip_through_their_code() {
 }
 
 #[test]
-fn offered_mask_is_clamped_whatever_the_result_holds() {
+fn offered_mask_is_clamped_when_built() {
+    let version_rolling = VersionRollingResult::new(HexU32Be(0xffffffff));
+    assert_eq!(version_rolling.mask(), HexU32Be(0x1fffffe0));
+    assert_eq!(VersionRollingResult::refused().mask(), HexU32Be(0));
     let result = ConfigureResult {
-        version_rolling: Some(VersionRollingResult {
-            enabled: true,
-            mask: HexU32Be(0xffffffff),
-        }),
+        version_rolling: Some(version_rolling),
         ..ConfigureResult::default()
     };
     let encoded = to_json(Response::success(Id::from(7u64), result));
@@ -952,7 +945,7 @@ fn offered_mask_is_clamped_whatever_the_result_holds() {
 fn configure_result_mask_is_clamped() {
     let line = r#"{"id":7,"result":{"version-rolling":true,"version-rolling.mask":"ffffffff"},"error":null}"#;
     let result = configure_result(line);
-    assert_eq!(result.version_rolling.unwrap().mask, HexU32Be(0x1fffffe0));
+    assert_eq!(result.version_rolling.unwrap().mask(), HexU32Be(0x1fffffe0));
 }
 
 #[test]
@@ -961,12 +954,11 @@ fn set_version_mask_is_clamped() {
     let ServerToClient::SetVersionMask(set) = server_notification(line) else {
         panic!("not a set_version_mask");
     };
-    assert_eq!(set.mask, HexU32Be(0x1fffffe0));
+    assert_eq!(set.mask(), HexU32Be(0x1fffffe0));
 
-    let encoded = to_json(SetVersionMask {
-        mask: HexU32Be(0xffffffff),
-    });
-    assert_eq!(encoded["params"], json!(["1fffffe0"]));
+    let set = SetVersionMask::new(HexU32Be(0xffffffff));
+    assert_eq!(set.mask(), HexU32Be(0x1fffffe0));
+    assert_eq!(to_json(set)["params"], json!(["1fffffe0"]));
 }
 
 #[test]

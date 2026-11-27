@@ -320,7 +320,7 @@ impl IsClient for Client {
         _server_id: Option<usize>,
         set: SetVersionMask,
     ) -> Result<(), Error> {
-        self.mask = Some(set.mask);
+        self.mask = Some(set.mask());
         Ok(())
     }
 
@@ -332,8 +332,8 @@ impl IsClient for Client {
     ) -> Result<(), Error> {
         self.mask = result
             .version_rolling
-            .filter(|version_rolling| version_rolling.enabled)
-            .map(|version_rolling| version_rolling.mask);
+            .filter(VersionRollingResult::enabled)
+            .map(|version_rolling| version_rolling.mask());
         Ok(())
     }
 
