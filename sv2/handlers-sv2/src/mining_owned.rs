@@ -1,6 +1,6 @@
 use crate::error::HandlerErrorType;
 use framing_sv2::header::Header;
-use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, MiningOwned, Tlv};
+use parsers_sv2::{AnyMessage, MiningOwned, Tlv};
 
 use mining_sv2::*;
 
@@ -17,7 +17,7 @@ use mining_sv2::*;
 /// implementor.
 ///
 /// Messages are dispatched by direction only: a message that only a client sends is rejected with
-/// [`HandlerErrorType::unexpected_message`], and every other message reaches its handler. Whether a
+/// [`HandlerErrorType::unexpected_message`], and every other message of this protocol reaches its handler. Whether a
 /// message is acceptable on the connection is left to the implementor. Per the Mining Protocol that
 /// covers a reply only to a request that was sent, and `SetGroupChannel` and extended jobs only on
 /// a connection that did not set `REQUIRES_STANDARD_JOBS`.
@@ -36,6 +36,9 @@ pub trait HandleMiningMessagesFromServerOwnedSync {
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
     /// to `handle_mining_message_from_server` with the parsed message and TLV fields.
+    ///
+    /// A frame whose `extension_type` this crate does not implement is dropped and `Ok(())` is
+    /// returned, as Sv2 spec §3.4.1 requires for a message processed locally.
     fn handle_mining_message_frame_from_server(
         &mut self,
         server_id: Option<usize>,
@@ -43,9 +46,12 @@ pub trait HandleMiningMessagesFromServerOwnedSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-        let (parsed, tlv_fields) =
-            parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                .map_err(Self::Error::parse_error)?;
+        let Some((parsed, tlv_fields)) =
+            crate::parse_frame(header, payload, &negotiated_extensions)
+                .map_err(Self::Error::parse_error)?
+        else {
+            return Ok(());
+        };
         match parsed {
             AnyMessage::Mining(parsed) => self.handle_mining_message_from_server(
                 server_id,
@@ -251,7 +257,7 @@ pub trait HandleMiningMessagesFromServerOwnedSync {
 /// implementor.
 ///
 /// Messages are dispatched by direction only: a message that only a client sends is rejected with
-/// [`HandlerErrorType::unexpected_message`], and every other message reaches its handler. Whether a
+/// [`HandlerErrorType::unexpected_message`], and every other message of this protocol reaches its handler. Whether a
 /// message is acceptable on the connection is left to the implementor. Per the Mining Protocol that
 /// covers a reply only to a request that was sent, and `SetGroupChannel` and extended jobs only on
 /// a connection that did not set `REQUIRES_STANDARD_JOBS`.
@@ -271,6 +277,9 @@ pub trait HandleMiningMessagesFromServerOwnedAsync {
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
     /// to `handle_mining_message_from_server` with the parsed message and TLV fields.
+    ///
+    /// A frame whose `extension_type` this crate does not implement is dropped and `Ok(())` is
+    /// returned, as Sv2 spec §3.4.1 requires for a message processed locally.
     async fn handle_mining_message_frame_from_server(
         &mut self,
         server_id: Option<usize>,
@@ -279,9 +288,12 @@ pub trait HandleMiningMessagesFromServerOwnedAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-            let (parsed, tlv_fields) =
-                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                    .map_err(Self::Error::parse_error)?;
+            let Some((parsed, tlv_fields)) =
+                crate::parse_frame(header, payload, &negotiated_extensions)
+                    .map_err(Self::Error::parse_error)?
+            else {
+                return Ok(());
+            };
             match parsed {
                 AnyMessage::Mining(parsed) => {
                     self.handle_mining_message_from_server(
@@ -516,7 +528,7 @@ pub trait HandleMiningMessagesFromServerOwnedAsync {
 /// implementor.
 ///
 /// Messages are dispatched by direction only: a message that only a server sends is rejected with
-/// [`HandlerErrorType::unexpected_message`], and every other message reaches its handler. Whether a
+/// [`HandlerErrorType::unexpected_message`], and every other message of this protocol reaches its handler. Whether a
 /// message is acceptable on the connection is left to the implementor. Per the Mining Protocol that
 /// covers `SetCustomMiningJob` only on a connection that set `REQUIRES_WORK_SELECTION`, extended
 /// channels only on a connection that did not set `REQUIRES_STANDARD_JOBS`, and the authorization
@@ -536,6 +548,9 @@ pub trait HandleMiningMessagesFromClientOwnedSync {
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
     /// to `handle_mining_message_from_client` with the parsed message and TLV fields.
+    ///
+    /// A frame whose `extension_type` this crate does not implement is dropped and `Ok(())` is
+    /// returned, as Sv2 spec §3.4.1 requires for a message processed locally.
     fn handle_mining_message_frame_from_client(
         &mut self,
         client_id: Option<usize>,
@@ -543,9 +558,12 @@ pub trait HandleMiningMessagesFromClientOwnedSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-        let (parsed, tlv_fields) =
-            parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                .map_err(Self::Error::parse_error)?;
+        let Some((parsed, tlv_fields)) =
+            crate::parse_frame(header, payload, &negotiated_extensions)
+                .map_err(Self::Error::parse_error)?
+        else {
+            return Ok(());
+        };
         match parsed {
             AnyMessage::Mining(parsed) => self.handle_mining_message_from_client(
                 client_id,
@@ -705,7 +723,7 @@ pub trait HandleMiningMessagesFromClientOwnedSync {
 /// implementor.
 ///
 /// Messages are dispatched by direction only: a message that only a server sends is rejected with
-/// [`HandlerErrorType::unexpected_message`], and every other message reaches its handler. Whether a
+/// [`HandlerErrorType::unexpected_message`], and every other message of this protocol reaches its handler. Whether a
 /// message is acceptable on the connection is left to the implementor. Per the Mining Protocol that
 /// covers `SetCustomMiningJob` only on a connection that set `REQUIRES_WORK_SELECTION`, extended
 /// channels only on a connection that did not set `REQUIRES_STANDARD_JOBS`, and the authorization
@@ -726,6 +744,9 @@ pub trait HandleMiningMessagesFromClientOwnedAsync {
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
     /// to `handle_mining_message_from_client` with the parsed message and TLV fields.
+    ///
+    /// A frame whose `extension_type` this crate does not implement is dropped and `Ok(())` is
+    /// returned, as Sv2 spec §3.4.1 requires for a message processed locally.
     async fn handle_mining_message_frame_from_client(
         &mut self,
         client_id: Option<usize>,
@@ -734,9 +755,12 @@ pub trait HandleMiningMessagesFromClientOwnedAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-            let (parsed, tlv_fields) =
-                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                    .map_err(Self::Error::parse_error)?;
+            let Some((parsed, tlv_fields)) =
+                crate::parse_frame(header, payload, &negotiated_extensions)
+                    .map_err(Self::Error::parse_error)?
+            else {
+                return Ok(());
+            };
             match parsed {
                 AnyMessage::Mining(parsed) => {
                     self.handle_mining_message_from_client(

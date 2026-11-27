@@ -1,6 +1,6 @@
 use extensions_sv2::{RequestExtensions, RequestExtensionsError, RequestExtensionsSuccess};
 use framing_sv2::header::Header;
-use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, Extensions, Tlv};
+use parsers_sv2::{AnyMessage, Extensions, Tlv};
 
 use crate::error::HandlerErrorType;
 
@@ -32,6 +32,9 @@ pub trait HandleExtensionsFromServerSync {
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
     /// to `handle_extensions_message_from_server` with the parsed message and TLV fields.
+    ///
+    /// A frame whose `extension_type` this crate does not implement is dropped and `Ok(())` is
+    /// returned, as Sv2 spec §3.4.1 requires for a message processed locally.
     fn handle_extensions_message_frame_from_server(
         &mut self,
         server_id: Option<usize>,
@@ -39,9 +42,12 @@ pub trait HandleExtensionsFromServerSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-        let (parsed, tlv_fields) =
-            parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                .map_err(Self::Error::parse_error)?;
+        let Some((parsed, tlv_fields)) =
+            crate::parse_frame(header, payload, &negotiated_extensions)
+                .map_err(Self::Error::parse_error)?
+        else {
+            return Ok(());
+        };
         match parsed {
             AnyMessage::Extensions(parsed) => {
                 self.handle_extensions_message_from_server(server_id, parsed, tlv_fields.as_deref())
@@ -127,6 +133,9 @@ pub trait HandleExtensionsFromServerAsync {
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
     /// to `handle_extensions_message_from_server` with the parsed message and TLV fields.
+    ///
+    /// A frame whose `extension_type` this crate does not implement is dropped and `Ok(())` is
+    /// returned, as Sv2 spec §3.4.1 requires for a message processed locally.
     async fn handle_extensions_message_frame_from_server(
         &mut self,
         server_id: Option<usize>,
@@ -135,9 +144,12 @@ pub trait HandleExtensionsFromServerAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-            let (parsed, tlv_fields) =
-                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                    .map_err(Self::Error::parse_error)?;
+            let Some((parsed, tlv_fields)) =
+                crate::parse_frame(header, payload, &negotiated_extensions)
+                    .map_err(Self::Error::parse_error)?
+            else {
+                return Ok(());
+            };
             match parsed {
                 AnyMessage::Extensions(parsed) => {
                     self.handle_extensions_message_from_server(
@@ -232,6 +244,9 @@ pub trait HandleExtensionsFromClientSync {
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
     /// to `handle_extensions_message_from_client` with the parsed message and TLV fields.
+    ///
+    /// A frame whose `extension_type` this crate does not implement is dropped and `Ok(())` is
+    /// returned, as Sv2 spec §3.4.1 requires for a message processed locally.
     fn handle_extensions_message_frame_from_client(
         &mut self,
         client_id: Option<usize>,
@@ -239,9 +254,12 @@ pub trait HandleExtensionsFromClientSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-        let (parsed, tlv_fields) =
-            parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                .map_err(Self::Error::parse_error)?;
+        let Some((parsed, tlv_fields)) =
+            crate::parse_frame(header, payload, &negotiated_extensions)
+                .map_err(Self::Error::parse_error)?
+        else {
+            return Ok(());
+        };
         match parsed {
             AnyMessage::Extensions(parsed) => {
                 self.handle_extensions_message_from_client(client_id, parsed, tlv_fields.as_deref())
@@ -323,6 +341,9 @@ pub trait HandleExtensionsFromClientAsync {
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
     /// to `handle_extensions_message_from_client` with the parsed message and TLV fields.
+    ///
+    /// A frame whose `extension_type` this crate does not implement is dropped and `Ok(())` is
+    /// returned, as Sv2 spec §3.4.1 requires for a message processed locally.
     async fn handle_extensions_message_frame_from_client(
         &mut self,
         client_id: Option<usize>,
@@ -331,9 +352,12 @@ pub trait HandleExtensionsFromClientAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-            let (parsed, tlv_fields) =
-                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
-                    .map_err(Self::Error::parse_error)?;
+            let Some((parsed, tlv_fields)) =
+                crate::parse_frame(header, payload, &negotiated_extensions)
+                    .map_err(Self::Error::parse_error)?
+            else {
+                return Ok(());
+            };
             match parsed {
                 AnyMessage::Extensions(parsed) => {
                     self.handle_extensions_message_from_client(
