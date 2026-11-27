@@ -708,6 +708,10 @@ impl AnyMessage<'_> {
 /// Returns [`ParserError::PayloadLengthMismatch`] if the payload is not exactly as long as the
 /// header declares, and [`ParserError::ChannelBitMismatch`] if the header's channel_msg bit
 /// differs from the one the decoded message type defines.
+///
+/// Returns [`ParserError::UnknownExtension`] if the header's `extension_type` is not one this
+/// crate implements. That frame is not malformed: Sv2 spec §3.4.1 requires it to be discarded
+/// and ignored when processed locally, or forwarded by a proxy when its channel_msg bit is set.
 pub fn parse_message_frame_with_tlvs<'a>(
     header: Header,
     payload: &'a mut [u8],
@@ -1952,6 +1956,9 @@ impl TryFrom<u8> for ExtensionsNegotiationTypes {
 /// Note: The channel_msg bit (bit 15) is automatically stripped from extension_type
 /// to ensure correct matching regardless of whether the caller passes the raw header
 /// value or a pre-processed one.
+///
+/// Returns [`ParserError::UnknownExtension`] for an `extension_type` this crate does not
+/// implement.
 impl<'a> TryFrom<(u16, u8, &'a mut [u8])> for Extensions<'a> {
     type Error = ParserError;
 
@@ -1986,7 +1993,11 @@ impl<'a> TryFrom<(u16, u8, &'a mut [u8])> for Extensions<'a> {
                     }
                 }
             }
-            _ => Err(ParserError::UnexpectedMessage(msg_type)),
+            // Known, but it only adds TLV fields and defines no message of its own.
+            EXTENSION_TYPE_WORKER_HASHRATE_TRACKING => {
+                Err(ParserError::UnexpectedMessage(msg_type))
+            }
+            _ => Err(ParserError::UnknownExtension(extension_type)),
         }
     }
 }
@@ -3079,6 +3090,38 @@ mod test {
                 ..
             })
         ));
+    }
+
+    // 0x4000 is in the experimental extension range (spec §3.4) and is not implemented here.
+    #[test]
+    fn unknown_extension_is_reported_as_unknown() {
+        for extension_type in [0x4000, 0x4000 | CHANNEL_MSG] {
+            let mut payload = [1, 2, 3];
+            let h = header(extension_type, 0x00, payload.len());
+            assert!(matches!(
+                AnyMessage::try_from((h, &mut payload[..])),
+                Err(ParserError::UnknownExtension(0x4000))
+            ));
+            assert!(matches!(
+                crate::parse_message_frame_with_tlvs(h, &mut payload[..], &[0x0002]),
+                Err(ParserError::UnknownExtension(0x4000))
+            ));
+        }
+    }
+
+    #[test]
+    fn known_extension_with_unknown_message_is_unexpected() {
+        for extension_type in [
+            EXTENSION_TYPE_EXTENSIONS_NEGOTIATION,
+            extensions_sv2::EXTENSION_TYPE_WORKER_HASHRATE_TRACKING,
+        ] {
+            let mut payload = [];
+            let h = header(extension_type, 0xff, 0);
+            assert!(matches!(
+                AnyMessage::try_from((h, &mut payload[..])),
+                Err(ParserError::UnexpectedMessage(0xff))
+            ));
+        }
     }
 
     #[test]

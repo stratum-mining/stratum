@@ -17,6 +17,12 @@ pub enum ParserError {
         message_type: u8,
         channel_msg: bool,
     },
+    /// The `Header`'s `extension_type` (without the channel_msg bit) is not one this crate
+    /// implements.
+    ///
+    /// Sv2 spec §3.4.1 requires such a message to be discarded and ignored when it is processed
+    /// locally. A proxy forwards it instead when its channel_msg bit is set.
+    UnknownExtension(u16),
 }
 
 impl From<binary_sv2::Error> for ParserError {
@@ -60,6 +66,9 @@ impl core::fmt::Display for ParserError {
                 f,
                 "Header channel_msg bit is {channel_msg} for extension type {extension_type:#06x}, message type {message_type:#04x}"
             ),
+            ParserError::UnknownExtension(extension_type) => {
+                write!(f, "Unknown extension type: {extension_type:#06x}")
+            }
         }
     }
 }
