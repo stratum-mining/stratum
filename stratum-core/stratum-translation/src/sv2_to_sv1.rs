@@ -97,6 +97,8 @@ pub fn build_sv1_notify_from_sv2(
 ///
 /// # Returns
 /// * `Ok(json_rpc::Message)` - The constructed SV1 mining.set_difficulty message.
+/// * `Err(InvalidSv1Difficulty)` - If the target gives a difficulty that is not finite and
+///   positive, such as an all-zero target.
 pub fn build_sv1_set_difficulty_from_sv2_set_target(
     set_target: SetTargetOwned,
 ) -> Result<json_rpc::Message> {
