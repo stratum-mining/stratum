@@ -37,7 +37,7 @@ use bitcoin::{
     absolute::LockTime,
     consensus::{serialize, Decodable},
     transaction::{OutPoint, Transaction, TxIn, TxOut, Version},
-    Amount, Sequence,
+    Amount, Script, Sequence,
 };
 use mining_sv2::{NewExtendedMiningJobOwned, NewMiningJobOwned, SetCustomMiningJobOwned};
 use std::convert::TryInto;
@@ -496,12 +496,18 @@ impl JobFactory {
     /// Creates a new Extended Job from a SetCustomMiningJob message.
     ///
     /// Assumes that the SetCustomMiningJob message has already been validated, with the exception
-    /// of its `coinbase_prefix` length: since that arrives from a downstream Job Declarator Client,
-    /// it is bounded here rather than delegated to the caller.
+    /// of its `coinbase_prefix` length and structure: since that arrives from a downstream Job
+    /// Declarator Client, it is checked here rather than delegated to the caller.
     ///
     /// Returns [`JobFactoryError::ScriptSigSizeTooLarge`] if the message's `coinbase_prefix` and
     /// the full extranonce do not fit within [`MAX_SCRIPT_SIG_SIZE`]. Note that a custom job's
     /// `coinbase_prefix` already embeds the pool/miner tag, so no tag is added on top of it.
+    ///
+    /// Returns [`JobFactoryError::InvalidCoinbasePrefix`] unless `coinbase_prefix` consists of
+    /// complete script operations followed by the opcode that pushes `full_extranonce_size` bytes,
+    /// so that the full extranonce is the last push of the scriptSig. Otherwise a client holding
+    /// two channels with different full extranonce sizes could build the same scriptSig on both,
+    /// cut at two different places, and have each share accepted once on each channel.
     ///
     /// To be used by Extended Channels on a Sv2 Pool Server.
     pub fn new_extended_job_from_custom_job(
@@ -632,6 +638,24 @@ impl JobFactory {
         // rely on, silently mis-slicing the coinbase.
         if m.coinbase_prefix.len() + full_extranonce_size > MAX_SCRIPT_SIG_SIZE {
             return Err(JobFactoryError::ScriptSigSizeTooLarge);
+        }
+
+        // the extranonce is the last push of the scriptSig, so that the scriptSig parses in one
+        // way only. its push opcode is the single byte whose value is the size, which only
+        // exists for sizes up to 75 (0x4b).
+        let ends_with_extranonce_push =
+            m.coinbase_prefix
+                .as_bytes()
+                .split_last()
+                .is_some_and(|(&push, script_ops)| {
+                    push <= 0x4b
+                        && usize::from(push) == full_extranonce_size
+                        && Script::from_bytes(script_ops)
+                            .instructions()
+                            .all(|op| op.is_ok())
+                });
+        if !ends_with_extranonce_push {
+            return Err(JobFactoryError::InvalidCoinbasePrefix);
         }
 
         let deserialized_outputs =
@@ -1212,7 +1236,9 @@ mod tests {
         let mut job_factory = JobFactory::new(true, None, None);
 
         let job = job_factory.new_extended_job_from_custom_job(
-            custom_job_with_coinbase_prefix(vec![0xab; MAX_SCRIPT_SIG_SIZE - 32]),
+            custom_job_with_coinbase_prefix(
+                [vec![0xab; MAX_SCRIPT_SIG_SIZE - 33], vec![32]].concat(),
+            ),
             vec![0; 32],
             32,
         );
@@ -1220,7 +1246,9 @@ mod tests {
 
         // one byte over the budget yields a consensus-invalid coinbase
         let job = job_factory.new_extended_job_from_custom_job(
-            custom_job_with_coinbase_prefix(vec![0xab; MAX_SCRIPT_SIG_SIZE - 32 + 1]),
+            custom_job_with_coinbase_prefix(
+                [vec![0xab; MAX_SCRIPT_SIG_SIZE - 32], vec![32]].concat(),
+            ),
             vec![0; 32],
             32,
         );
@@ -1232,7 +1260,7 @@ mod tests {
         // a hostile downstream can otherwise push the scriptSig past the 252 byte CompactSize
         // threshold, which would also mis-slice the prefix/suffix split
         let job = job_factory.new_extended_job_from_custom_job(
-            custom_job_with_coinbase_prefix(vec![0xab; 250]),
+            custom_job_with_coinbase_prefix([vec![0xab; 249], vec![32]].concat()),
             vec![0; 32],
             32,
         );
@@ -1243,11 +1271,51 @@ mod tests {
     }
 
     #[test]
+    fn test_custom_job_rejects_coinbase_prefix_without_extranonce_push() {
+        let mut job_factory = JobFactory::new(true, None, None);
+        let mut new_job = |coinbase_prefix: Vec<u8>| {
+            job_factory.new_extended_job_from_custom_job(
+                custom_job_with_coinbase_prefix(coinbase_prefix),
+                vec![0; 4],
+                12,
+            )
+        };
+
+        // OP_2, then the push of the 12-byte full extranonce
+        assert!(new_job(vec![0x52, 12]).is_ok());
+
+        for coinbase_prefix in [
+            vec![],
+            // the last byte pushes 8 bytes, so the scriptSig ends with 4 bytes after that push
+            vec![0x52, 8],
+            // 0x05 pushes 5 bytes but only 1 follows, so the push of the extranonce is swallowed
+            vec![0x05, 0xaa, 12],
+        ] {
+            assert!(matches!(
+                new_job(coinbase_prefix).unwrap_err(),
+                JobFactoryError::InvalidCoinbasePrefix
+            ));
+        }
+
+        // 0x4c is OP_PUSHDATA1, not a push of 76 bytes
+        assert!(matches!(
+            job_factory
+                .new_extended_job_from_custom_job(
+                    custom_job_with_coinbase_prefix(vec![0x4c]),
+                    vec![],
+                    0x4c,
+                )
+                .unwrap_err(),
+            JobFactoryError::InvalidCoinbasePrefix
+        ));
+    }
+
+    #[test]
     fn test_custom_job_without_witness_commitment() {
         // coinbase_reward_outputs() carries no witness commitment, so BIP141 forbids a coinbase
         // witness: the bytes a found block is assembled from have none to strip
         let mut job_factory = JobFactory::new(true, None, None);
-        let coinbase_prefix = vec![0xab; 4];
+        let coinbase_prefix = [vec![0xab; 3], vec![32]].concat();
         let full_extranonce = vec![0xee; 32];
 
         let job = job_factory

@@ -900,6 +900,11 @@ impl ExtendedChannel {
     ///
     /// Returns the job id of the new custom mining job.
     ///
+    /// Returns [`ExtendedChannelError::JobFactoryError`] wrapping
+    /// [`JobFactoryError::InvalidCoinbasePrefix`](crate::server::jobs::error::JobFactoryError::InvalidCoinbasePrefix)
+    /// if `coinbase_prefix` does not end with the push of the full extranonce (§5.3.18). The
+    /// job is then not added and the chain tip is not updated.
+    ///
     /// To be used by a Sv2 Pool Server upon receiving a `SetCustomMiningJob` message.
     pub fn on_set_custom_mining_job(
         &mut self,
@@ -4004,7 +4009,8 @@ mod tests {
             ntime_start,
             nbits: 453040064,
             coinbase_tx_version: 2,
-            coinbase_prefix: vec![82, 0].try_into().unwrap(),
+            // OP_2, then the push of the full extranonce: the 4-byte prefix and 8 rollable bytes
+            coinbase_prefix: vec![82, 12].try_into().unwrap(),
             coinbase_tx_input_n_sequence: 4294967295,
             coinbase_tx_outputs: vec![
                 1u8, 0, 0xf2, 0x05, 0x2a, 0x01, 0, 0, 0, 22, 0, 20, 235, 225, 183, 220, 194, 147,
