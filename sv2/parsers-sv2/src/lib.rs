@@ -704,6 +704,10 @@ impl AnyMessage<'_> {
 /// Returns [`ParserError::TlvError`] if a TLV field declares more bytes than the payload has
 /// left, whether or not its extension is negotiated. With an empty `negotiated_extensions` no
 /// TLV field is checked.
+///
+/// Returns [`ParserError::PayloadLengthMismatch`] if the payload is not exactly as long as the
+/// header declares, and [`ParserError::ChannelBitMismatch`] if the header's channel_msg bit
+/// differs from the one the decoded message type defines.
 pub fn parse_message_frame_with_tlvs<'a>(
     header: Header,
     payload: &'a mut [u8],
