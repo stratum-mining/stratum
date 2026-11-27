@@ -373,7 +373,10 @@ fn configure_summary(configure: &Configure) -> Vec<String> {
                 params.mask.as_ref().map(|m| m.0),
                 params.min_bit_count
             ),
-            ConfigureExtension::MinimumDifficulty(value) => format!("minimum-difficulty {value}"),
+            ConfigureExtension::MinimumDifficulty(Some(value)) => {
+                format!("minimum-difficulty {value}")
+            }
+            ConfigureExtension::MinimumDifficulty(None) => "minimum-difficulty".to_string(),
             ConfigureExtension::SubscribeExtranonce => "subscribe-extranonce".to_string(),
             ConfigureExtension::Info(info) => format!("info {:?}", info.connection_url),
             ConfigureExtension::Unknown(code) => format!("unknown {code}"),
@@ -384,7 +387,7 @@ fn configure_summary(configure: &Configure) -> Vec<String> {
 
 #[test]
 fn configure_forms() {
-    let cases: [(&str, &[&str]); 24] = [
+    let cases: [(&str, &[&str]); 27] = [
         (
             r#"[["version-rolling"],{"version-rolling.mask":"1fffe000","version-rolling.min-bit-count":2}]"#,
             &["version-rolling mask=Some(536862720) min=Some(2)"],
@@ -451,6 +454,15 @@ fn configure_forms() {
             r#"[[],{"minimum-difficulty.value":1024}]"#,
             &["minimum-difficulty 1024"],
         ),
+        (r#"[["minimum-difficulty"]]"#, &["minimum-difficulty"]),
+        (r#"[["minimum-difficulty"],{}]"#, &["minimum-difficulty"]),
+        (
+            r#"[["version-rolling","minimum-difficulty"],{"version-rolling.mask":"1fffe000"}]"#,
+            &[
+                "version-rolling mask=Some(536862720) min=None",
+                "minimum-difficulty",
+            ],
+        ),
         (
             r#"[["info"],{"info.connection-url":"stratum+tcp://pool.example:3333","info.hw-version":"S19"}]"#,
             &["info Some(\"stratum+tcp://pool.example:3333\")"],
@@ -486,10 +498,28 @@ fn configure_forms() {
 }
 
 #[test]
-fn configure_minimum_difficulty_needs_a_value() {
+fn minimum_difficulty_is_requested_with_or_without_a_value() {
+    for (params, requested, value) in [
+        (r#"[["minimum-difficulty"]]"#, true, None),
+        (
+            r#"[["minimum-difficulty"],{"minimum-difficulty.value":0.5}]"#,
+            true,
+            Some(0.5),
+        ),
+        (r#"[["info"]]"#, false, None),
+    ] {
+        let line = format!(r#"{{"id":7,"method":"mining.configure","params":{params}}}"#);
+        let ClientToServer::Configure(Request { params, .. }) = client_request(&line) else {
+            panic!("{line}: not a configure");
+        };
+        assert_eq!(params.requests_minimum_difficulty(), requested, "{line}");
+        assert_eq!(params.minimum_difficulty(), value, "{line}");
+    }
+}
+
+#[test]
+fn configure_minimum_difficulty_value_is_a_non_negative_number() {
     for params in [
-        r#"[["minimum-difficulty"]]"#,
-        r#"[["minimum-difficulty"],{}]"#,
         r#"[["minimum-difficulty"],{"minimum-difficulty.value":-1}]"#,
         r#"[["minimum-difficulty"],{"minimum-difficulty.value":"1024"}]"#,
     ] {
@@ -542,6 +572,10 @@ fn client_requests_encode_canonically() {
         (
             r#"{"id":7,"method":"mining.configure","params":[["version-rolling","minimum-difficulty"],{"version-rolling.mask":"1fffe000","version-rolling.min-bit-count":"00000002","minimum-difficulty.value":2048}]}"#,
             json!({"id": 7, "method": "mining.configure", "params": [["version-rolling", "minimum-difficulty"], {"version-rolling.mask": "1fffe000", "version-rolling.min-bit-count": 2, "minimum-difficulty.value": 2048}]}),
+        ),
+        (
+            r#"{"id":7,"method":"mining.configure","params":[["minimum-difficulty"]]}"#,
+            json!({"id": 7, "method": "mining.configure", "params": [["minimum-difficulty"], {}]}),
         ),
         (
             r#"{"id":7,"method":"mining.configure","params":[["unknown","subscribe-extranonce"],{"unknown.value":1}]}"#,

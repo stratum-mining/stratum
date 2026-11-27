@@ -25,7 +25,8 @@ pub struct Configure {
 #[non_exhaustive]
 pub enum ConfigureExtension {
     VersionRolling(VersionRolling),
-    MinimumDifficulty(f64),
+    /// `None` when the code was listed without its value.
+    MinimumDifficulty(Option<f64>),
     SubscribeExtranonce,
     Info(InfoParams),
     /// A code this crate does not define. Its parameters are not carried.
@@ -81,13 +82,21 @@ impl Configure {
             .map(|params| params.min_bit_count.unwrap_or(0))
     }
 
+    /// The requested minimum difficulty. `None` also when the code was listed without its value,
+    /// which [`Configure::requests_minimum_difficulty`] tells apart.
     pub fn minimum_difficulty(&self) -> Option<f64> {
         self.extensions
             .iter()
             .find_map(|extension| match extension {
-                ConfigureExtension::MinimumDifficulty(value) => Some(*value),
+                ConfigureExtension::MinimumDifficulty(value) => *value,
                 _ => None,
             })
+    }
+
+    pub fn requests_minimum_difficulty(&self) -> bool {
+        self.extensions
+            .iter()
+            .any(|extension| matches!(extension, ConfigureExtension::MinimumDifficulty(_)))
     }
 
     pub fn info(&self) -> Option<&InfoParams> {
@@ -161,10 +170,10 @@ impl Configure {
                         "minimum-difficulty.value",
                         "not a non-negative number",
                     ))?;
-                extensions.push(ConfigureExtension::MinimumDifficulty(value));
+                extensions.push(ConfigureExtension::MinimumDifficulty(Some(value)));
             }
             None if requested("minimum-difficulty") => {
-                return Err(ParamError::new("minimum-difficulty.value", "missing"))
+                extensions.push(ConfigureExtension::MinimumDifficulty(None));
             }
             None => {}
         }
@@ -206,13 +215,16 @@ impl Configure {
                 }
                 ConfigureExtension::MinimumDifficulty(value) => {
                     codes.push("minimum-difficulty");
-                    // A whole value goes out as an integer, the form BIP 310 shows.
-                    let value = if value.fract() == 0.0 && (0.0..u64::MAX as f64).contains(value) {
-                        Value::from(*value as u64)
-                    } else {
-                        Value::from(*value)
-                    };
-                    parameters.insert("minimum-difficulty.value".into(), value);
+                    if let Some(value) = value {
+                        // A whole value goes out as an integer, the form BIP 310 shows.
+                        let value =
+                            if value.fract() == 0.0 && (0.0..u64::MAX as f64).contains(value) {
+                                Value::from(*value as u64)
+                            } else {
+                                Value::from(*value)
+                            };
+                        parameters.insert("minimum-difficulty.value".into(), value);
+                    }
                 }
                 ConfigureExtension::SubscribeExtranonce => codes.push("subscribe-extranonce"),
                 ConfigureExtension::Info(info) => {
