@@ -467,21 +467,45 @@ impl fmt::Debug for RpcRequest {
 }
 
 /// `mining.authorize` params carry the worker password, and a configure `info.connection-url`
-/// may carry credentials.
+/// may carry credentials, wherever the params hold it.
 struct RedactedParams<'a>(&'a RpcRequest);
 
-const CONNECTION_URL: &str = "/1/info.connection-url";
+const CONNECTION_URL: &str = "info.connection-url";
+
+fn holds_connection_url(value: &Value) -> bool {
+    match value {
+        Value::Object(members) => {
+            members.contains_key(CONNECTION_URL) || members.values().any(holds_connection_url)
+        }
+        Value::Array(elements) => elements.iter().any(holds_connection_url),
+        _ => false,
+    }
+}
+
+fn redact_connection_url(value: &mut Value) {
+    match value {
+        Value::Object(members) => {
+            for (name, member) in members {
+                if name == CONNECTION_URL {
+                    *member = Value::from("<redacted>");
+                } else {
+                    redact_connection_url(member);
+                }
+            }
+        }
+        Value::Array(elements) => elements.iter_mut().for_each(redact_connection_url),
+        _ => {}
+    }
+}
 
 impl fmt::Display for RedactedParams<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let params = &self.0.params;
         match self.0.method {
             Method::Authorize => f.write_str("<redacted>"),
-            Method::Configure if params.pointer(CONNECTION_URL).is_some() => {
+            Method::Configure if holds_connection_url(params) => {
                 let mut params = params.clone();
-                if let Some(url) = params.pointer_mut(CONNECTION_URL) {
-                    *url = Value::from("<redacted>");
-                }
+                redact_connection_url(&mut params);
                 write!(Escaped(f), "{params}")
             }
             _ => write!(Escaped(f), "{params}"),

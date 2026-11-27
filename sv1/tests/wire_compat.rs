@@ -1024,6 +1024,24 @@ fn raw_configure_hides_the_connection_url() {
         assert!(!formatted.contains("secret"), "{formatted}");
         assert!(formatted.contains("S19"), "{formatted}");
     }
+
+    // A configure that does not hold the URL where BIP 310 puts it.
+    for params in [
+        r#"{"x":[["info"],{"info.connection-url":"stratum+tcp://user:secret@pool.example"}]}"#,
+        r#"[{"info.connection-url":"stratum+tcp://user:secret@pool.example"},["info"]]"#,
+        r#"[["info"],null,[{"info.connection-url":["secret"]}]]"#,
+    ] {
+        let line = format!(r#"{{"id":7,"method":"mining.configure","params":{params}}}"#);
+        let message = decode(&line);
+        for formatted in [message.to_string(), format!("{message:?}")] {
+            assert!(!formatted.contains("secret"), "{formatted}");
+        }
+        if let Err(error) = try_client_request(&line) {
+            for formatted in [error.to_string(), format!("{error:?}")] {
+                assert!(!formatted.contains("secret"), "{formatted}");
+            }
+        }
+    }
 }
 
 #[test]
