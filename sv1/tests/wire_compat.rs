@@ -388,7 +388,7 @@ fn configure_summary(configure: &Configure) -> Vec<String> {
 
 #[test]
 fn configure_forms() {
-    let cases: [(&str, &[&str]); 27] = [
+    let cases: [(&str, &[&str]); 28] = [
         (
             r#"[["version-rolling"],{"version-rolling.mask":"1fffe000","version-rolling.min-bit-count":2}]"#,
             &["version-rolling mask=Some(536862720) min=Some(2)"],
@@ -471,6 +471,10 @@ fn configure_forms() {
         (r#"[["info"]]"#, &["info None"]),
         (r#"[["info"],{}]"#, &["info None"]),
         (r#"[["unknown"],{"unknown.value":1}]"#, &["unknown unknown"]),
+        (
+            r#"[["version-rolling.mask","unknown.value","unknown"],{}]"#,
+            &["unknown unknown"],
+        ),
         (
             r#"[["info","unknown",7,"other"],{}]"#,
             &["info None", "unknown unknown", "unknown other"],
@@ -986,6 +990,25 @@ fn unusable_difficulties_are_not_sent() {
         });
         assert_eq!(to_json(suggest)["params"], json!([]));
     }
+}
+
+#[test]
+fn unknown_codes_echoed_as_unsupported_decode() {
+    let line =
+        r#"{"id":7,"method":"mining.configure","params":[["version-rolling.mask","unknown"],{}]}"#;
+    let ClientToServer::Configure(Request { id, params }) = client_request(line) else {
+        panic!("not a configure");
+    };
+    let result = ConfigureResult {
+        unsupported: params.unknown_extensions().map(String::from).collect(),
+        ..ConfigureResult::default()
+    };
+    let encoded = to_json(Response::success(id, result));
+    assert_eq!(encoded["result"], json!({"unknown": false}));
+    assert_eq!(
+        configure_result(&encoded.to_string()).unsupported,
+        ["unknown"]
+    );
 }
 
 #[test]

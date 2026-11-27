@@ -127,8 +127,8 @@ impl Configure {
     }
 
     /// An extension is requested by its code, or by any of its parameters. A code this crate
-    /// does not define is kept without its parameters. Accepts a missing or null parameter
-    /// object, and ignores elements after it.
+    /// does not define is kept without its parameters, unless it holds a dot, which makes it a
+    /// parameter name. Accepts a missing or null parameter object, and ignores elements after it.
     pub(super) fn from_params(params: &Value) -> Result<Self, ParamError> {
         let params = params_array(params)?;
         let codes = params
@@ -193,7 +193,9 @@ impl Configure {
             codes
                 .iter()
                 .filter_map(Value::as_str)
-                .filter(|code| !code.is_empty() && !EXTENSION_CODES.contains(code))
+                .filter(|code| {
+                    !code.is_empty() && !code.contains('.') && !EXTENSION_CODES.contains(code)
+                })
                 .map(|code| ConfigureExtension::Unknown(code.to_string())),
         );
 
