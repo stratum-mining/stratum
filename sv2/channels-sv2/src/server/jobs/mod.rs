@@ -67,7 +67,10 @@ impl JobOrigin {
 /// - The extranonce slot the bytes leave between prefix and suffix is taken to be the channel's
 ///   full extranonce size. The crate verifies it only as far as the bytes still deserialize as a
 ///   coinbase around a slot of that size (the check below): where the slot sits or what it means
-///   is not checked.
+///   is not checked. A server that also accepts custom jobs, or whose accepted shares are
+///   accounted together with one that does, builds these bytes so that the full extranonce is
+///   the last push of the scriptSig and `coinbase_tx_suffix` begins with the input's nSequence
+///   (§5.3.16).
 /// - The bytes around a zero-filled slot must deserialize as a coinbase transaction, which is
 ///   how the crate computes a merkle root from them (see
 ///   [`merkle_root_from_path`](crate::merkle_root::merkle_root_from_path)). Otherwise the job is
