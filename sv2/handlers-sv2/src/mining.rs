@@ -1,25 +1,8 @@
 use crate::error::HandlerErrorType;
-use binary_sv2::Str0255;
 use framing_sv2::header::Header;
-use mining_sv2::{
-    CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel,
-    OpenExtendedMiningChannelSuccess, OpenMiningChannelError, OpenStandardMiningChannel,
-    OpenStandardMiningChannelSuccess, SetCustomMiningJob, SetCustomMiningJobError,
-    SetCustomMiningJobSuccess, SetExtranoncePrefix, SetGroupChannel, SetNewPrevHash, SetTarget,
-    SubmitSharesError, SubmitSharesExtended, SubmitSharesStandard, SubmitSharesSuccess,
-    UpdateChannel, UpdateChannelError,
-};
+use mining_sv2::*;
 use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, Mining, Tlv};
 
-use mining_sv2::*;
-
-#[derive(PartialEq, Eq, Copy, Clone)]
-pub enum SupportedChannelTypes {
-    Standard,
-    Extended,
-    Group,
-    GroupAndExtended,
-}
 /// Synchronous handler trait for processing mining messages received from servers.
 ///
 /// The server ID identifies which server a message originated from.
@@ -27,14 +10,18 @@ pub enum SupportedChannelTypes {
 /// this contextual information is readily available or not. In cases where `server_id` is either
 /// irrelevant or can be inferred without the context, this should always be `None`.
 ///
-/// Handler methods receive an optional `tlv_data` parameter containing validated TLV fields
-/// when extension data is appended to messages. It will be `Some` only if validation succeeds
-/// against negotiated extensions.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
+///
+/// Messages are dispatched by direction only: a message that only a client sends is rejected with
+/// [`HandlerErrorType::unexpected_message`], and every other message reaches its handler. Whether a
+/// message is acceptable on the connection is left to the implementor. Per the Mining Protocol that
+/// covers a reply only to a request that was sent, and `SetGroupChannel` and extended jobs only on
+/// a connection that did not set `REQUIRES_STANDARD_JOBS`.
 pub trait HandleMiningMessagesFromServerSync {
     type Error: HandlerErrorType;
-
-    fn get_channel_type_for_server(&self, server_id: Option<usize>) -> SupportedChannelTypes;
-    fn is_work_selection_enabled_for_server(&self, server_id: Option<usize>) -> bool;
 
     /// Returns the list of negotiated extension_types with a server.
     ///
@@ -55,12 +42,6 @@ pub trait HandleMiningMessagesFromServerSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-        if negotiated_extensions.is_empty() {
-            let parsed: Mining<'_> = (header.msg_type(), payload)
-                .try_into()
-                .map_err(Self::Error::parse_error)?;
-            return self.handle_mining_message_from_server(server_id, parsed, None);
-        }
         let (parsed, tlv_fields) =
             parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
                 .map_err(Self::Error::parse_error)?;
@@ -77,43 +58,23 @@ pub trait HandleMiningMessagesFromServerSync {
 
     /// Handles a parsed mining message from a server.
     ///
-    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
-    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
-    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
-    /// `extension_type`, `field_type`, `length`, and `value`.
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     fn handle_mining_message_from_server(
         &mut self,
         server_id: Option<usize>,
         message: Mining,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
-        let (channel_type, work_selection) = (
-            self.get_channel_type_for_server(server_id),
-            self.is_work_selection_enabled_for_server(server_id),
-        );
-
         use Mining::*;
         match message {
-            OpenStandardMiningChannelSuccess(m) => match channel_type {
-                SupportedChannelTypes::Standard
-                | SupportedChannelTypes::Group
-                | SupportedChannelTypes::GroupAndExtended => {
-                    self.handle_open_standard_mining_channel_success(server_id, m, tlv_fields)
-                }
-                _ => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS,
-                )),
-            },
-            OpenExtendedMiningChannelSuccess(m) => match channel_type {
-                SupportedChannelTypes::Extended | SupportedChannelTypes::GroupAndExtended => {
-                    self.handle_open_extended_mining_channel_success(server_id, m, tlv_fields)
-                }
-                _ => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCESS,
-                )),
-            },
+            OpenStandardMiningChannelSuccess(m) => {
+                self.handle_open_standard_mining_channel_success(server_id, m, tlv_fields)
+            }
+            OpenExtendedMiningChannelSuccess(m) => {
+                self.handle_open_extended_mining_channel_success(server_id, m, tlv_fields)
+            }
 
             OpenMiningChannelError(m) => {
                 self.handle_open_mining_channel_error(server_id, m, tlv_fields)
@@ -124,62 +85,23 @@ pub trait HandleMiningMessagesFromServerSync {
             SubmitSharesSuccess(m) => self.handle_submit_shares_success(server_id, m, tlv_fields),
             SubmitSharesError(m) => self.handle_submit_shares_error(server_id, m, tlv_fields),
 
-            NewMiningJob(m) => match channel_type {
-                SupportedChannelTypes::Standard => {
-                    self.handle_new_mining_job(server_id, m, tlv_fields)
-                }
-                _ => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_NEW_MINING_JOB,
-                )),
-            },
-            NewExtendedMiningJob(m) => match channel_type {
-                SupportedChannelTypes::Extended
-                | SupportedChannelTypes::Group
-                | SupportedChannelTypes::GroupAndExtended => {
-                    self.handle_new_extended_mining_job(server_id, m, tlv_fields)
-                }
-                _ => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB,
-                )),
-            },
+            NewMiningJob(m) => self.handle_new_mining_job(server_id, m, tlv_fields),
+            NewExtendedMiningJob(m) => {
+                self.handle_new_extended_mining_job(server_id, m, tlv_fields)
+            }
 
             SetNewPrevHash(m) => self.handle_set_new_prev_hash(server_id, m, tlv_fields),
 
-            SetCustomMiningJobSuccess(m) => match (channel_type, work_selection) {
-                (SupportedChannelTypes::Extended, true)
-                | (SupportedChannelTypes::GroupAndExtended, true) => {
-                    self.handle_set_custom_mining_job_success(server_id, m, tlv_fields)
-                }
-                _ => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS,
-                )),
-            },
-            SetCustomMiningJobError(m) => match (channel_type, work_selection) {
-                (SupportedChannelTypes::Extended, true)
-                | (SupportedChannelTypes::Group, true)
-                | (SupportedChannelTypes::GroupAndExtended, true) => {
-                    self.handle_set_custom_mining_job_error(server_id, m, tlv_fields)
-                }
-                _ => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR,
-                )),
-            },
+            SetCustomMiningJobSuccess(m) => {
+                self.handle_set_custom_mining_job_success(server_id, m, tlv_fields)
+            }
+            SetCustomMiningJobError(m) => {
+                self.handle_set_custom_mining_job_error(server_id, m, tlv_fields)
+            }
 
             SetTarget(m) => self.handle_set_target(server_id, m, tlv_fields),
 
-            SetGroupChannel(m) => match channel_type {
-                SupportedChannelTypes::Group | SupportedChannelTypes::GroupAndExtended => {
-                    self.handle_set_group_channel(server_id, m, tlv_fields)
-                }
-                _ => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_SET_GROUP_CHANNEL,
-                )),
-            },
+            SetGroupChannel(m) => self.handle_set_group_channel(server_id, m, tlv_fields),
             SubmitSharesExtended(_) => Err(Self::Error::unexpected_message(
                 0,
                 MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
@@ -320,15 +242,19 @@ pub trait HandleMiningMessagesFromServerSync {
 /// this contextual information is readily available or not. In cases where `server_id` is either
 /// irrelevant or can be inferred without the context, this should always be `None`.
 ///
-/// Handler methods receive an optional `tlv_data` parameter containing validated TLV fields
-/// when extension data is appended to messages. It will be `Some` only if validation succeeds
-/// against negotiated extensions.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
+///
+/// Messages are dispatched by direction only: a message that only a client sends is rejected with
+/// [`HandlerErrorType::unexpected_message`], and every other message reaches its handler. Whether a
+/// message is acceptable on the connection is left to the implementor. Per the Mining Protocol that
+/// covers a reply only to a request that was sent, and `SetGroupChannel` and extended jobs only on
+/// a connection that did not set `REQUIRES_STANDARD_JOBS`.
 #[trait_variant::make(Send)]
 pub trait HandleMiningMessagesFromServerAsync {
     type Error: HandlerErrorType;
-
-    fn get_channel_type_for_server(&self, server_id: Option<usize>) -> SupportedChannelTypes;
-    fn is_work_selection_enabled_for_server(&self, server_id: Option<usize>) -> bool;
 
     /// Returns the list of negotiated extension_types with a server.
     ///
@@ -350,14 +276,6 @@ pub trait HandleMiningMessagesFromServerAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
-            if negotiated_extensions.is_empty() {
-                let parsed: Mining<'_> = (header.msg_type(), payload)
-                    .try_into()
-                    .map_err(Self::Error::parse_error)?;
-                return self
-                    .handle_mining_message_from_server(server_id, parsed, None)
-                    .await;
-            }
             let (parsed, tlv_fields) =
                 parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
                     .map_err(Self::Error::parse_error)?;
@@ -376,46 +294,26 @@ pub trait HandleMiningMessagesFromServerAsync {
 
     /// Handles a parsed Mining protocol message from a server.
     ///
-    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
-    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
-    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
-    /// `extension_type`, `field_type`, `length`, and `value`.
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     async fn handle_mining_message_from_server(
         &mut self,
         server_id: Option<usize>,
         message: Mining,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
-        let (channel_type, work_selection) = (
-            self.get_channel_type_for_server(server_id),
-            self.is_work_selection_enabled_for_server(server_id),
-        );
-
         async move {
             use Mining::*;
             match message {
-                OpenStandardMiningChannelSuccess(m) => match channel_type {
-                    SupportedChannelTypes::Standard
-                    | SupportedChannelTypes::Group
-                    | SupportedChannelTypes::GroupAndExtended => {
-                        self.handle_open_standard_mining_channel_success(server_id, m, tlv_fields)
-                            .await
-                    }
-                    _ => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS,
-                    )),
-                },
-                OpenExtendedMiningChannelSuccess(m) => match channel_type {
-                    SupportedChannelTypes::Extended | SupportedChannelTypes::GroupAndExtended => {
-                        self.handle_open_extended_mining_channel_success(server_id, m, tlv_fields)
-                            .await
-                    }
-                    _ => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCESS,
-                    )),
-                },
+                OpenStandardMiningChannelSuccess(m) => {
+                    self.handle_open_standard_mining_channel_success(server_id, m, tlv_fields)
+                        .await
+                }
+                OpenExtendedMiningChannelSuccess(m) => {
+                    self.handle_open_extended_mining_channel_success(server_id, m, tlv_fields)
+                        .await
+                }
                 OpenMiningChannelError(m) => {
                     self.handle_open_mining_channel_error(server_id, m, tlv_fields)
                         .await
@@ -438,69 +336,32 @@ pub trait HandleMiningMessagesFromServerAsync {
                         .await
                 }
 
-                NewMiningJob(m) => match channel_type {
-                    SupportedChannelTypes::Standard => {
-                        self.handle_new_mining_job(server_id, m, tlv_fields).await
-                    }
-                    _ => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_NEW_MINING_JOB,
-                    )),
-                },
-                NewExtendedMiningJob(m) => match channel_type {
-                    SupportedChannelTypes::Extended
-                    | SupportedChannelTypes::Group
-                    | SupportedChannelTypes::GroupAndExtended => {
-                        self.handle_new_extended_mining_job(server_id, m, tlv_fields)
-                            .await
-                    }
-                    _ => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB,
-                    )),
-                },
+                NewMiningJob(m) => self.handle_new_mining_job(server_id, m, tlv_fields).await,
+                NewExtendedMiningJob(m) => {
+                    self.handle_new_extended_mining_job(server_id, m, tlv_fields)
+                        .await
+                }
 
                 SetNewPrevHash(m) => {
                     self.handle_set_new_prev_hash(server_id, m, tlv_fields)
                         .await
                 }
 
-                SetCustomMiningJobSuccess(m) => match (channel_type, work_selection) {
-                    (SupportedChannelTypes::Extended, true)
-                    | (SupportedChannelTypes::GroupAndExtended, true) => {
-                        self.handle_set_custom_mining_job_success(server_id, m, tlv_fields)
-                            .await
-                    }
-                    _ => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS,
-                    )),
-                },
-                SetCustomMiningJobError(m) => match (channel_type, work_selection) {
-                    (SupportedChannelTypes::Extended, true)
-                    | (SupportedChannelTypes::Group, true)
-                    | (SupportedChannelTypes::GroupAndExtended, true) => {
-                        self.handle_set_custom_mining_job_error(server_id, m, tlv_fields)
-                            .await
-                    }
-                    _ => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR,
-                    )),
-                },
+                SetCustomMiningJobSuccess(m) => {
+                    self.handle_set_custom_mining_job_success(server_id, m, tlv_fields)
+                        .await
+                }
+                SetCustomMiningJobError(m) => {
+                    self.handle_set_custom_mining_job_error(server_id, m, tlv_fields)
+                        .await
+                }
 
                 SetTarget(m) => self.handle_set_target(server_id, m, tlv_fields).await,
 
-                SetGroupChannel(m) => match channel_type {
-                    SupportedChannelTypes::Group | SupportedChannelTypes::GroupAndExtended => {
-                        self.handle_set_group_channel(server_id, m, tlv_fields)
-                            .await
-                    }
-                    _ => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_SET_GROUP_CHANNEL,
-                    )),
-                },
+                SetGroupChannel(m) => {
+                    self.handle_set_group_channel(server_id, m, tlv_fields)
+                        .await
+                }
                 SubmitSharesExtended(_) => Err(Self::Error::unexpected_message(
                     0,
                     MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
@@ -642,19 +503,19 @@ pub trait HandleMiningMessagesFromServerAsync {
 /// this contextual information is readily available or not. In cases where `client_id` is either
 /// irrelevant or can be inferred without the context, this should always be `None`.
 ///
-/// Handler methods receive an optional `tlv_data` parameter containing validated TLV fields
-/// when extension data is appended to messages. It will be `Some` only if validation succeeds
-/// against negotiated extensions.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
+///
+/// Messages are dispatched by direction only: a message that only a server sends is rejected with
+/// [`HandlerErrorType::unexpected_message`], and every other message reaches its handler. Whether a
+/// message is acceptable on the connection is left to the implementor. Per the Mining Protocol that
+/// covers `SetCustomMiningJob` only on a connection that set `REQUIRES_WORK_SELECTION`, extended
+/// channels only on a connection that did not set `REQUIRES_STANDARD_JOBS`, and the authorization
+/// of the user opening a channel.
 pub trait HandleMiningMessagesFromClientSync {
     type Error: HandlerErrorType;
-
-    fn get_channel_type_for_client(&self, client_id: Option<usize>) -> SupportedChannelTypes;
-    fn is_work_selection_enabled_for_client(&self, client_id: Option<usize>) -> bool;
-    fn is_client_authorized(
-        &self,
-        client_id: Option<usize>,
-        user_identity: &Str0255,
-    ) -> Result<bool, Self::Error>;
 
     /// Returns the list of negotiated extension_types with a client.
     ///
@@ -675,12 +536,6 @@ pub trait HandleMiningMessagesFromClientSync {
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-        if negotiated_extensions.is_empty() {
-            let parsed: Mining<'_> = (header.msg_type(), payload)
-                .try_into()
-                .map_err(Self::Error::parse_error)?;
-            return self.handle_mining_message_from_client(client_id, parsed, None);
-        }
         let (parsed, tlv_fields) =
             parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
                 .map_err(Self::Error::parse_error)?;
@@ -697,75 +552,28 @@ pub trait HandleMiningMessagesFromClientSync {
 
     /// Handles a parsed mining message from a client.
     ///
-    /// The `tlv_data` parameter contains validated TLV fields if the message has extension
-    /// data appended. It will be `Some` only if TLV validation succeeds against negotiated
-    /// extensions, otherwise `None`. Use `extensions_sv2` helper functions to extract
-    /// specific extension data (e.g., `extract_worker_identity_from_submit_shares`).
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     fn handle_mining_message_from_client(
         &mut self,
         client_id: Option<usize>,
         message: Mining,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
-        let (channel_type, work_selection) = (
-            self.get_channel_type_for_client(client_id),
-            self.is_work_selection_enabled_for_client(client_id),
-        );
-
         use Mining::*;
         match message {
-            OpenStandardMiningChannel(m) => match channel_type {
-                SupportedChannelTypes::Standard
-                | SupportedChannelTypes::Group
-                | SupportedChannelTypes::GroupAndExtended => {
-                    self.handle_open_standard_mining_channel(client_id, m, tlv_fields)
-                }
-                SupportedChannelTypes::Extended => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
-                )),
-            },
-            OpenExtendedMiningChannel(m) => match channel_type {
-                SupportedChannelTypes::Extended | SupportedChannelTypes::GroupAndExtended => {
-                    self.handle_open_extended_mining_channel(client_id, m, tlv_fields)
-                }
-                _ => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
-                )),
-            },
+            OpenStandardMiningChannel(m) => {
+                self.handle_open_standard_mining_channel(client_id, m, tlv_fields)
+            }
+            OpenExtendedMiningChannel(m) => {
+                self.handle_open_extended_mining_channel(client_id, m, tlv_fields)
+            }
             UpdateChannel(m) => self.handle_update_channel(client_id, m, tlv_fields),
 
-            SubmitSharesStandard(m) => match channel_type {
-                SupportedChannelTypes::Standard
-                | SupportedChannelTypes::Group
-                | SupportedChannelTypes::GroupAndExtended => {
-                    self.handle_submit_shares_standard(client_id, m, tlv_fields)
-                }
-                SupportedChannelTypes::Extended => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_SUBMIT_SHARES_STANDARD,
-                )),
-            },
-            SubmitSharesExtended(m) => match channel_type {
-                SupportedChannelTypes::Extended | SupportedChannelTypes::GroupAndExtended => {
-                    self.handle_submit_shares_extended(client_id, m, tlv_fields)
-                }
-                _ => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
-                )),
-            },
-            SetCustomMiningJob(m) => match (channel_type, work_selection) {
-                (SupportedChannelTypes::Extended, true)
-                | (SupportedChannelTypes::GroupAndExtended, true) => {
-                    self.handle_set_custom_mining_job(client_id, m, tlv_fields)
-                }
-                _ => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB,
-                )),
-            },
+            SubmitSharesStandard(m) => self.handle_submit_shares_standard(client_id, m, tlv_fields),
+            SubmitSharesExtended(m) => self.handle_submit_shares_extended(client_id, m, tlv_fields),
+            SetCustomMiningJob(m) => self.handle_set_custom_mining_job(client_id, m, tlv_fields),
             CloseChannel(m) => self.handle_close_channel(client_id, m, tlv_fields),
             NewExtendedMiningJob(_) => Err(Self::Error::unexpected_message(
                 0,
@@ -830,6 +638,7 @@ pub trait HandleMiningMessagesFromClientSync {
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error>;
 
+    /// Authorizing `msg.user_identity` is up to the implementor.
     fn handle_open_standard_mining_channel(
         &mut self,
         client_id: Option<usize>,
@@ -837,6 +646,7 @@ pub trait HandleMiningMessagesFromClientSync {
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error>;
 
+    /// Authorizing `msg.user_identity` is up to the implementor.
     fn handle_open_extended_mining_channel(
         &mut self,
         client_id: Option<usize>,
@@ -880,20 +690,20 @@ pub trait HandleMiningMessagesFromClientSync {
 /// this contextual information is readily available or not. In cases where `client_id` is either
 /// irrelevant or can be inferred without the context, this should always be `None`.
 ///
-/// Handler methods receive an optional `tlv_data` parameter containing validated TLV fields
-/// when extension data is appended to messages. It will be `Some` only if validation succeeds
-/// against negotiated extensions.
+/// The `tlv_fields` parameter of the handler methods is `Some` with the frame's TLV fields that
+/// belong to a negotiated extension, and `None` when no extension is negotiated or the frame
+/// carries no such field. Each field's value is passed as raw bytes, and checking it is left to the
+/// implementor.
+///
+/// Messages are dispatched by direction only: a message that only a server sends is rejected with
+/// [`HandlerErrorType::unexpected_message`], and every other message reaches its handler. Whether a
+/// message is acceptable on the connection is left to the implementor. Per the Mining Protocol that
+/// covers `SetCustomMiningJob` only on a connection that set `REQUIRES_WORK_SELECTION`, extended
+/// channels only on a connection that did not set `REQUIRES_STANDARD_JOBS`, and the authorization
+/// of the user opening a channel.
 #[trait_variant::make(Send)]
 pub trait HandleMiningMessagesFromClientAsync {
     type Error: HandlerErrorType;
-
-    fn get_channel_type_for_client(&self, client_id: Option<usize>) -> SupportedChannelTypes;
-    fn is_work_selection_enabled_for_client(&self, client_id: Option<usize>) -> bool;
-    fn is_client_authorized(
-        &self,
-        client_id: Option<usize>,
-        user_identity: &Str0255,
-    ) -> Result<bool, Self::Error>;
 
     /// Returns the list of negotiated extension types for a client.
     ///
@@ -915,14 +725,6 @@ pub trait HandleMiningMessagesFromClientAsync {
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
-            if negotiated_extensions.is_empty() {
-                let parsed: Mining<'_> = (header.msg_type(), payload)
-                    .try_into()
-                    .map_err(Self::Error::parse_error)?;
-                return self
-                    .handle_mining_message_from_client(client_id, parsed, None)
-                    .await;
-            }
             let (parsed, tlv_fields) =
                 parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
                     .map_err(Self::Error::parse_error)?;
@@ -941,81 +743,40 @@ pub trait HandleMiningMessagesFromClientAsync {
 
     /// Handles a parsed Mining protocol message from a client.
     ///
-    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
-    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
-    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
-    /// `extension_type`, `field_type`, `length`, and `value`.
+    /// The `tlv_fields` parameter is `Some` with the frame's TLV fields that belong to a negotiated
+    /// extension, and `None` when no extension is negotiated or the frame carries no such field.
+    /// Each field's value is passed as raw bytes, and checking it is left to the implementor.
     async fn handle_mining_message_from_client(
         &mut self,
         client_id: Option<usize>,
         message: Mining,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
-        let (channel_type, work_selection) = (
-            self.get_channel_type_for_client(client_id),
-            self.is_work_selection_enabled_for_client(client_id),
-        );
-
         async move {
             use Mining::*;
             match message {
-                OpenStandardMiningChannel(m) => match channel_type {
-                    SupportedChannelTypes::Standard
-                    | SupportedChannelTypes::Group
-                    | SupportedChannelTypes::GroupAndExtended => {
-                        self.handle_open_standard_mining_channel(client_id, m, tlv_fields)
-                            .await
-                    }
-                    SupportedChannelTypes::Extended => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
-                    )),
-                },
-                OpenExtendedMiningChannel(m) => match channel_type {
-                    SupportedChannelTypes::Extended | SupportedChannelTypes::GroupAndExtended => {
-                        self.handle_open_extended_mining_channel(client_id, m, tlv_fields)
-                            .await
-                    }
-                    _ => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
-                    )),
-                },
+                OpenStandardMiningChannel(m) => {
+                    self.handle_open_standard_mining_channel(client_id, m, tlv_fields)
+                        .await
+                }
+                OpenExtendedMiningChannel(m) => {
+                    self.handle_open_extended_mining_channel(client_id, m, tlv_fields)
+                        .await
+                }
                 UpdateChannel(m) => self.handle_update_channel(client_id, m, tlv_fields).await,
 
-                SubmitSharesStandard(m) => match channel_type {
-                    SupportedChannelTypes::Standard
-                    | SupportedChannelTypes::Group
-                    | SupportedChannelTypes::GroupAndExtended => {
-                        self.handle_submit_shares_standard(client_id, m, tlv_fields)
-                            .await
-                    }
-                    SupportedChannelTypes::Extended => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_SUBMIT_SHARES_STANDARD,
-                    )),
-                },
-                SubmitSharesExtended(m) => match channel_type {
-                    SupportedChannelTypes::Extended | SupportedChannelTypes::GroupAndExtended => {
-                        self.handle_submit_shares_extended(client_id, m, tlv_fields)
-                            .await
-                    }
-                    _ => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
-                    )),
-                },
-                SetCustomMiningJob(m) => match (channel_type, work_selection) {
-                    (SupportedChannelTypes::Extended, true)
-                    | (SupportedChannelTypes::GroupAndExtended, true) => {
-                        self.handle_set_custom_mining_job(client_id, m, tlv_fields)
-                            .await
-                    }
-                    _ => Err(Self::Error::unexpected_message(
-                        0,
-                        MESSAGE_TYPE_SET_CUSTOM_MINING_JOB,
-                    )),
-                },
+                SubmitSharesStandard(m) => {
+                    self.handle_submit_shares_standard(client_id, m, tlv_fields)
+                        .await
+                }
+                SubmitSharesExtended(m) => {
+                    self.handle_submit_shares_extended(client_id, m, tlv_fields)
+                        .await
+                }
+                SetCustomMiningJob(m) => {
+                    self.handle_set_custom_mining_job(client_id, m, tlv_fields)
+                        .await
+                }
                 CloseChannel(m) => self.handle_close_channel(client_id, m, tlv_fields).await,
                 NewExtendedMiningJob(_) => Err(Self::Error::unexpected_message(
                     0,
@@ -1081,6 +842,7 @@ pub trait HandleMiningMessagesFromClientAsync {
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error>;
 
+    /// Authorizing `msg.user_identity` is up to the implementor.
     async fn handle_open_standard_mining_channel(
         &mut self,
         client_id: Option<usize>,
@@ -1088,6 +850,7 @@ pub trait HandleMiningMessagesFromClientAsync {
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error>;
 
+    /// Authorizing `msg.user_identity` is up to the implementor.
     async fn handle_open_extended_mining_channel(
         &mut self,
         client_id: Option<usize>,
