@@ -9,13 +9,10 @@ use arbitrary::{Arbitrary, Unstructured};
 use libfuzzer_sys::fuzz_target;
 use serde_json::Value;
 use sv1_api::{
-    client_to_server::{Authorize, Configure as C2SConfigure, Submit, Subscribe as C2SSubscribe},
-    json_rpc::{Notification, Response, StandardRequest},
-    methods::Server2ClientResponse,
-    server_to_client::{
-        Configure as S2CConfigure, GeneralResponse, Notify, SetDifficulty, SetExtranonce,
-        SetVersionMask, Subscribe as S2CSubscribe,
-    },
+    json_rpc::{RpcRequest, RpcResponse},
+    utils::{HexU32Be, VERSION_ROLLING_MASK},
+    ClientToServer, ConfigureResult, Id, Message, Method, ServerToClient, SetVersionMask,
+    VersionRollingResult,
 };
 
 fn gen_edge_number(u: &mut Unstructured<'_>) -> arbitrary::Result<serde_json::Number> {
@@ -90,13 +87,24 @@ fn gen_authorize_params(u: &mut Unstructured<'_>) -> arbitrary::Result<Value> {
     ]))
 }
 
+/// A number, a decimal string, the zero-padded hex older clients sent, or any string.
+fn gen_min_bit_count(u: &mut Unstructured<'_>) -> arbitrary::Result<Value> {
+    Ok(match u.int_in_range(0..=3)? {
+        0 => Value::Number(gen_edge_number(u)?),
+        1 => Value::String(u.arbitrary::<u64>()?.to_string()),
+        2 => Value::String(gen_valid_hex(u, 8..=8)?),
+        _ => Value::String(u.arbitrary()?),
+    })
+}
+
 fn gen_configure_params(u: &mut Unstructured<'_>) -> arbitrary::Result<Value> {
-    let mask = gen_valid_hex(u, 1..=8)?;
-    let min_bit = gen_edge_number(u)?;
-    Ok(serde_json::json!([
-        ["version-rolling"],
-        {"version-rolling.mask": mask, "version-rolling.min-bit-count": min_bit}
-    ]))
+    let mut parameters = serde_json::json!({
+        "version-rolling.min-bit-count": gen_min_bit_count(u)?
+    });
+    if u.arbitrary()? {
+        parameters["version-rolling.mask"] = gen_valid_hex(u, 1..=8)?.into();
+    }
+    Ok(serde_json::json!([["version-rolling"], parameters]))
 }
 
 fn gen_notify_params(u: &mut Unstructured<'_>) -> arbitrary::Result<Value> {
@@ -145,6 +153,84 @@ enum ParserTarget {
     Generic,
 }
 
+fn client_request(id: u64, method: Method, params: Value) {
+    let _ = ClientToServer::try_from(RpcRequest {
+        id: Some(Id::from(id)),
+        method,
+        params,
+    });
+}
+
+fn notification(method: Method, params: Value) {
+    let _ = ServerToClient::try_from(RpcRequest {
+        id: None,
+        method,
+        params,
+    });
+}
+
+/// A configure listing `version-rolling` decodes with or without a mask, whatever its
+/// `version-rolling.min-bit-count` holds, and reads the mask without reserved bits.
+fn configure(id: u64, params: Value) {
+    let request = ClientToServer::try_from(RpcRequest {
+        id: Some(Id::from(id)),
+        method: Method::Configure,
+        params,
+    })
+    .expect("a min-bit-count never fails a configure");
+    let ClientToServer::Configure(request) = request else {
+        unreachable!("mining.configure decodes as a configure");
+    };
+    let mask = request
+        .params
+        .version_rolling_mask()
+        .expect("version rolling was requested");
+    assert_eq!(mask.0 & !VERSION_ROLLING_MASK, 0);
+    assert!(request.params.version_rolling_min_bit_count() <= Some(32));
+}
+
+/// Reserved bits are not held or sent in a `mining.set_version_mask` or a configure result,
+/// whatever mask they are built from. The result carries no `version-rolling.min-bit-count`.
+fn encoded_masks_are_clamped(id: u64, mask: u32) {
+    let clamped = HexU32Be(mask & VERSION_ROLLING_MASK);
+
+    let set = SetVersionMask::new(HexU32Be(mask));
+    assert_eq!(set.mask(), clamped);
+    let Message::Request(set) = Message::from(set) else {
+        unreachable!("a notification is a request");
+    };
+    assert_eq!(set.params, serde_json::json!([clamped.to_string()]));
+    assert_eq!(
+        ServerToClient::try_from(set).expect("encoded notifications always decode"),
+        ServerToClient::SetVersionMask(SetVersionMask::new(clamped))
+    );
+
+    let result = |mask| ConfigureResult {
+        version_rolling: Some(VersionRollingResult::new(mask)),
+        ..ConfigureResult::default()
+    };
+    assert_eq!(VersionRollingResult::new(HexU32Be(mask)).mask(), clamped);
+    let reply = sv1_api::Response::success(Id::from(id), result(HexU32Be(mask)));
+    let Message::Response(response) = Message::from(reply) else {
+        unreachable!("a reply is a response");
+    };
+    assert_eq!(
+        response.result,
+        Ok(serde_json::json!({
+            "version-rolling": true,
+            "version-rolling.mask": clamped.to_string(),
+        }))
+    );
+    assert_eq!(
+        ServerToClient::from_response(&response, &Method::Configure)
+            .expect("encoded results always decode"),
+        Some(ServerToClient::Configure(sv1_api::Response::success(
+            Id::from(id),
+            result(clamped)
+        )))
+    );
+}
+
 fuzz_target!(|data: &[u8]| {
     let mut u = Unstructured::new(data);
     let Ok(target) = u.arbitrary::<ParserTarget>() else {
@@ -157,123 +243,72 @@ fuzz_target!(|data: &[u8]| {
     match target {
         ParserTarget::Submit => {
             if let Ok(params) = gen_submit_params(&mut u) {
-                let _ = Submit::try_from(StandardRequest {
-                    id,
-                    method: String::new(),
-                    params,
-                });
+                client_request(id, Method::Submit, params);
             }
         }
         ParserTarget::Authorize => {
             if let Ok(params) = gen_authorize_params(&mut u) {
-                let _ = Authorize::try_from(StandardRequest {
-                    id,
-                    method: String::new(),
-                    params,
-                });
+                client_request(id, Method::Authorize, params);
             }
         }
         ParserTarget::Subscribe => {
             if let Ok(params) = gen_subscribe_params(&mut u) {
-                let _ = C2SSubscribe::try_from(StandardRequest {
-                    id,
-                    method: String::new(),
-                    params,
-                });
+                client_request(id, Method::Subscribe, params);
             }
         }
         ParserTarget::Configure => {
             if let Ok(params) = gen_configure_params(&mut u) {
-                let _ = C2SConfigure::try_from(StandardRequest {
-                    id,
-                    method: String::new(),
-                    params,
-                });
+                configure(id, params);
             }
         }
         ParserTarget::Notify => {
             if let Ok(params) = gen_notify_params(&mut u) {
-                let _ = Notify::try_from(Notification {
-                    method: String::new(),
-                    params,
-                });
+                notification(Method::Notify, params);
             }
         }
         ParserTarget::SetDifficulty => {
             if let Ok(params) = gen_set_difficulty_params(&mut u) {
-                let _ = SetDifficulty::try_from(Notification {
-                    method: String::new(),
-                    params,
-                });
+                notification(Method::SetDifficulty, params);
             }
         }
         ParserTarget::SetExtranonce => {
             if let Ok(params) = gen_set_extranonce_params(&mut u) {
-                let _ = SetExtranonce::try_from(Notification {
-                    method: String::new(),
-                    params,
-                });
+                notification(Method::SetExtranonce, params);
             }
         }
         ParserTarget::SetVersionMask => {
             if let Ok(params) = gen_set_version_mask_params(&mut u) {
-                let _ = SetVersionMask::try_from(Notification {
-                    method: String::new(),
-                    params,
-                });
+                notification(Method::SetVersionMask, params);
+            }
+            if let Ok(mask) = u.arbitrary() {
+                encoded_masks_are_clamped(id, mask);
             }
         }
         ParserTarget::Generic => {
             if let Ok(params) = common::gen_json_value(&mut u, 5) {
-                let _ = Submit::try_from(StandardRequest {
-                    id: 1,
-                    method: String::new(),
-                    params: params.clone(),
-                });
-                let _ = Authorize::try_from(StandardRequest {
-                    id: 2,
-                    method: String::new(),
-                    params: params.clone(),
-                });
-                let _ = C2SSubscribe::try_from(StandardRequest {
-                    id: 3,
-                    method: String::new(),
-                    params: params.clone(),
-                });
-                let _ = C2SConfigure::try_from(StandardRequest {
-                    id: 4,
-                    method: String::new(),
-                    params: params.clone(),
-                });
-                let _ = Notify::try_from(Notification {
-                    method: String::new(),
-                    params: params.clone(),
-                });
-                let _ = SetDifficulty::try_from(Notification {
-                    method: String::new(),
-                    params: params.clone(),
-                });
-                let _ = SetExtranonce::try_from(Notification {
-                    method: String::new(),
-                    params: params.clone(),
-                });
-                let _ = SetVersionMask::try_from(Notification {
-                    method: String::new(),
-                    params: params.clone(),
-                });
-                let resp = Response {
-                    id: 5,
-                    error: None,
-                    result: params.clone(),
-                };
-                let _ = S2CSubscribe::try_from(&resp);
-                let _ = S2CConfigure::try_from(&resp);
-                let _ = GeneralResponse::try_from(&resp);
-                let _ = Server2ClientResponse::try_from(Response {
-                    id: 6,
-                    error: None,
-                    result: params,
-                });
+                for method in [
+                    Method::Submit,
+                    Method::Authorize,
+                    Method::Subscribe,
+                    Method::Configure,
+                    Method::ExtranonceSubscribe,
+                    Method::SuggestDifficulty,
+                ] {
+                    client_request(id, method, params.clone());
+                }
+                for method in [
+                    Method::Notify,
+                    Method::SetDifficulty,
+                    Method::SetExtranonce,
+                    Method::SetVersionMask,
+                ] {
+                    notification(method, params.clone());
+                }
+                let response = RpcResponse::success(Id::from(id), params);
+                let _ = ServerToClient::from_response(&response, &Method::Subscribe);
+                let _ = ServerToClient::from_response(&response, &Method::Configure);
+                let _ = ServerToClient::from_response(&response, &Method::Submit);
+                let _ = ServerToClient::from_response(&response, &Method::SuggestDifficulty);
             }
         }
     }

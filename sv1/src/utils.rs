@@ -1,10 +1,9 @@
-use crate::error::{self, Error};
-use binary_sv2::{B032Owned, U256Owned, B032, ERROR_SAMPLE_LEN};
+use crate::error::{self, Error, ParamError};
+use binary_sv2::{B032Owned, U256Owned};
 use bitcoin::hashes::hex::{DisplayHex, FromHex};
-use byteorder::{BigEndian, ByteOrder, LittleEndian, WriteBytesExt};
-use serde_json::Value;
+use serde_json::{Number, Value};
 use std::fmt;
-use std::{convert::TryFrom, mem::size_of, ops::BitAnd};
+use std::{convert::TryFrom, ops::BitAnd};
 
 /// Version rolling mask as defined by
 /// [BIP323](https://github.com/bitcoin/bips/blob/master/bip-0323.mediawiki).
@@ -12,6 +11,9 @@ use std::{convert::TryFrom, mem::size_of, ops::BitAnd};
 /// Bits 5-28 of the block header version field are general-purpose bits that can be freely
 /// manipulated by the miner. Bits 0-4 and 29-31 are reserved and must not be rolled.
 pub const VERSION_ROLLING_MASK: u32 = 0x1FFFFFE0;
+
+/// The most bytes an [`Extranonce`] holds.
+pub(crate) const MAX_EXTRANONCE_LEN: usize = 32;
 
 /// Helper type that allows simple serialization and deserialization of byte vectors
 /// that are represented as hex strings in JSON.
@@ -61,29 +63,20 @@ pub(crate) fn hex_decode(s: &str) -> Result<Vec<u8>, Error> {
     Ok(Vec::<u8>::from_hex(s)?)
 }
 
-/// Decodes a hexadecimal string into bytes.
-///
-/// Odd-length inputs are left-padded with `0`.
-pub fn hex_decode_with_padding(s: &str) -> Result<Vec<u8>, Error> {
-    let padded;
-
-    let s = if s.len() % 2 != 0 {
-        padded = format!("0{s}");
-        &padded
-    } else {
-        s
-    };
-
-    hex_decode(s)
-}
-
+/// Odd-length input is left-padded with `0`.
 impl TryFrom<&str> for Extranonce {
     type Error = error::Error;
 
     fn try_from(value: &str) -> Result<Self, Error> {
-        Ok(Extranonce(B032Owned::try_from(hex_decode_with_padding(
-            value,
-        )?)?))
+        if value.len() > 2 * MAX_EXTRANONCE_LEN {
+            return Err(Error::InvalidHexLen(value.len()));
+        }
+        let bytes = if value.len() % 2 == 0 {
+            hex_decode(value)?
+        } else {
+            hex_decode(&format!("0{value}"))?
+        };
+        Extranonce::try_from(bytes)
     }
 }
 
@@ -94,21 +87,15 @@ impl From<Extranonce> for String {
 }
 
 impl BitAnd<u32> for HexU32Be {
-    type Output = u32;
+    type Output = HexU32Be;
 
     fn bitand(self, rhs: u32) -> Self::Output {
-        self.0 & rhs
-    }
-}
-
-impl<'a> From<B032<'a>> for Extranonce {
-    fn from(b: B032<'a>) -> Self {
-        Extranonce(b.into_owned())
+        HexU32Be(self.0 & rhs)
     }
 }
 
 /// Big-endian alternative of the HexU32
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct HexU32Be(pub u32);
 
 impl fmt::Display for HexU32Be {
@@ -117,9 +104,16 @@ impl fmt::Display for HexU32Be {
     }
 }
 
+impl fmt::Debug for HexU32Be {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "HexU32Be({self})")
+    }
+}
+
 impl HexU32Be {
-    pub fn check_mask(&self, mask: &HexU32Be) -> bool {
-        ((!self.0) & mask.0) == 0
+    /// Whether this mask allows every bit set in `bits`.
+    pub fn check_mask(&self, bits: &HexU32Be) -> bool {
+        ((!self.0) & bits.0) == 0
     }
 }
 
@@ -135,7 +129,7 @@ impl TryFrom<&str> for HexU32Be {
     fn try_from(value: &str) -> Result<Self, Error> {
         let expected_len = 8;
         if value.len() > expected_len {
-            return Err(Error::InvalidHexLen(value.to_string()));
+            return Err(Error::InvalidHexLen(value.len()));
         }
 
         let delta_len = expected_len - value.len();
@@ -146,7 +140,7 @@ impl TryFrom<&str> for HexU32Be {
         prefix.push_str(value);
         let parsed_bytes: [u8; 4] = hex_decode(&prefix)?
             .try_into()
-            .map_err(|_| Error::InvalidHexLen(prefix.clone()))?;
+            .map_err(|_| Error::InvalidHexLen(prefix.len()))?;
         Ok(HexU32Be(u32::from_be_bytes(parsed_bytes)))
     }
 }
@@ -183,45 +177,26 @@ impl From<PrevHash> for Vec<u8> {
     }
 }
 
+/// The bytes are taken in header order, without the word swap of the hex form.
+impl TryFrom<Vec<u8>> for PrevHash {
+    type Error = Error;
+
+    fn try_from(value: Vec<u8>) -> Result<Self, Error> {
+        Ok(PrevHash(U256Owned::try_from(value)?))
+    }
+}
+
 impl TryFrom<&str> for PrevHash {
     type Error = Error;
 
     fn try_from(value: &str) -> Result<Self, Error> {
-        // Reorder PrevHash will be stored via this cursor
-        // let mut prev_hash_cursor = std::io::Cursor::new([0_u8; 32]);
-        let mut prev_hash_arr = [0_u8; 32];
-
-        // Decode the plain byte array and sanity check
-        let prev_hash_stratum_order = hex_decode(value)?;
-
-        match prev_hash_stratum_order.len() {
-            32 => {
-                // Swap every u32 from big endian to little endian byte order
-                for (chunk, mut arr_chunks) in prev_hash_stratum_order
-                    .chunks(size_of::<u32>())
-                    .zip(prev_hash_arr.chunks_mut(size_of::<u32>()))
-                {
-                    let prev_hash_word = BigEndian::read_u32(chunk);
-                    arr_chunks
-                        .write_u32::<LittleEndian>(prev_hash_word)
-                        .expect("Internal error: Could not write buffer");
-                }
-                Ok(PrevHash(prev_hash_arr.into()))
-            }
-            _ => {
-                let len = prev_hash_stratum_order.len();
-                Err(error::Error::BadBytesConvert(
-                    binary_sv2::Error::ValueExceedsMaxSize(
-                        true,
-                        32,
-                        0,
-                        0,
-                        prev_hash_stratum_order[..len.min(ERROR_SAMPLE_LEN)].to_vec(),
-                        len,
-                    ),
-                ))
-            }
+        if value.len() != 64 {
+            return Err(Error::InvalidHexLen(value.len()));
         }
+        let mut bytes = hex_decode(value)?;
+        reverse_words(&mut bytes);
+        let bytes: [u8; 32] = bytes.try_into().expect("64 hex characters are 32 bytes");
+        Ok(PrevHash(bytes.into()))
     }
 }
 
@@ -235,15 +210,17 @@ impl From<PrevHash> for Value {
 /// ordering
 impl From<PrevHash> for String {
     fn from(v: PrevHash) -> Self {
-        let mut prev_hash_stratum_cursor = std::io::Cursor::new(Vec::new());
-        // swap every u32 from little endian to big endian
-        for chunk in v.0.as_bytes().chunks(size_of::<u32>()) {
-            let prev_hash_word = LittleEndian::read_u32(chunk);
-            prev_hash_stratum_cursor
-                .write_u32::<BigEndian>(prev_hash_word)
-                .expect("Internal error: Could not write buffer");
-        }
-        prev_hash_stratum_cursor.into_inner().to_lower_hex_string()
+        let mut bytes = v.0.into_bytes();
+        reverse_words(&mut bytes);
+        bytes.to_lower_hex_string()
+    }
+}
+
+/// Reverses the byte order of each 4-byte word, converting between Stratum V1's previous-hash
+/// encoding and the header's byte order.
+fn reverse_words(bytes: &mut [u8]) {
+    for word in bytes.chunks_exact_mut(4) {
+        word.reverse();
     }
 }
 
@@ -251,13 +228,6 @@ impl From<PrevHash> for String {
 impl AsRef<[u8]> for PrevHash {
     fn as_ref(&self) -> &[u8] {
         self.0.as_bytes()
-    }
-}
-
-/// Referencing the internal part of hex bytes
-impl AsRef<U256Owned> for PrevHash {
-    fn as_ref(&self) -> &U256Owned {
-        &self.0
     }
 }
 
@@ -274,12 +244,6 @@ pub struct MerkleNode(pub U256Owned);
 impl fmt::Display for MerkleNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0.as_bytes().to_lower_hex_string())
-    }
-}
-
-impl MerkleNode {
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
     }
 }
 
@@ -315,6 +279,9 @@ impl TryFrom<&str> for MerkleNode {
     type Error = Error;
 
     fn try_from(value: &str) -> Result<Self, Error> {
+        if value.len() != 64 {
+            return Err(Error::InvalidHexLen(value.len()));
+        }
         let merkle = U256Owned::try_from(hex_decode(value)?).map_err(error::Error::from)?;
         Ok(MerkleNode(merkle))
     }
@@ -326,15 +293,19 @@ impl From<MerkleNode> for String {
     }
 }
 
-/// Helper type that allows simple serialization and deserialization of byte vectors
-/// that are represented as hex strings in JSON.
-/// HexBytes must be less than or equal to 32 bytes.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct HexBytes(Vec<u8>);
+/// Bytes of any length, represented as a hex string in JSON.
+#[derive(Clone, PartialEq, Eq)]
+pub struct HexBytes(pub Vec<u8>);
 
 impl fmt::Display for HexBytes {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0.to_lower_hex_string())
+    }
+}
+
+impl fmt::Debug for HexBytes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "HexBytes({self})")
     }
 }
 
@@ -366,8 +337,8 @@ impl From<HexBytes> for Value {
 }
 
 /// Referencing the internal part of hex bytes
-impl AsRef<Vec<u8>> for HexBytes {
-    fn as_ref(&self) -> &Vec<u8> {
+impl AsRef<[u8]> for HexBytes {
+    fn as_ref(&self) -> &[u8] {
         &self.0
     }
 }
@@ -386,6 +357,62 @@ impl From<HexBytes> for String {
     }
 }
 
+// Readers for positional parameters and results, shared by the message modules.
+
+pub(crate) fn params_array(params: &Value) -> Result<&[Value], ParamError> {
+    params
+        .as_array()
+        .map(Vec::as_slice)
+        .ok_or(ParamError::new("params", "not an array"))
+}
+
+/// The positional parameters of a message its decoder owns, so strings can be moved out.
+pub(crate) fn params_array_mut(params: &mut Value) -> Result<&mut [Value], ParamError> {
+    params
+        .as_array_mut()
+        .map(Vec::as_mut_slice)
+        .ok_or(ParamError::new("params", "not an array"))
+}
+
+/// Short hex is left-padded.
+pub(crate) fn hex_u32(value: &str, field: &'static str) -> Result<HexU32Be, ParamError> {
+    HexU32Be::try_from(value).map_err(|_| ParamError::new(field, "not a 32-bit hex value"))
+}
+
+pub(crate) fn integer_u32(value: &Number, field: &'static str) -> Result<HexU32Be, ParamError> {
+    value
+        .as_u64()
+        .and_then(|value| u32::try_from(value).ok())
+        .map(HexU32Be)
+        .ok_or(ParamError::new(field, "not a 32-bit unsigned integer"))
+}
+
+/// Reads a `version-rolling.min-bit-count`: an integer, or a decimal string.
+///
+/// The count only informs, so a value that is neither, or that is above 32, reads as absent
+/// instead of failing the request.
+pub(crate) fn min_bit_count(value: &Value) -> Option<u32> {
+    let count = match value {
+        Value::Number(count) => count.as_u64(),
+        Value::String(count) => count.parse().ok(),
+        _ => None,
+    };
+    count
+        .and_then(|count| u32::try_from(count).ok())
+        .filter(|count| *count <= u32::BITS)
+}
+
+/// A size larger than [`MAX_EXTRANONCE_LEN`] could not be carried by a `mining.submit`.
+pub(crate) fn extranonce2_size_param(size: &Number) -> Result<usize, ParamError> {
+    size.as_u64()
+        .and_then(|size| usize::try_from(size).ok())
+        .filter(|size| *size <= MAX_EXTRANONCE_LEN)
+        .ok_or(ParamError::new(
+            "extranonce2_size",
+            "not an integer up to 32",
+        ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -399,7 +426,7 @@ mod tests {
         let back_to_hex_value = Value::from(me.clone());
         let value_to_string = back_to_hex_value.as_str().unwrap();
 
-        let chunk_size: usize = size_of::<u32>();
+        let chunk_size: usize = std::mem::size_of::<u32>();
         let me_chunks = me.0.as_bytes().chunks(chunk_size);
         for (be_chunk, le_chunk) in bytes.clone().chunks(chunk_size).zip(me_chunks) {
             let le_chunk = [le_chunk[0], le_chunk[1], le_chunk[2], le_chunk[3]];
@@ -413,6 +440,32 @@ mod tests {
         }
 
         be_hex == back_to_hex && be_hex == value_to_string
+    }
+
+    #[test]
+    fn oversized_hex_is_rejected_before_decoding() {
+        let not_hex = "zz".repeat(1000);
+        assert!(matches!(
+            PrevHash::try_from(not_hex.as_str()),
+            Err(Error::InvalidHexLen(2000))
+        ));
+        assert!(matches!(
+            MerkleNode::try_from(not_hex.as_str()),
+            Err(Error::InvalidHexLen(2000))
+        ));
+        assert!(matches!(
+            Extranonce::try_from(not_hex.as_str()),
+            Err(Error::InvalidHexLen(2000))
+        ));
+        assert!(Extranonce::try_from("ab".repeat(32).as_str()).is_ok());
+        assert!(!Error::InvalidHexLen(9).to_string().contains('z'));
+    }
+
+    #[test]
+    fn prev_hash_try_from_vec_keeps_header_order() {
+        let bytes: Vec<u8> = (0..32).collect();
+        assert_eq!(PrevHash::try_from(bytes.clone()).unwrap().as_ref(), bytes);
+        assert!(PrevHash::try_from(vec![0_u8; 31]).is_err());
     }
 
     #[test]
